@@ -66,7 +66,7 @@ export function useKeyboardShortcuts() {
       // Skip when user is typing in an input/textarea (except for Escape)
       const target = e.target as HTMLElement;
       const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
-      if (e.key !== "Escape" && isInput) return;
+      if (e.key !== "Escape" && isInput) {return;}
 
       const isMac = navigator.platform.startsWith("Mac");
       const ctrlOrMeta = isMac ? e.metaKey : e.ctrlKey;

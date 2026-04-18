@@ -132,7 +132,7 @@ export function CommandPalette() {
   const allItems = useMemo(() => [...commands, ...sessionItems], [commands, sessionItems]);
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return allItems;
+    if (!query.trim()) {return allItems;}
     const q = query.toLowerCase();
     return allItems.filter((item) => item.label.toLowerCase().includes(q) || item.description?.toLowerCase().includes(q));
   }, [allItems, query]);
@@ -163,7 +163,7 @@ export function CommandPalette() {
     }
   }, [selectedIndex]);
 
-  if (!open) return null;
+  if (!open) {return null;}
 
   return (
     <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh]">

@@ -149,12 +149,12 @@ export function FileTree() {
   const { t } = useI18n();
 
   const filteredTree = useMemo(() => {
-    if (!filter.trim()) return DEMO_TREE;
+    if (!filter.trim()) {return DEMO_TREE;}
 
     const lower = filter.toLowerCase();
     function matches(node: FileNode): boolean {
-      if (node.name.toLowerCase().includes(lower)) return true;
-      if (node.children) return node.children.some(matches);
+      if (node.name.toLowerCase().includes(lower)) {return true;}
+      if (node.children) {return node.children.some(matches);}
       return false;
     }
     return DEMO_TREE.filter(matches);

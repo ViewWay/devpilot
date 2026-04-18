@@ -14,7 +14,7 @@ export function RightPanelTabs() {
   const toggleRightPanel = useUIStore((s) => s.toggleRightPanel);
   const { t } = useI18n();
 
-  if (rightPanel === "none") return null;
+  if (rightPanel === "none") {return null;}
 
   return (
     <div className="flex items-center gap-1 border-b border-border px-2 py-1">

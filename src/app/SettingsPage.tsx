@@ -85,7 +85,10 @@ function ProvidersTab() {
   const addProvider = useProviderStore((s) => s.addProvider);
   const [testingId, setTestingId] = useState<string | null>(null);
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newUrl, setNewUrl] = useState("https://");
 
   const handleTest = async (id: string) => {
     setTestingId(id);
@@ -94,13 +97,16 @@ function ProvidersTab() {
   };
 
   const handleAddProvider = () => {
+    if (!newName.trim()) {return;}
     addProvider({
-      name: t("newProvider"),
-      baseUrl: "https://",
+      name: newName.trim(),
+      baseUrl: newUrl.trim() || "https://",
       apiKey: "",
       models: [],
       enabled: true,
     });
+    setNewName("");
+    setNewUrl("https://");
     setShowAddForm(false);
   };
 
@@ -108,17 +114,20 @@ function ProvidersTab() {
     <div className="mx-auto max-w-2xl space-y-4">
       <div>
         <h2 className="text-base font-semibold text-foreground">{t("providers")}</h2>
-        <p className="text-xs text-muted-foreground mt-1">Configure API providers and keys.</p>
+        <p className="mt-1 text-xs text-muted-foreground">{t("providersDesc")}</p>
       </div>
 
       {providers.map((provider) => (
         <ProviderCard
           key={provider.id}
           provider={provider}
+          expanded={expandedId === provider.id}
           showKey={showKeys[provider.id] ?? false}
+          onToggleExpand={() => setExpandedId(expandedId === provider.id ? null : provider.id)}
           onToggleKey={() => setShowKeys((s) => ({ ...s, [provider.id]: !s[provider.id] }))}
           onSetEnabled={(enabled) => updateProvider(provider.id, { enabled })}
           onSetApiKey={(key) => updateProvider(provider.id, { apiKey: key })}
+          onSetBaseUrl={(url) => updateProvider(provider.id, { baseUrl: url })}
           onTest={() => handleTest(provider.id)}
           onRemove={() => removeProvider(provider.id)}
           isTesting={testingId === provider.id}
@@ -126,22 +135,58 @@ function ProvidersTab() {
       ))}
 
       {/* Add Custom Provider */}
-      <button
-        onClick={() => setShowAddForm(!showAddForm)}
-        className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-card/50 px-4 py-3 text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
-      >
-        <Plus size={14} />
-        {t("addCustomProvider")}
-      </button>
-      {showAddForm && (
+      {!showAddForm ? (
+        <button
+          onClick={() => setShowAddForm(true)}
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-card/50 px-4 py-3 text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+        >
+          <Plus size={14} />
+          {t("addCustomProvider")}
+        </button>
+      ) : (
         <div className="rounded-lg border border-border bg-card p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-foreground">{t("newProvider")}</span>
+            <span className="text-xs font-medium text-foreground">{t("addCustomProvider")}</span>
             <button onClick={() => setShowAddForm(false)} className="text-muted-foreground hover:text-foreground"><X size={14} /></button>
           </div>
-          <button onClick={handleAddProvider} className="w-full rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 transition-colors">
-            {t("createProvider")}
-          </button>
+          <div className="space-y-2">
+            <div>
+              <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{t("name")}</label>
+              <input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder={t("providerNamePlaceholder")}
+                className="mt-1 w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-ring"
+                onKeyDown={(e) => e.key === "Enter" && handleAddProvider()}
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{t("baseUrl")}</label>
+              <input
+                value={newUrl}
+                onChange={(e) => setNewUrl(e.target.value)}
+                placeholder={t("baseUrlPlaceholder")}
+                className="mt-1 w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-ring"
+                onKeyDown={(e) => e.key === "Enter" && handleAddProvider()}
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleAddProvider}
+              disabled={!newName.trim()}
+              className="flex-1 rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              {t("createProvider")}
+            </button>
+            <button
+              onClick={() => setShowAddForm(false)}
+              className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent transition-colors"
+            >
+              {t("cancel")}
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -150,19 +195,25 @@ function ProvidersTab() {
 
 function ProviderCard({
   provider,
+  expanded,
   showKey,
+  onToggleExpand,
   onToggleKey,
   onSetEnabled,
   onSetApiKey,
+  onSetBaseUrl,
   onTest,
   onRemove,
   isTesting,
 }: {
   provider: Provider;
+  expanded: boolean;
   showKey: boolean;
+  onToggleExpand: () => void;
   onToggleKey: () => void;
   onSetEnabled: (enabled: boolean) => void;
   onSetApiKey: (key: string) => void;
+  onSetBaseUrl: (url: string) => void;
   onTest: () => void;
   onRemove: () => void;
   isTesting: boolean;
@@ -187,6 +238,12 @@ function ProviderCard({
         <div className="flex items-center gap-2">
           {provider.testStatus === "ok" && <Check size={14} className="text-green-500" />}
           {provider.testStatus === "error" && <X size={14} className="text-destructive" />}
+          <button
+            onClick={onToggleExpand}
+            className="rounded-md border border-border px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            {expanded ? t("collapse") : t("edit")}
+          </button>
           <button onClick={onTest} disabled={isTesting} className="rounded-md border border-border px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50">
             {isTesting ? <Loader2 size={12} className="animate-spin" /> : t("testConnection")}
           </button>
@@ -198,44 +255,59 @@ function ProviderCard({
         </div>
       </div>
 
-      <div className="border-t border-border px-4 py-3 space-y-3">
-        {/* API Key */}
-        <div>
-          <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{t("apiKey")}</label>
-          <div className="mt-1 flex items-center gap-2">
+      {expanded && (
+        <div className="space-y-3 border-t border-border px-4 py-3">
+          <div>
+            <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{t("baseUrl")}</label>
             <input
-              type={showKey ? "text" : "password"}
-              value={provider.apiKey}
-              onChange={(e) => onSetApiKey(e.target.value)}
-              placeholder={provider.id === "provider-ollama" ? "Not required for local" : "sk-..."}
-              className="flex-1 rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-ring"
+              type="url"
+              value={provider.baseUrl}
+              onChange={(e) => onSetBaseUrl(e.target.value)}
+              placeholder={t("baseUrlPlaceholder")}
+              className="mt-1 w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-ring"
             />
-            <button onClick={onToggleKey} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent">
-              {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
-            </button>
           </div>
-        </div>
 
-        {/* Models */}
-        <div>
-          <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{t("models")} ({provider.models.length})</label>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            {provider.models.map((model) => (
-              <span key={model.id} className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/50 px-2 py-0.5 text-[10px] text-muted-foreground">
-                {model.name}
-                {model.supportsVision && <span className="text-[9px] text-primary">👁</span>}
-              </span>
-            ))}
+        {/* API Key */}
+          <div>
+            <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{t("apiKey")}</label>
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                type={showKey ? "text" : "password"}
+                value={provider.apiKey}
+                onChange={(e) => onSetApiKey(e.target.value)}
+                placeholder={provider.id === "provider-ollama" ? t("notRequiredForLocal") : "sk-..."}
+                className="flex-1 rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-ring"
+              />
+              <button onClick={onToggleKey} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent">
+                {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
           </div>
-        </div>
 
-        {provider.testError && (
-          <div className="rounded-md bg-destructive/10 px-2.5 py-1.5 text-[10px] text-destructive">{provider.testError}</div>
-        )}
-        {provider.lastTested && (
-          <div className="text-[10px] text-muted-foreground">Last tested: {new Date(provider.lastTested).toLocaleString()}</div>
-        )}
-      </div>
+          {/* Models */}
+          <div>
+            <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{t("models")} ({provider.models.length})</label>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {provider.models.map((model) => (
+                <span key={model.id} className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/50 px-2 py-0.5 text-[10px] text-muted-foreground">
+                  {model.name}
+                  {model.supportsVision && <span className="text-[9px] text-primary">👁</span>}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {provider.testError && (
+            <div className="rounded-md bg-destructive/10 px-2.5 py-1.5 text-[10px] text-destructive">{provider.testError}</div>
+          )}
+          {provider.lastTested && (
+            <div className="text-[10px] text-muted-foreground">
+              {t("lastTested")}: {new Date(provider.lastTested).toLocaleString()}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

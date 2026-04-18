@@ -33,7 +33,7 @@ export function Header() {
         value={selectedModel.id}
         onChange={(e) => {
           const m = models.find((m) => m.id === e.target.value);
-          if (m) setSelectedModel(m);
+          if (m) {setSelectedModel(m);}
         }}
         className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg-tertiary)] px-2 py-1 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-accent)]"
       >

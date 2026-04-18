@@ -20,7 +20,7 @@ export function SplitView({ left, right, className }: SplitViewProps) {
       setDragging(true);
 
       const onMouseMove = (ev: MouseEvent) => {
-        if (!containerRef.current) return;
+        if (!containerRef.current) {return;}
         const rect = containerRef.current.getBoundingClientRect();
         const x = ev.clientX - rect.left;
         const pct = (x / rect.width) * 100;

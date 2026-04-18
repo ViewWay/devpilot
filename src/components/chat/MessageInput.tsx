@@ -36,8 +36,8 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_ATTACHMENTS = 5;
 
 function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  if (bytes < 1024) {return `${bytes}B`;}
+  if (bytes < 1024 * 1024) {return `${(bytes / 1024).toFixed(1)}KB`;}
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
@@ -78,7 +78,7 @@ export function MessageInput() {
   // Auto-resize textarea
   useEffect(() => {
     const el = textareaRef.current;
-    if (!el) return;
+    if (!el) {return;}
     el.style.height = "auto";
     el.style.height = Math.min(el.scrollHeight, 128) + "px";
   }, [input]);
@@ -87,13 +87,13 @@ export function MessageInput() {
   const processFiles = useCallback(async (files: FileList | File[]) => {
     const fileArray = Array.from(files);
     const validFiles = fileArray.filter((f) => {
-      if (f.size > MAX_FILE_SIZE) return false;
+      if (f.size > MAX_FILE_SIZE) {return false;}
       return ACCEPTED_IMAGE_TYPES.includes(f.type) || ACCEPTED_DOC_TYPES.includes(f.type);
     });
 
     const newAttachments: Attachment[] = [];
     for (const file of validFiles) {
-      if (attachments.length + newAttachments.length >= MAX_ATTACHMENTS) break;
+      if (attachments.length + newAttachments.length >= MAX_ATTACHMENTS) {break;}
 
       const att: Attachment = {
         id: generateId(),
@@ -159,7 +159,7 @@ export function MessageInput() {
 
   const handleSend = useCallback(() => {
     const trimmed = input.trim();
-    if ((!trimmed && attachments.length === 0) || isLoading) return;
+    if ((!trimmed && attachments.length === 0) || isLoading) {return;}
     // For now, send text only; attachments will be passed to real LLM later
     if (trimmed) {
       sendMessage(trimmed, selectedModel.name);

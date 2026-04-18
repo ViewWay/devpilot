@@ -157,7 +157,7 @@ export function ApprovalQueue({
   onDeny,
   onAllowAll,
 }: ApprovalQueueProps) {
-  if (requests.length === 0) return null;
+  if (requests.length === 0) {return null;}
 
   return (
     <div className="flex flex-col gap-2">

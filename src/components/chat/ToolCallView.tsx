@@ -38,7 +38,7 @@ function getStatusIcon(status: ToolCall["status"]) {
 }
 
 function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
+  if (ms < 1000) {return `${ms}ms`;}
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
@@ -57,6 +57,7 @@ export function ToolCallView({ toolCall }: ToolCallViewProps) {
         <span className="truncate text-muted-foreground">{toolCall.input}</span>
         <div className="ml-auto flex items-center gap-1.5 shrink-0">
           {getStatusIcon(toolCall.status)}
+          {/* eslint-disable-next-line eqeqeq -- intentional loose eq to exclude both null and undefined */}
           {toolCall.duration != null && (
             <span className="text-[10px] text-muted-foreground">{formatDuration(toolCall.duration)}</span>
           )}

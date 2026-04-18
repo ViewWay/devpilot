@@ -24,10 +24,10 @@ export function useTauriEvents() {
       const unlisten1 = await listen<{ sessionId: string; chunk: string }>(
         "stream_chunk",
         ({ sessionId, chunk }) => {
-          if (cancelled) return;
+          if (cancelled) {return;}
           // Append chunk to the last assistant message, or create one
           const session = useChatStore.getState().sessions.find((s) => s.id === sessionId);
-          if (!session) return;
+          if (!session) {return;}
           const msgs = session.messages;
           const lastMsg = msgs[msgs.length - 1];
           if (lastMsg?.role === "assistant" && !lastMsg.content.endsWith("▌")) {
@@ -55,9 +55,9 @@ export function useTauriEvents() {
       const unlisten2 = await listen<{ sessionId: string; model: string }>(
         "stream_done",
         ({ sessionId, model }) => {
-          if (cancelled) return;
+          if (cancelled) {return;}
           const session = useChatStore.getState().sessions.find((s) => s.id === sessionId);
-          if (!session) return;
+          if (!session) {return;}
           const msgs = session.messages;
           const lastMsg = msgs[msgs.length - 1];
           if (lastMsg?.role === "assistant") {
@@ -85,7 +85,7 @@ export function useTauriEvents() {
 
       // Error from backend
       const unlisten3 = await listen<{ message: string }>("stream_error", ({ message }) => {
-        if (cancelled) return;
+        if (cancelled) {return;}
         setError(message);
         useChatStore.setState({ isLoading: false });
       });
@@ -112,7 +112,7 @@ export function useSendMessage() {
 
   const send = useCallback(
     async (sessionId: string, content: string) => {
-      if (isLoading) return;
+      if (isLoading) {return;}
       if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window)) {
         // Browser mode — chatStore handles mock replies
         return;

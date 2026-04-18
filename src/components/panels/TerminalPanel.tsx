@@ -35,8 +35,11 @@ const DEMO_COMMANDS: Record<string, string> = {
 };
 
 let xtermLoaded: {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
   XTerm: typeof import("@xterm/xterm");
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
   FitAddon: typeof import("@xterm/addon-fit");
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
   WebLinksAddon: typeof import("@xterm/addon-web-links");
 } | null = null;
 
@@ -52,10 +55,12 @@ async function loadXterm() {
   return xtermLoaded;
 }
 
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 function writePrompt(term: import("@xterm/xterm").Terminal) {
   term.write("\x1b[32m\u276f\x1b[0m ");
 }
 
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 function processCommand(term: import("@xterm/xterm").Terminal, cmd: string) {
   if (cmd.startsWith("echo ")) {
     term.writeln(cmd.slice(5));
@@ -86,7 +91,9 @@ function processCommand(term: import("@xterm/xterm").Terminal, cmd: string) {
 
 export function TerminalPanel() {
   const termContainerRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
   const termRef = useRef<import("@xterm/xterm").Terminal | null>(null);
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
   const fitAddonRef = useRef<import("@xterm/addon-fit").FitAddon | null>(null);
   const [tabs, setTabs] = useState<TerminalTab[]>([
     { id: "tab-1", title: "bash", cwd: "~" },
@@ -98,9 +105,9 @@ export function TerminalPanel() {
     let observer: ResizeObserver | undefined;
 
     (async () => {
-      if (cancelled) return;
+      if (cancelled) {return;}
       const { XTerm, FitAddon, WebLinksAddon } = await loadXterm();
-      if (cancelled || !termContainerRef.current) return;
+      if (cancelled || !termContainerRef.current) {return;}
 
       const term = new XTerm.Terminal({
         theme: {

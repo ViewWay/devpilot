@@ -8,6 +8,7 @@ import { ToolCallList } from "./ToolCallView";
 import { ApprovalOverlay } from "./ApprovalOverlay";
 import { useChatStore } from "../../stores/chatStore";
 import { toast } from "../../stores/toastStore";
+import type { Message } from "../../types";
 import { useI18n } from "../../i18n";
 
 export function MessageList() {
@@ -105,7 +106,7 @@ function MessageActions({ content, onRegenerate }: { content: string; onRegenera
   );
 }
 
-function MessageBubble({ message }: { message: import("../../types").Message }) {
+function MessageBubble({ message }: { message: Message }) {
   const isUser = message.role === "user";
   const isTool = message.role === "tool";
 
@@ -253,7 +254,7 @@ function MessageBubble({ message }: { message: import("../../types").Message }) 
 function DemoApproval() {
   const [visible, setVisible] = useState(true);
 
-  if (!visible) return null;
+  if (!visible) {return null;}
 
   return (
     <ApprovalOverlay

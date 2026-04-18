@@ -35,7 +35,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // When theme is "system", listen for OS preference changes
   useEffect(() => {
-    if (theme !== "system") return;
+    if (theme !== "system") {return;}
 
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = () => {
@@ -52,8 +52,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (saved === "dark" || saved === "light" || saved === "system") {
       setTheme(saved);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [setTheme]);
 
   return <>{children}</>;
 }

@@ -47,7 +47,7 @@ export async function listen<T = unknown>(
  * Emit a Tauri event to the backend.
  */
 export async function emit(event: string, payload?: unknown): Promise<void> {
-  if (!isTauri) return;
+  if (!isTauri) {return;}
   // @ts-expect-error — @tauri-apps/api is optional
   const tauriApi = await import("@tauri-apps/api/event") as any;
   await tauriApi.emit(event, payload);

@@ -37,7 +37,7 @@ export function Sidebar() {
     document.body.style.userSelect = "none";
 
     const handleMouseMove = (ev: MouseEvent) => {
-      if (!isDragging.current || !sidebarRef.current) return;
+      if (!isDragging.current || !sidebarRef.current) {return;}
       const newWidth = Math.max(200, Math.min(400, ev.clientX));
       setWidth(newWidth);
     };
@@ -167,7 +167,7 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
 
   // Close menu on click outside
   useEffect(() => {
-    if (!menuOpenId) return;
+    if (!menuOpenId) {return;}
     const handler = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpenId(null);
@@ -271,8 +271,8 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
                         onChange={(e) => setRenameValue(e.target.value)}
                         onBlur={() => handleRename(session.id)}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter") handleRename(session.id);
-                          if (e.key === "Escape") setRenamingId(null);
+                          if (e.key === "Enter") {handleRename(session.id);}
+                          if (e.key === "Escape") {setRenamingId(null);}
                         }}
                         onClick={(e) => e.stopPropagation()}
                         className="w-full rounded bg-background px-1 py-0 text-xs outline-none ring-1 ring-primary"

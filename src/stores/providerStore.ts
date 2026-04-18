@@ -134,7 +134,12 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
 
   testConnection: async (id) => {
     const provider = get().providers.find((p) => p.id === id);
-    if (!provider || !provider.apiKey) {
+    if (!provider) {
+      return false;
+    }
+
+    const requiresApiKey = provider.id !== "provider-ollama";
+    if (requiresApiKey && !provider.apiKey) {
       set((s) => ({
         providers: s.providers.map((p) =>
           p.id === id
@@ -155,7 +160,7 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
 
     try {
       // Mock: Ollama doesn't need API key
-      if (provider.id === "provider-ollama") {
+      if (!requiresApiKey) {
         await new Promise((resolve) => setTimeout(resolve, 500));
         set((s) => ({
           providers: s.providers.map((p) =>

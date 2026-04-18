@@ -1,0 +1,41 @@
+name: Quality Gate
+
+on:
+  push:
+    branches: [master, main, develop]
+  pull_request:
+    branches: [master, main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Lint + TypeCheck + Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Type Check
+        run: npm run typecheck
+
+      - name: ESLint
+        run: npm run lint -- --max-warnings=100
+
+      - name: Unit Tests
+        run: npm run test:coverage
+
+      - name: Build
+        run: npm run build
+
+      - name: Security Audit
+        run: npm audit --omit=dev --registry https://registry.npmjs.org
+        continue-on-error: true

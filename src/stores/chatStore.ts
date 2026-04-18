@@ -255,10 +255,10 @@ function pickMockReply(input: string): string {
 function generateTitle(content: string): string {
   // Take first ~40 chars, strip markdown, trim
   const cleaned = content
-    .replace(/[#*`_\[\]]/g, "")
+    .replace(/[#*`_[\]]/g, "")
     .replace(/\n/g, " ")
     .trim();
-  if (cleaned.length <= 40) return cleaned;
+  if (cleaned.length <= 40) {return cleaned;}
   return cleaned.slice(0, 37) + "...";
 }
 
@@ -289,10 +289,10 @@ interface ChatState {
 function relativeTime(date: string): string {
   const diff = Date.now() - new Date(date).getTime();
   const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) {return "just now";}
+  if (mins < 60) {return `${mins}m ago`;}
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) {return `${hours}h ago`;}
   return "Yesterday";
 }
 
@@ -383,7 +383,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     const session = get().sessions.find((s) => s.id === sessionId);
-    if (!session) return;
+    if (!session) {return;}
 
     // Handle slash commands
     const trimmed = content.trim();

@@ -24,7 +24,7 @@ export function AppShell() {
 
   // Close mobile sidebar on route change
   useEffect(() => {
-    if (window.innerWidth < 768) setSidebarOpen(false);
+    if (window.innerWidth < 768) {setSidebarOpen(false);}
   }, [location.pathname, setSidebarOpen]);
 
   // Close sidebar when clicking backdrop
