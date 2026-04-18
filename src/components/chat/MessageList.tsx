@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
-import { Bot, Wrench, Sparkles, Code, MessageSquare, Zap } from "lucide-react";
+import { Bot, Wrench, Sparkles, Code, MessageSquare, Zap, Copy, Check, RefreshCw } from "lucide-react";
 import { CodeBlock } from "./CodeBlock";
 import { ToolCallList } from "./ToolCallView";
 import { ApprovalOverlay } from "./ApprovalOverlay";
 import { useChatStore } from "../../stores/chatStore";
+import { toast } from "../../stores/toastStore";
+import { useI18n } from "../../i18n";
 
 export function MessageList() {
   const session = useChatStore((s) => s.activeSession());
@@ -40,6 +42,7 @@ export function MessageList() {
 }
 
 function EmptyState() {
+  const { t } = useI18n();
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-4">
       <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mb-6">
@@ -47,12 +50,12 @@ function EmptyState() {
       </div>
       <h2 className="text-lg font-semibold text-foreground mb-2">DevPilot</h2>
       <p className="text-sm text-muted-foreground mb-8 text-center max-w-md">
-        Your AI coding agent. Ask questions, write code, refactor projects — all in one place.
+        {t("emptyStateDescription")}
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-lg">
-        <SuggestionCard icon={<Code size={16} />} title="Debug code" description="Find and fix bugs in your codebase" />
-        <SuggestionCard icon={<MessageSquare size={16} />} title="Explain code" description="Understand complex code logic" />
-        <SuggestionCard icon={<Zap size={16} />} title="Generate code" description="Create new features from specs" />
+        <SuggestionCard icon={<Code size={16} />} title={t("emptyStateDebug")} description={t("emptyStateDebugDesc")} />
+        <SuggestionCard icon={<MessageSquare size={16} />} title={t("emptyStateExplain")} description={t("emptyStateExplainDesc")} />
+        <SuggestionCard icon={<Zap size={16} />} title={t("emptyStateGenerate")} description={t("emptyStateGenerateDesc")} />
       </div>
     </div>
   );
@@ -70,16 +73,51 @@ function SuggestionCard({ icon, title, description }: { icon: React.ReactNode; t
   );
 }
 
+function MessageActions({ content, onRegenerate }: { content: string; onRegenerate?: () => void }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(content);
+    setCopied(true);
+    toast.success("Copied to clipboard");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+      <button
+        onClick={handleCopy}
+        className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+        title="Copy"
+      >
+        {copied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
+      </button>
+      {onRegenerate && (
+        <button
+          onClick={onRegenerate}
+          className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          title="Regenerate"
+        >
+          <RefreshCw size={12} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 function MessageBubble({ message }: { message: import("../../types").Message }) {
   const isUser = message.role === "user";
   const isTool = message.role === "tool";
 
   if (isUser) {
     return (
-      <div className="flex justify-end">
+      <div className="group flex justify-end">
         <div className="max-w-[75%] rounded-2xl rounded-br-sm bg-user-bubble px-4 py-2.5 text-sm leading-relaxed text-user-bubble-foreground">
           {message.content}
-          <div className="mt-1 text-right text-[10px] text-user-bubble-foreground/60">{message.timestamp}</div>
+          <div className="flex items-center justify-between mt-1">
+            <div className="text-[10px] text-user-bubble-foreground/60">{message.timestamp}</div>
+            <MessageActions content={message.content} />
+          </div>
         </div>
       </div>
     );
@@ -104,7 +142,7 @@ function MessageBubble({ message }: { message: import("../../types").Message }) 
   }
 
   return (
-    <div className="flex items-start gap-2.5">
+    <div className="group flex items-start gap-2.5">
       <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary">
         <Bot size={12} className="text-primary-foreground" />
       </div>
@@ -200,6 +238,7 @@ function MessageBubble({ message }: { message: import("../../types").Message }) 
           )}
         </div>
         <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+          <MessageActions content={message.content} onRegenerate={() => {}} />
           {message.model && <span>{message.model}</span>}
           {message.model && <span>·</span>}
           <span>{message.timestamp}</span>

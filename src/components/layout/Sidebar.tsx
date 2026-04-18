@@ -103,7 +103,7 @@ export function Sidebar() {
           <button
             onClick={toggleSidebar}
             className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            title="Collapse sidebar"
+            title={t("scToggleSidebar")}
           >
             <PanelLeftClose size={15} />
           </button>

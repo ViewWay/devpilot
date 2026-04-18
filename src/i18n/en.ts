@@ -45,6 +45,13 @@ const en: Record<string, string> = {
   // --- Empty State ---
   emptyTitle: "New Chat",
   emptyWelcome: "Hello! I'm DevPilot, your AI coding agent. I can help you:",
+  emptyStateDescription: "Your AI coding agent. Ask questions, write code, refactor projects — all in one place.",
+  emptyStateDebug: "Debug code",
+  emptyStateDebugDesc: "Find and fix bugs in your codebase",
+  emptyStateExplain: "Explain code",
+  emptyStateExplainDesc: "Understand complex code logic",
+  emptyStateGenerate: "Generate code",
+  emptyStateGenerateDesc: "Create new features from specs",
   emptyBullet1: "Write code — Generate features, refactor, fix bugs",
   emptyBullet2: "Analyze — Explain codebases, review architecture",
   emptyBullet3: "Execute — Run commands, manage files, apply patches",

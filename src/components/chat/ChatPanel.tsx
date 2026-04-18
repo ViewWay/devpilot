@@ -7,17 +7,19 @@ import { FilesPanel } from "../panels/FilesPanel";
 import { TerminalPanel } from "../panels/TerminalPanel";
 import { PreviewPanel } from "../panels/PreviewPanel";
 import { Loader2, AlertCircle } from "lucide-react";
+import { useI18n } from "../../i18n";
 
 function ChatContent() {
   const isLoading = useChatStore((s) => s.isLoading);
   const error = useChatStore((s) => s.error);
+  const { t } = useI18n();
 
   return (
     <div className="flex h-full flex-col">
       {isLoading && (
         <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-4 py-2">
           <Loader2 size={14} className="animate-spin text-primary" />
-          <span className="text-xs text-muted-foreground">Thinking...</span>
+          <span className="text-xs text-muted-foreground">{t("thinking")}</span>
         </div>
       )}
       {error && (

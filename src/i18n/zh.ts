@@ -45,6 +45,13 @@ const zh: Record<string, string> = {
   // --- Empty State ---
   emptyTitle: "新对话",
   emptyWelcome: "你好！我是 DevPilot，你的 AI 编程助手。我可以帮你：",
+  emptyStateDescription: "你的 AI 编程助手。提问、写代码、重构项目 — 尽在一个界面。",
+  emptyStateDebug: "调试代码",
+  emptyStateDebugDesc: "查找并修复代码中的问题",
+  emptyStateExplain: "解释代码",
+  emptyStateExplainDesc: "理解复杂的代码逻辑",
+  emptyStateGenerate: "生成代码",
+  emptyStateGenerateDesc: "根据需求创建新功能",
   emptyBullet1: "编写代码 — 生成功能、重构、修复 Bug",
   emptyBullet2: "分析代码 — 解释代码库、审查架构",
   emptyBullet3: "执行操作 — 运行命令、管理文件、应用补丁",
