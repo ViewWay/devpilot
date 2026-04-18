@@ -10,6 +10,9 @@ const en = {
   inputHint: "Enter to send · Shift+Enter for new line",
   attachFile: "Attach file",
   webSearch: "Web search",
+  stopGeneration: "Stop generation",
+  thinking: "Thinking...",
+  emptyTitle: "New Chat",
 };
 
 export default en;

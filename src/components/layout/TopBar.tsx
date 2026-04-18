@@ -1,18 +1,9 @@
 import { useTheme } from "../../hooks/useTheme";
 import { useI18n } from "../../i18n";
+import { useUIStore } from "../../stores/uiStore";
 import { Sun, Moon, PanelLeftClose, PanelLeft, ChevronDown } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { cn } from "../../lib/utils";
-
-const models = [
-  { id: "claude-4-sonnet", name: "Claude 4 Sonnet", provider: "Anthropic", color: "bg-orange-500" },
-  { id: "gpt-5.2", name: "GPT-5.2", provider: "OpenAI", color: "bg-emerald-500" },
-  { id: "glm-5", name: "GLM-5", provider: "智谱", color: "bg-blue-500" },
-  { id: "deepseek-v3", name: "DeepSeek V3", provider: "DeepSeek", color: "bg-violet-500" },
-  { id: "qwen-max", name: "通义千问 Max", provider: "阿里云", color: "bg-purple-500" },
-  { id: "gemini-3-pro", name: "Gemini 3 Pro", provider: "Google", color: "bg-red-500" },
-  { id: "ollama-llama4", name: "Llama 4 (local)", provider: "Ollama", color: "bg-gray-500" },
-];
 
 const modes = [
   { id: "code", label: "Code", labelZh: "编码" },
@@ -20,20 +11,20 @@ const modes = [
   { id: "ask", label: "Ask", labelZh: "提问" },
 ] as const;
 
-interface TopBarProps {
-  sidebarOpen: boolean;
-  onToggleSidebar: () => void;
-}
-
-export function TopBar({ sidebarOpen, onToggleSidebar }: TopBarProps) {
+export function TopBar() {
   const { locale, setLocale } = useI18n();
   const { toggleTheme, theme } = useTheme();
-  const [selectedModel, setSelectedModel] = useState(models[0]!);
+  const sidebarOpen = useUIStore((s) => s.sidebarOpen);
+  const toggleSidebar = useUIStore((s) => s.toggleSidebar);
+  const selectedModel = useUIStore((s) => s.selectedModel);
+  const setSelectedModel = useUIStore((s) => s.setSelectedModel);
+  const models = useUIStore((s) => s.models);
+  const activeMode = useUIStore((s) => s.activeMode);
+  const setActiveMode = useUIStore((s) => s.setActiveMode);
+
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
-  const [activeMode, setActiveMode] = useState<string>("code");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown on click outside
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -46,9 +37,8 @@ export function TopBar({ sidebarOpen, onToggleSidebar }: TopBarProps) {
 
   return (
     <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border bg-background/80 px-3 backdrop-blur-sm">
-      {/* Sidebar toggle */}
       <button
-        onClick={onToggleSidebar}
+        onClick={toggleSidebar}
         className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
       >
         {sidebarOpen ? <PanelLeftClose size={15} /> : <PanelLeft size={15} />}
@@ -87,7 +77,6 @@ export function TopBar({ sidebarOpen, onToggleSidebar }: TopBarProps) {
         )}
       </div>
 
-      {/* Separator */}
       <div className="h-4 w-px bg-border" />
 
       {/* Mode Tabs */}
@@ -110,17 +99,13 @@ export function TopBar({ sidebarOpen, onToggleSidebar }: TopBarProps) {
 
       <div className="flex-1" />
 
-      {/* Right Controls */}
       <div className="flex items-center gap-1">
-        {/* i18n toggle */}
         <button
           onClick={() => setLocale(locale === "en" ? "zh" : "en")}
           className="flex h-7 items-center rounded-md px-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           {locale === "en" ? "中文" : "EN"}
         </button>
-
-        {/* Theme toggle */}
         <button
           onClick={toggleTheme}
           className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"

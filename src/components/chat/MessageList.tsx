@@ -1,93 +1,72 @@
-import { Bot, Wrench, Copy, Check } from "lucide-react";
-import { cn } from "../../lib/utils";
-import { useState } from "react";
-
-interface Message {
-  id: string;
-  role: "user" | "assistant" | "tool";
-  content: string;
-  model?: string;
-  timestamp: string;
-}
-
-const mockMessages: Message[] = [
-  {
-    id: "1",
-    role: "user",
-    content: "帮我分析一下 Codex CLI 的 Rust 架构设计，重点关注 Agent 引擎和工具系统",
-    timestamp: "10:23",
-  },
-  {
-    id: "2",
-    role: "assistant",
-    content: `Codex CLI 采用 **80+ crate** 的 Rust workspace 架构，核心设计模式：
-
-## Agent 引擎
-
-\`\`\`rust
-pub(crate) struct Session {
-    pub(crate) conversation_id: ThreadId,
-    pub(super) tx_event: Sender<Event>,
-    pub(super) agent_status: watch::Sender<AgentStatus>,
-    pub(super) state: Mutex<SessionState>,
-    pub(super) mailbox: Mailbox,
-}
-\`\`\`
-
-关键设计模式：
-- **Event Bus** — \`Sender<Event>\` 驱动 UI 更新和状态流转
-- **Mailbox** — Agent 间通过 mpsc + watch 通信
-- **Agent Registry** — spawn slot reservation，类似信号量并发控制
-
-## 工具系统
-
-工具注册采用 **双层映射**：
-1. API 侧 (\`ToolSpec\`) 发给 LLM 做函数调用
-2. 本地侧 (\`ToolHandlerKind\`) 路由到具体处理函数
-
-\`\`\`rust
-pub enum ToolHandlerKind {
-    Shell, ShellCommand, ApplyPatch,
-    DynamicTool, Mcp, McpResource,
-    SpawnAgentV1, SpawnAgentV2,
-}
-\`\`\`
-
-## 沙盒架构
-
-| 平台 | 实现 | 隔离方式 |
-|------|------|---------|
-| macOS | seatbelt | sandbox-exec profile |
-| Linux | bwrap + landlock | namespace + seccomp |
-| Windows | restricted token | private desktop |
-
-这个架构可以大量复用到 DevPilot 的 Tauri 后端。`,
-    model: "Claude 4 Sonnet",
-    timestamp: "10:24",
-  },
-  {
-    id: "3",
-    role: "tool",
-    content: "📄 file_read: core/src/session/session.rs (read 234/466 lines)\n🔧 shell: cargo check → 0 errors, 0 warnings",
-    timestamp: "10:24",
-  },
-];
+import { useEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
+import { Bot, Wrench, Sparkles, Code, MessageSquare, Zap } from "lucide-react";
+import { CodeBlock } from "./CodeBlock";
+import { ToolCallList } from "./ToolCallView";
+import { useChatStore } from "../../stores/chatStore";
 
 export function MessageList() {
+  const session = useChatStore((s) => s.activeSession());
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom on new messages
+  useEffect(() => {
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [session?.messages.length, session?.messages[session.messages.length - 1]?.content]);
+
+  if (!session || session.messages.length === 0) {
+    return <EmptyState />;
+  }
+
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="mx-auto max-w-3xl px-4 py-6">
         <div className="space-y-6">
-          {mockMessages.map((msg) => (
+          {session.messages.map((msg) => (
             <MessageBubble key={msg.id} message={msg} />
           ))}
+          <div ref={bottomRef} />
         </div>
       </div>
     </div>
   );
 }
 
-function MessageBubble({ message }: { message: Message }) {
+function EmptyState() {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center px-4">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mb-6">
+        <Sparkles size={28} className="text-primary" />
+      </div>
+      <h2 className="text-lg font-semibold text-foreground mb-2">DevPilot</h2>
+      <p className="text-sm text-muted-foreground mb-8 text-center max-w-md">
+        Your AI coding agent. Ask questions, write code, refactor projects — all in one place.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-lg">
+        <SuggestionCard icon={<Code size={16} />} title="Debug code" description="Find and fix bugs in your codebase" />
+        <SuggestionCard icon={<MessageSquare size={16} />} title="Explain code" description="Understand complex code logic" />
+        <SuggestionCard icon={<Zap size={16} />} title="Generate code" description="Create new features from specs" />
+      </div>
+    </div>
+  );
+}
+
+function SuggestionCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+  return (
+    <button className="flex flex-col items-start gap-2 rounded-lg border border-border bg-card p-3 text-left transition-colors hover:bg-accent hover:border-accent">
+      <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">{icon}</div>
+      <div>
+        <div className="text-xs font-medium text-foreground">{title}</div>
+        <div className="text-[11px] text-muted-foreground mt-0.5">{description}</div>
+      </div>
+    </button>
+  );
+}
+
+function MessageBubble({ message }: { message: import("../../types").Message }) {
   const isUser = message.role === "user";
   const isTool = message.role === "tool";
 
@@ -108,8 +87,13 @@ function MessageBubble({ message }: { message: Message }) {
         <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted">
           <Wrench size={12} className="text-muted-foreground" />
         </div>
-        <div className="min-w-0 flex-1 rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-          {message.content}
+        <div className="min-w-0 flex-1">
+          {message.content && (
+            <div className="rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap">
+              {message.content}
+            </div>
+          )}
+          {message.toolCalls && message.toolCalls.length > 0 && <ToolCallList toolCalls={message.toolCalls} />}
         </div>
       </div>
     );
@@ -121,8 +105,46 @@ function MessageBubble({ message }: { message: Message }) {
         <Bot size={12} className="text-primary-foreground" />
       </div>
       <div className="min-w-0 flex-1 space-y-2">
-        <div className="text-sm leading-relaxed text-assistant-bubble-foreground">
-          <RenderMarkdown content={message.content} />
+        <div className="text-sm leading-relaxed text-assistant-bubble-foreground prose-sm">
+          <ReactMarkdown
+            rehypePlugins={[rehypeRaw]}
+            components={{
+              code({ className, children }) {
+                const match = /language-(\w+)/.exec(className || "");
+                const codeStr = String(children).replace(/\n$/, "");
+                const isInline = !match && !codeStr.includes("\n");
+                if (isInline) {
+                  return <code className="rounded bg-muted px-1 py-0.5 text-xs font-mono">{children}</code>;
+                }
+                return <CodeBlock code={codeStr} lang={match?.[1]} />;
+              },
+              table({ children }) {
+                return (
+                  <div className="my-2 overflow-x-auto">
+                    <table className="w-full text-xs border-collapse border border-border">{children}</table>
+                  </div>
+                );
+              },
+              th({ children }) {
+                return <th className="border border-border bg-muted/50 px-2.5 py-1.5 text-left font-semibold text-muted-foreground">{children}</th>;
+              },
+              td({ children }) {
+                return <td className="border border-border px-2.5 py-1.5">{children}</td>;
+              },
+              pre({ children }) {
+                return <>{children}</>;
+              },
+              a({ href, children }) {
+                return (
+                  <a href={href} className="text-primary underline hover:text-primary/80" target="_blank" rel="noopener noreferrer">
+                    {children}
+                  </a>
+                );
+              },
+            }}
+          >
+            {message.content}
+          </ReactMarkdown>
         </div>
         <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
           {message.model && <span>{message.model}</span>}
@@ -132,119 +154,4 @@ function MessageBubble({ message }: { message: Message }) {
       </div>
     </div>
   );
-}
-
-function RenderMarkdown({ content }: { content: string }) {
-  const parts = content.split(/(```[\s\S]*?```)/g);
-
-  return (
-    <div className="prose-sm">
-      {parts.map((part, i) => {
-        if (part.startsWith("```")) {
-          return <CodeBlock key={i} raw={part} />;
-        }
-        return <InlineMarkdown key={i} text={part} />;
-      })}
-    </div>
-  );
-}
-
-function CodeBlock({ raw }: { raw: string }) {
-  const [copied, setCopied] = useState(false);
-  const lines = raw.slice(3, -3).split("\n");
-  const lang = lines[0]?.trim() || "";
-  const code = lines.slice(1).join("\n").trim();
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div className="my-3 overflow-hidden rounded-lg border border-border bg-background">
-      <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-1.5">
-        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{lang || "code"}</span>
-        <button
-          onClick={handleCopy}
-          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
-        >
-          {copied ? <Check size={11} /> : <Copy size={11} />}
-          {copied ? "Copied" : "Copy"}
-        </button>
-      </div>
-      <pre className="overflow-x-auto p-3 text-xs leading-relaxed">
-        <code>{code}</code>
-      </pre>
-    </div>
-  );
-}
-
-function InlineMarkdown({ text }: { text: string }) {
-  // Split by lines, handle headings, bold, lists, tables
-  const lines = text.split("\n");
-
-  return (
-    <>
-      {lines.map((line, i) => {
-        const trimmed = line.trim();
-        if (!trimmed) return <br key={i} />;
-        if (trimmed.startsWith("## "))
-          return <h3 key={i} className="mt-3 mb-1 text-sm font-semibold">{trimmed.slice(3)}</h3>;
-        if (trimmed.startsWith("### "))
-          return <h4 key={i} className="mt-2 mb-1 text-xs font-semibold">{trimmed.slice(4)}</h4>;
-        if (trimmed.startsWith("- "))
-          return <li key={i} className="ml-3 text-xs list-disc">{renderInline(trimmed.slice(2))}</li>;
-        if (trimmed.startsWith("| ")) return <TableLine key={i} text={trimmed} isHeader={isTableHeader(lines, i)} />;
-        return <p key={i} className="text-sm">{renderInline(trimmed)}</p>;
-      })}
-    </>
-  );
-}
-
-function renderInline(text: string): React.ReactNode {
-  // Bold
-  const parts = text.split(/\*\*(.*?)\*\*/g);
-  return parts.map((p, i) =>
-    i % 2 === 1 ? (
-      <strong key={i} className="font-semibold">
-        {p}
-      </strong>
-    ) : (
-      // Inline code
-      renderCode(p, i)
-    ),
-  );
-}
-
-function renderCode(text: string, baseKey: number): React.ReactNode {
-  const parts = text.split(/`(.*?)`/g);
-  if (parts.length <= 1) return text;
-  return parts.map((p, i) =>
-    i % 2 === 1 ? (
-      <code key={`${baseKey}-${i}`} className="rounded bg-muted px-1 py-0.5 text-xs font-mono">
-        {p}
-      </code>
-    ) : (
-      <span key={`${baseKey}-${i}`}>{p}</span>
-    ),
-  );
-}
-
-function TableLine({ text, isHeader }: { text: string; isHeader: boolean }) {
-  const cells = text.split("|").filter(Boolean).map((c) => c.trim());
-  return (
-    <div className={cn("grid gap-2 text-xs py-0.5", cells.length === 3 ? "grid-cols-3" : cells.length === 2 ? "grid-cols-2" : "grid-cols-4")}>
-      {cells.map((cell, i) => (
-        <span key={i} className={isHeader ? "font-semibold text-muted-foreground" : ""}>
-          {renderInline(cell)}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function isTableHeader(lines: string[], index: number): boolean {
-  const next = lines[index + 1]?.trim();
-  return !!next && /^\|[\s-|]+\|$/.test(next);
 }
