@@ -692,6 +692,7 @@ dependencies = [
  "chrono",
  "devpilot-llm",
  "devpilot-protocol",
+ "futures",
  "rusqlite",
  "serde",
  "serde_json",

@@ -1,6 +1,8 @@
 use crate::{AppState, MessageInfo, SessionInfo, SettingEntry, UsageRecord};
 use tauri::State;
 
+pub mod llm;
+
 /// Health check / ping command.
 #[tauri::command]
 pub fn ping() -> crate::PingResponse {

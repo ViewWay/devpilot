@@ -31,6 +31,11 @@ pub fn run() {
             // Usage
             commands::get_session_usage,
             commands::get_total_usage,
+            // LLM
+            commands::llm::send_message,
+            commands::llm::send_message_stream,
+            commands::llm::check_provider,
+            commands::llm::list_provider_models,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
