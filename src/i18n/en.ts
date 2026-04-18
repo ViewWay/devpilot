@@ -129,6 +129,18 @@ const en: Record<string, string> = {
   low: "Low",
   medium: "Medium",
   high: "High",
+  filterFiles: "Filter files...",
+  noMatchingFiles: "No matching files",
+  commandPalettePlaceholder: "Type a command or search...",
+  commandPaletteNoResults: "No results found",
+  commandPaletteNewChat: "New Chat",
+  commandPaletteNewChatDesc: "Start a new conversation",
+  commandPaletteToggleSidebar: "Toggle Sidebar",
+  commandPaletteToggleFiles: "Toggle Files Panel",
+  commandPaletteToggleTerminal: "Toggle Terminal",
+  commandPaletteTogglePreview: "Toggle Preview",
+  commandPaletteSwitchTheme: "Switch Theme",
+  commandPaletteOpenSettingsDesc: "Open application settings",
 };
 
 export default en;

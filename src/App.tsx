@@ -3,9 +3,11 @@ import { AppShell } from "./components/layout/AppShell";
 import { ChatPanel } from "./components/chat/ChatPanel";
 import { SettingsPage } from "./app/SettingsPage";
 import { useUIStore } from "./stores/uiStore";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 
 function AppRoutes() {
   const activeView = useUIStore((s) => s.activeView);
+  useKeyboardShortcuts();
 
   return (
     <Routes>

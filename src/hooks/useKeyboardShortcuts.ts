@@ -32,6 +32,8 @@ export function useKeyboardShortcuts() {
   const toggleRightPanel = useUIStore((s) => s.toggleRightPanel);
   const rightPanel = useUIStore((s) => s.rightPanel);
   const createSession = useChatStore((s) => s.createSession);
+  const toggleCommandPalette = useUIStore((s) => s.toggleCommandPalette);
+  const setCommandPaletteOpen = useUIStore((s) => s.setCommandPaletteOpen);
 
   const focusChatInput = useCallback(() => {
     const input = document.querySelector<HTMLTextAreaElement>(
@@ -51,7 +53,8 @@ export function useKeyboardShortcuts() {
 
   useEffect(() => {
     const shortcuts: Shortcut[] = [
-      { key: "k", ctrl: true, description: "Focus chat input", action: focusChatInput },
+      { key: "k", ctrl: true, description: "Command palette", action: toggleCommandPalette },
+      { key: "k", ctrl: true, shift: true, description: "Focus chat input", action: focusChatInput },
       { key: "n", ctrl: true, description: "New chat", action: handleNewChat },
       { key: "b", ctrl: true, description: "Toggle sidebar", action: toggleSidebar },
       { key: "j", ctrl: true, description: "Toggle terminal", action: () => toggleRightPanel("terminal") },
@@ -71,7 +74,7 @@ export function useKeyboardShortcuts() {
       for (const sc of shortcuts) {
         if (
           e.key.toLowerCase() === sc.key &&
-          (sc.ctrl ? ctrlOrMeta : true) &&
+          (sc.ctrl ? ctrlOrMeta : !ctrlOrMeta) &&
           (sc.shift ? e.shiftKey : !e.shiftKey) &&
           (sc.meta ? e.metaKey : true)
         ) {
@@ -83,6 +86,7 @@ export function useKeyboardShortcuts() {
 
       // Escape handler
       if (e.key === "Escape") {
+        setCommandPaletteOpen(false);
         if (rightPanel !== "none") {
           toggleRightPanel(rightPanel);
         }
@@ -94,5 +98,5 @@ export function useKeyboardShortcuts() {
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [focusChatInput, handleNewChat, toggleSidebar, toggleRightPanel, rightPanel]);
+  }, [focusChatInput, handleNewChat, toggleSidebar, toggleRightPanel, rightPanel, toggleCommandPalette, setCommandPaletteOpen]);
 }

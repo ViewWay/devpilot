@@ -1,8 +1,8 @@
-import { useTheme } from "../../hooks/useTheme";
+import { useThemeCycle, resolveTheme } from "../../hooks/useTheme";
 import { useI18n } from "../../i18n";
 import { useUIStore } from "../../stores/uiStore";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Sun, Moon, PanelLeftClose, PanelLeft, ChevronDown, Settings, FolderOpen, Terminal, Eye, SlidersHorizontal } from "lucide-react";
+import { Sun, Moon, Monitor, PanelLeftClose, PanelLeft, ChevronDown, Settings, FolderOpen, Terminal, Eye, SlidersHorizontal } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { cn } from "../../lib/utils";
 
@@ -10,7 +10,8 @@ const MODES = ["code", "plan", "ask"] as const;
 
 export function TopBar() {
   const { locale, setLocale, t } = useI18n();
-  const { toggleTheme, theme } = useTheme();
+  const { theme, cycleTheme } = useThemeCycle();
+  const resolvedTheme = resolveTheme(theme);
   const navigate = useNavigate();
   const location = useLocation();
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
@@ -206,10 +207,11 @@ export function TopBar() {
           <Settings size={14} />
         </button>
         <button
-          onClick={toggleTheme}
+          onClick={cycleTheme}
           className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          title={theme === "system" ? t("themeSystem") : theme === "dark" ? t("themeDark") : t("themeLight")}
         >
-          {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+          {theme === "system" ? <Monitor size={14} /> : resolvedTheme === "dark" ? <Moon size={14} /> : <Sun size={14} />}
         </button>
       </div>
     </header>

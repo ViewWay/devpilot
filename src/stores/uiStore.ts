@@ -42,21 +42,10 @@ interface UIState {
 
   theme: Theme;
   setTheme: (theme: Theme) => void;
-}
 
-function applyTheme(theme: Theme) {
-  const root = document.documentElement;
-  if (theme === "dark") {
-    root.classList.add("dark");
-    root.classList.remove("light");
-  } else if (theme === "light") {
-    root.classList.add("light");
-    root.classList.remove("dark");
-  } else {
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    root.classList.toggle("dark", prefersDark);
-    root.classList.toggle("light", !prefersDark);
-  }
+  commandPaletteOpen: boolean;
+  setCommandPaletteOpen: (open: boolean) => void;
+  toggleCommandPalette: () => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -85,9 +74,10 @@ export const useUIStore = create<UIState>((set) => ({
   panelSize: 50,
   setPanelSize: (size) => set({ panelSize: Math.max(20, Math.min(80, size)) }),
 
-  theme: "dark",
-  setTheme: (theme) => {
-    applyTheme(theme);
-    set({ theme });
-  },
+  theme: "system",
+  setTheme: (theme) => set({ theme }),
+
+  commandPaletteOpen: false,
+  setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
+  toggleCommandPalette: () => set((s) => ({ commandPaletteOpen: !s.commandPaletteOpen })),
 }));

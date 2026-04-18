@@ -129,6 +129,18 @@ const zh: Record<string, string> = {
   low: "低",
   medium: "中",
   high: "高",
+  filterFiles: "筛选文件...",
+  noMatchingFiles: "无匹配文件",
+  commandPalettePlaceholder: "输入命令或搜索...",
+  commandPaletteNoResults: "未找到结果",
+  commandPaletteNewChat: "新建对话",
+  commandPaletteNewChatDesc: "开始新的对话",
+  commandPaletteToggleSidebar: "切换侧边栏",
+  commandPaletteToggleFiles: "切换文件面板",
+  commandPaletteToggleTerminal: "切换终端",
+  commandPaletteTogglePreview: "切换预览",
+  commandPaletteSwitchTheme: "切换主题",
+  commandPaletteOpenSettingsDesc: "打开应用设置",
 };
 
 export default zh;

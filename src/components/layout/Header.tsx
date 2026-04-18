@@ -1,5 +1,5 @@
-import { useTheme } from "../../hooks/useTheme";
-import { Sun, Moon, PanelLeftClose, PanelLeft } from "lucide-react";
+import { useThemeCycle, resolveTheme } from "../../hooks/useTheme";
+import { Sun, Moon, Monitor, PanelLeftClose, PanelLeft } from "lucide-react";
 import { useState } from "react";
 import { useI18n } from "../../i18n";
 
@@ -15,7 +15,8 @@ const models = [
 
 export function Header() {
   const { t, locale, setLocale } = useI18n();
-  const { toggleTheme, theme } = useTheme();
+  const { cycleTheme, theme } = useThemeCycle();
+  const resolvedTheme = resolveTheme(theme);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedModel, setSelectedModel] = useState(models[0]!);
 
@@ -64,10 +65,10 @@ export function Header() {
           {locale === "en" ? "中" : "EN"}
         </button>
         <button
-          onClick={toggleTheme}
+          onClick={cycleTheme}
           className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
         >
-          {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+          {theme === "system" ? <Monitor size={16} /> : resolvedTheme === "dark" ? <Moon size={16} /> : <Sun size={16} />}
         </button>
       </div>
     </header>

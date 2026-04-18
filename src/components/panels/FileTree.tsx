@@ -5,6 +5,7 @@ import {
   Search,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { useI18n } from "../../i18n";
 
 export interface FileNode {
   name: string;
@@ -145,6 +146,7 @@ function TreeNode({ node, depth, defaultExpanded = false }: TreeNodeProps) {
 
 export function FileTree() {
   const [filter, setFilter] = useState("");
+  const { t } = useI18n();
 
   const filteredTree = useMemo(() => {
     if (!filter.trim()) return DEMO_TREE;
@@ -165,7 +167,7 @@ export function FileTree() {
           <Search size={11} className="text-muted-foreground" />
           <input
             type="text"
-            placeholder="Filter files..."
+            placeholder={t("filterFiles")}
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             className="h-full flex-1 bg-transparent text-[11px] text-foreground outline-none placeholder:text-muted-foreground"
@@ -178,7 +180,7 @@ export function FileTree() {
         ))}
         {filteredTree.length === 0 && (
           <div className="px-4 py-6 text-center text-[11px] text-muted-foreground">
-            No matching files
+            {t("noMatchingFiles")}
           </div>
         )}
       </div>

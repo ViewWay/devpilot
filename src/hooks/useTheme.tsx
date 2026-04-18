@@ -1,48 +1,75 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
+import { useEffect, useCallback, type ReactNode } from "react";
+import { useUIStore, type Theme } from "../stores/uiStore";
 
-type Theme = "dark" | "light";
-
-interface ThemeContextValue {
-  theme: Theme;
-  toggleTheme: () => void;
-  setTheme: (theme: Theme) => void;
-}
-
-const ThemeContext = createContext<ThemeContextValue | null>(null);
-
-export function useTheme(): ThemeContextValue {
-  const ctx = useContext(ThemeContext);
-  if (!ctx) throw new Error("useTheme must be used within ThemeProvider");
-  return ctx;
-}
-
-export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    const saved = localStorage.getItem("devpilot-theme") as Theme | null;
-    if (saved === "dark" || saved === "light") return saved;
+/**
+ * Resolves "system" theme to actual "dark" or "light" based on OS preference.
+ */
+export function resolveTheme(theme: Theme): "dark" | "light" {
+  if (theme === "system") {
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  });
+  }
+  return theme;
+}
 
-  const applyTheme = useCallback((t: Theme) => {
-    document.documentElement.classList.toggle("dark", t === "dark");
-    localStorage.setItem("devpilot-theme", t);
+/**
+ * Applies the resolved theme class to <html>. Called by ThemeProvider.
+ */
+function applyThemeClass(resolved: "dark" | "light") {
+  document.documentElement.classList.toggle("dark", resolved === "dark");
+}
+
+/**
+ * ThemeProvider — bridges uiStore theme state to the DOM.
+ * Wraps the app in main.tsx. Listens to system preference changes when theme is "system".
+ */
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  const theme = useUIStore((s) => s.theme);
+  const setTheme = useUIStore((s) => s.setTheme);
+
+  // Apply theme class whenever theme changes
+  useEffect(() => {
+    const resolved = resolveTheme(theme);
+    applyThemeClass(resolved);
+    localStorage.setItem("devpilot-theme", theme);
+  }, [theme]);
+
+  // When theme is "system", listen for OS preference changes
+  useEffect(() => {
+    if (theme !== "system") return;
+
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = () => {
+      applyThemeClass(mq.matches ? "dark" : "light");
+    };
+
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, [theme]);
+
+  // Hydrate from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("devpilot-theme") as Theme | null;
+    if (saved === "dark" || saved === "light" || saved === "system") {
+      setTheme(saved);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Apply on mount
-  useEffect(() => { applyTheme(theme); }, [theme, applyTheme]);
+  return <>{children}</>;
+}
 
-  const toggleTheme = useCallback(() => {
-    setThemeState((prev) => {
-      const next = prev === "dark" ? "light" : "dark";
-      return next;
-    });
-  }, []);
+/**
+ * Hook to cycle theme: dark -> light -> system -> dark ...
+ */
+export function useThemeCycle() {
+  const theme = useUIStore((s) => s.theme);
+  const setTheme = useUIStore((s) => s.setTheme);
 
-  const setTheme = useCallback((t: Theme) => { setThemeState(t); }, []);
+  const cycleTheme = useCallback(() => {
+    const order: Theme[] = ["dark", "light", "system"];
+    const next = order[(order.indexOf(theme) + 1) % order.length]!;
+    setTheme(next);
+  }, [theme, setTheme]);
 
-  return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return { theme, cycleTheme };
 }
