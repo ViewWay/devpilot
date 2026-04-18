@@ -86,7 +86,7 @@ export function Sidebar() {
   return (
     <div
       ref={sidebarRef}
-      className="relative flex h-full flex-col border-r border-border bg-sidebar transition-all duration-200 ease-in-out"
+      className="relative flex h-full flex-col border-r border-border bg-sidebar transition-all duration-200 ease-in-out animate-in slide-in-from-left md:animate-none"
       style={{ width: `${width}px` }}
     >
       {/* Header */}
@@ -141,10 +141,10 @@ export function Sidebar() {
         </button>
       </div>
 
-      {/* Resize handle */}
+      {/* Resize handle — desktop only */}
       <div
         onMouseDown={handleMouseDown}
-        className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/20 active:bg-primary/40 transition-colors"
+        className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/20 active:bg-primary/40 transition-colors hidden md:block"
       />
     </div>
   );
@@ -190,6 +190,14 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
       updateSessionTitle(id, renameValue.trim());
     }
     setRenamingId(null);
+  };
+
+  // Close mobile sidebar on session select
+  const handleSelectSession = (id: string) => {
+    setActiveSession(id);
+    if (window.innerWidth < 768) {
+      useUIStore.getState().setSidebarOpen(false);
+    }
   };
 
   const filtered = (searchQuery ? searchSessions(searchQuery) : sessions).filter((s) => !s.archived);
@@ -248,7 +256,7 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
                       ? "bg-accent text-accent-foreground"
                       : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
                   )}
-                  onClick={() => setActiveSession(session.id)}
+                  onClick={() => handleSelectSession(session.id)}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     setMenuOpenId(menuOpenId === session.id ? null : session.id);

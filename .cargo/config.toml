@@ -1,0 +1,19 @@
+# Cargo configuration for DevPilot
+# This configures build behavior, registries, and test settings
+
+[build]
+# Enable optimized builds for dependencies (faster compile)
+incremental = true
+
+[net]
+# Retry fetching crates 3 times
+retry = 3
+# Use 4 parallel downloads
+git-fetch-with-cli = true
+
+[http]
+# Check for new registry version (disable for speed offline)
+check-revoke = false
+
+# Workspace-specific test configuration
+# Run with: cargo test --workspace

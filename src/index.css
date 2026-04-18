@@ -139,3 +139,15 @@ body {
 
 /* Focus ring */
 :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: var(--radius-sm); }
+
+/* Sidebar drawer animation (mobile) */
+@keyframes slide-in-from-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+.animate-in {
+  animation: slide-in-from-left 200ms ease-out;
+}
+.md\:animate-none {
+  animation: none;
+}
