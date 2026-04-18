@@ -1,4 +1,4 @@
-use crate::{AppState, SessionInfo, MessageInfo, SettingEntry, UsageRecord};
+use crate::{AppState, MessageInfo, SessionInfo, SettingEntry, UsageRecord};
 use tauri::State;
 
 /// Health check / ping command.
@@ -216,16 +216,15 @@ pub fn add_message(
 
 /// Get a setting value by key.
 #[tauri::command]
-pub fn get_setting(
-    state: State<'_, AppState>,
-    key: String,
-) -> Result<Option<String>, String> {
+pub fn get_setting(state: State<'_, AppState>, key: String) -> Result<Option<String>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let result = db
         .conn
-        .query_row("SELECT value FROM settings WHERE key = ?1", rusqlite::params![key], |row| {
-            row.get::<_, String>(0)
-        })
+        .query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            rusqlite::params![key],
+            |row| row.get::<_, String>(0),
+        )
         .ok();
 
     Ok(result)
@@ -233,11 +232,7 @@ pub fn get_setting(
 
 /// Set a setting value (upsert).
 #[tauri::command]
-pub fn set_setting(
-    state: State<'_, AppState>,
-    key: String,
-    value: String,
-) -> Result<(), String> {
+pub fn set_setting(state: State<'_, AppState>, key: String, value: String) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.conn
         .execute(

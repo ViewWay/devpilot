@@ -1,10 +1,10 @@
 [package]
 name = "devpilot"
-version = "0.1.0"
+version.workspace = true
 description = "DevPilot — AI Coding Agent Desktop Client"
-authors = ["DevPilot Team"]
-license = "Apache-2.0"
-edition = "2024"
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
 
 [lib]
 name = "devpilot_lib"
@@ -14,18 +14,20 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+devpilot-protocol = { path = "../crates/devpilot-protocol" }
+devpilot-llm = { path = "../crates/devpilot-llm" }
 tauri = { version = "2", features = [] }
 tauri-plugin-log = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-tokio = { version = "1", features = ["full"] }
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
 rusqlite = { version = "0.31", features = ["bundled"] }
-thiserror = "2"
-anyhow = "1"
-uuid = { version = "1", features = ["v4", "serde"] }
-chrono = { version = "0.4", features = ["serde"] }
-tracing = "0.1"
+thiserror.workspace = true
+anyhow.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+tracing.workspace = true
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

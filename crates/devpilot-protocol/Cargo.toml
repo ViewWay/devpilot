@@ -1,0 +1,11 @@
+[package]
+name = "devpilot-protocol"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Shared types and protocol definitions for DevPilot"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true

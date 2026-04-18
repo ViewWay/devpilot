@@ -1,0 +1,786 @@
+//! OpenAI-compatible API provider.
+//!
+//! Supports: OpenAI, OpenRouter, GLM (智谱), Qwen (通义), DeepSeek,
+//! Moonshot (月之暗面), Yi (零一万物), and any OpenAI-compatible endpoint.
+
+use async_trait::async_trait;
+use devpilot_protocol::{
+    ChatRequest, ChatResponse, ContentBlock, FinishReason, Message, MessageRole, ProviderConfig,
+    ProviderType, StreamEvent, ToolDefinition, ToolUseDelta, Usage,
+};
+use eventsource_stream::Eventsource;
+use futures::StreamExt;
+use reqwest::Client;
+use tracing::{debug, warn};
+
+use crate::error::LlmError;
+use crate::provider::{ModelProvider, StreamResult};
+
+// ── OpenAI request/response types ──────────────────────
+
+#[derive(serde::Serialize)]
+struct OaiRequest {
+    model: String,
+    messages: Vec<OaiMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    system: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    temperature: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    top_p: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stop: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tools: Option<Vec<OaiTool>>,
+    stream: bool,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct OaiMessage {
+    role: String,
+    content: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_call_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_calls: Option<Vec<OaiToolCall>>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct OaiToolCall {
+    id: String,
+    #[serde(rename = "type")]
+    call_type: String,
+    function: OaiFunction,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct OaiFunction {
+    name: String,
+    arguments: String,
+}
+
+#[derive(serde::Serialize)]
+struct OaiTool {
+    #[serde(rename = "type")]
+    tool_type: String,
+    function: OaiToolDef,
+}
+
+#[derive(serde::Serialize)]
+struct OaiToolDef {
+    name: String,
+    description: String,
+    parameters: serde_json::Value,
+}
+
+#[derive(serde::Deserialize)]
+struct OaiResponse {
+    id: String,
+    model: String,
+    choices: Vec<OaiChoice>,
+    usage: Option<OaiUsage>,
+}
+
+#[derive(serde::Deserialize)]
+struct OaiChoice {
+    message: OaiResponseMessage,
+    finish_reason: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+#[allow(dead_code)]
+struct OaiResponseMessage {
+    role: String,
+    content: Option<serde_json::Value>,
+    tool_calls: Option<Vec<OaiToolCall>>,
+}
+
+#[derive(serde::Deserialize)]
+#[allow(dead_code)]
+struct OaiUsage {
+    prompt_tokens: u32,
+    completion_tokens: u32,
+    total_tokens: u32,
+}
+
+#[derive(serde::Deserialize)]
+#[allow(dead_code)]
+struct OaiStreamChunk {
+    id: Option<String>,
+    model: Option<String>,
+    choices: Vec<OaiStreamChoice>,
+    usage: Option<OaiUsage>,
+}
+
+#[derive(serde::Deserialize)]
+#[allow(dead_code)]
+struct OaiStreamChoice {
+    delta: OaiStreamDelta,
+    finish_reason: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+struct OaiStreamDelta {
+    role: Option<String>,
+    content: Option<String>,
+    tool_calls: Option<Vec<OaiStreamToolCall>>,
+}
+
+#[derive(serde::Deserialize)]
+#[allow(dead_code)]
+struct OaiStreamToolCall {
+    index: u32,
+    id: Option<String>,
+    #[serde(rename = "type")]
+    call_type: Option<String>,
+    function: Option<OaiStreamFunction>,
+}
+
+#[derive(serde::Deserialize)]
+struct OaiStreamFunction {
+    name: Option<String>,
+    arguments: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+struct OaiModelError {
+    error: OaiErrorBody,
+}
+
+#[derive(serde::Deserialize)]
+#[allow(dead_code)]
+struct OaiErrorBody {
+    message: String,
+    #[serde(rename = "type")]
+    error_type: Option<String>,
+    code: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+struct OaiModelList {
+    data: Vec<OaiModelInfo>,
+}
+
+#[derive(serde::Deserialize)]
+struct OaiModelInfo {
+    id: String,
+}
+
+// ── Provider implementation ────────────────────────────
+
+/// OpenAI-compatible API provider.
+///
+/// Works with any API that follows the OpenAI chat completions format:
+/// - OpenAI (GPT-4, GPT-4o, o1, o3, etc.)
+/// - OpenRouter (multi-model gateway)
+/// - GLM (智谱清言)
+/// - Qwen (通义千问)
+/// - DeepSeek
+/// - Moonshot (月之暗面)
+/// - Yi (零一万物)
+/// - Any custom endpoint with OpenAI-compatible format
+pub struct OpenAiProvider {
+    config: ProviderConfig,
+    client: Client,
+}
+
+impl std::fmt::Debug for OpenAiProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OpenAiProvider")
+            .field("name", &self.config.name)
+            .finish()
+    }
+}
+
+impl OpenAiProvider {
+    /// Create a new OpenAI-compatible provider.
+    pub fn new(config: ProviderConfig) -> Self {
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(120))
+            .build()
+            .expect("Failed to create HTTP client");
+
+        Self { config, client }
+    }
+
+    fn base_url(&self) -> &str {
+        &self.config.base_url
+    }
+
+    fn api_key(&self) -> Result<&str, LlmError> {
+        self.config
+            .api_key
+            .as_deref()
+            .ok_or_else(|| LlmError::ProviderNotConfigured(self.config.name.clone()))
+    }
+
+    /// Convert protocol messages to OpenAI format.
+    fn convert_messages(messages: &[Message]) -> Vec<OaiMessage> {
+        messages
+            .iter()
+            .map(|msg| {
+                let content = Self::convert_content(&msg.content);
+                OaiMessage {
+                    role: msg.role.to_string(),
+                    content,
+                    name: msg.name.clone(),
+                    tool_call_id: msg.tool_call_id.clone(),
+                    tool_calls: msg
+                        .content
+                        .iter()
+                        .filter_map(|b| match b {
+                            ContentBlock::ToolUse { id, name, input } => Some(OaiToolCall {
+                                id: id.clone(),
+                                call_type: "function".into(),
+                                function: OaiFunction {
+                                    name: name.clone(),
+                                    arguments: serde_json::to_string(input).unwrap_or_default(),
+                                },
+                            }),
+                            _ => None,
+                        })
+                        .collect::<Vec<_>>()
+                        .into(),
+                }
+            })
+            .collect()
+    }
+
+    /// Convert content blocks to OpenAI's content format.
+    /// OpenAI uses:
+    /// - string for text-only
+    /// - array of content parts for multimodal
+    fn convert_content(blocks: &[ContentBlock]) -> serde_json::Value {
+        if blocks.len() == 1
+            && let ContentBlock::Text { text } = &blocks[0]
+        {
+            return serde_json::Value::String(text.clone());
+        }
+
+        let parts: Vec<serde_json::Value> = blocks
+            .iter()
+            .map(|block| match block {
+                ContentBlock::Text { text } => serde_json::json!({
+                    "type": "text",
+                    "text": text,
+                }),
+                ContentBlock::Image { source } => match source {
+                    devpilot_protocol::ImageSource::Url { url } => serde_json::json!({
+                        "type": "image_url",
+                        "image_url": { "url": url },
+                    }),
+                    devpilot_protocol::ImageSource::Base64 { media_type, data } => {
+                        serde_json::json!({
+                            "type": "image_url",
+                            "image_url": {
+                                "url": format!("data:{};base64,{}", media_type, data),
+                            },
+                        })
+                    }
+                },
+                ContentBlock::ToolResult {
+                    tool_use_id,
+                    content,
+                    is_error,
+                } => serde_json::json!({
+                    "type": "tool_result",
+                    "tool_use_id": tool_use_id,
+                    "content": content,
+                    "is_error": is_error,
+                }),
+                ContentBlock::ToolUse { .. } => {
+                    // Tool calls are handled separately in OaiMessage.tool_calls
+                    serde_json::Value::Null
+                }
+            })
+            .filter(|v| !v.is_null())
+            .collect();
+
+        serde_json::Value::Array(parts)
+    }
+
+    /// Convert protocol tools to OpenAI format.
+    fn convert_tools(tools: &[ToolDefinition]) -> Vec<OaiTool> {
+        tools
+            .iter()
+            .map(|t| OaiTool {
+                tool_type: "function".into(),
+                function: OaiToolDef {
+                    name: t.name.clone(),
+                    description: t.description.clone(),
+                    parameters: t.input_schema.clone(),
+                },
+            })
+            .collect()
+    }
+
+    /// Parse finish reason from OpenAI's string format.
+    fn parse_finish_reason(reason: Option<&str>) -> FinishReason {
+        match reason {
+            Some("stop") => FinishReason::Stop,
+            Some("length") => FinishReason::Length,
+            Some("tool_calls") | Some("function_call") => FinishReason::ToolUse,
+            Some("content_filter") => FinishReason::ContentFilter,
+            _ => FinishReason::Stop,
+        }
+    }
+
+    /// Convert OAI response message to protocol Message.
+    fn convert_response_message(msg: OaiResponseMessage) -> Message {
+        let mut content_blocks = Vec::new();
+
+        if let Some(c) = msg.content {
+            match c {
+                serde_json::Value::String(text) if !text.is_empty() => {
+                    content_blocks.push(ContentBlock::Text { text });
+                }
+                serde_json::Value::Array(parts) => {
+                    for part in parts {
+                        if part["type"] == "text"
+                            && let Some(text) = part["text"].as_str()
+                        {
+                            content_blocks.push(ContentBlock::Text {
+                                text: text.to_string(),
+                            });
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        if let Some(calls) = msg.tool_calls {
+            for call in calls {
+                let input: serde_json::Value =
+                    serde_json::from_str(&call.function.arguments).unwrap_or(serde_json::json!({}));
+                content_blocks.push(ContentBlock::ToolUse {
+                    id: call.id,
+                    name: call.function.name,
+                    input,
+                });
+            }
+        }
+
+        Message {
+            role: MessageRole::Assistant,
+            content: content_blocks,
+            name: None,
+            tool_call_id: None,
+        }
+    }
+
+    /// Build the chat completions URL.
+    fn chat_url(&self) -> String {
+        let base = self.base_url().trim_end_matches('/');
+        format!("{base}/v1/chat/completions")
+    }
+
+    /// Build the models list URL.
+    fn models_url(&self) -> String {
+        let base = self.base_url().trim_end_matches('/');
+        format!("{base}/v1/models")
+    }
+}
+
+#[async_trait]
+impl ModelProvider for OpenAiProvider {
+    fn config(&self) -> &ProviderConfig {
+        &self.config
+    }
+
+    async fn chat(&self, request: ChatRequest) -> Result<ChatResponse, LlmError> {
+        let url = self.chat_url();
+        let tools = request.tools.as_ref().map(|t| Self::convert_tools(t));
+
+        let oai_req = OaiRequest {
+            model: request.model.clone(),
+            messages: Self::convert_messages(&request.messages),
+            system: request.system,
+            temperature: request.temperature,
+            max_tokens: request.max_tokens,
+            top_p: request.top_p,
+            stop: request.stop,
+            tools,
+            stream: false,
+        };
+
+        debug!(model = %request.model, "Sending non-streaming chat request to {}", url);
+
+        let resp = self
+            .client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", self.api_key()?))
+            .header("Content-Type", "application/json")
+            .json(&oai_req)
+            .send()
+            .await?;
+
+        let status = resp.status();
+        let body = resp.text().await?;
+
+        if !status.is_success() {
+            if let Ok(err) = serde_json::from_str::<OaiModelError>(&body) {
+                return Err(LlmError::ApiError {
+                    status: status.as_u16(),
+                    message: err.error.message,
+                });
+            }
+            return Err(LlmError::ApiError {
+                status: status.as_u16(),
+                message: body,
+            });
+        }
+
+        let oai_resp: OaiResponse = serde_json::from_str(&body)
+            .map_err(|e| LlmError::UnexpectedResponse(format!("Failed to parse response: {e}")))?;
+
+        let choice = oai_resp
+            .choices
+            .into_iter()
+            .next()
+            .ok_or_else(|| LlmError::UnexpectedResponse("No choices in response".into()))?;
+
+        let usage = oai_resp
+            .usage
+            .map(|u| Usage {
+                input_tokens: u.prompt_tokens,
+                output_tokens: u.completion_tokens,
+                cache_read_tokens: None,
+                cache_write_tokens: None,
+            })
+            .unwrap_or_default();
+
+        Ok(ChatResponse {
+            id: oai_resp.id,
+            message: Self::convert_response_message(choice.message),
+            model: oai_resp.model,
+            usage,
+            finish_reason: Self::parse_finish_reason(choice.finish_reason.as_deref()),
+        })
+    }
+
+    async fn chat_stream(
+        &self,
+        request: ChatRequest,
+        session_id: String,
+    ) -> Result<StreamResult, LlmError> {
+        let url = self.chat_url();
+        let tools = request.tools.as_ref().map(|t| Self::convert_tools(t));
+
+        let oai_req = OaiRequest {
+            model: request.model.clone(),
+            messages: Self::convert_messages(&request.messages),
+            system: request.system,
+            temperature: request.temperature,
+            max_tokens: request.max_tokens,
+            top_p: request.top_p,
+            stop: request.stop,
+            tools,
+            stream: true,
+        };
+
+        debug!(model = %request.model, %session_id, "Sending streaming chat request to {}", url);
+
+        let resp = self
+            .client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", self.api_key()?))
+            .header("Content-Type", "application/json")
+            .json(&oai_req)
+            .send()
+            .await?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let body = resp.text().await?;
+            if let Ok(err) = serde_json::from_str::<OaiModelError>(&body) {
+                return Err(LlmError::ApiError {
+                    status: status.as_u16(),
+                    message: err.error.message,
+                });
+            }
+            return Err(LlmError::ApiError {
+                status: status.as_u16(),
+                message: body,
+            });
+        }
+
+        let stream = resp.bytes_stream().eventsource();
+
+        let event_stream = stream.filter_map(move |result| {
+            let sid = session_id.clone();
+            async move {
+                match result {
+                    Ok(event) => {
+                        if event.data == "[DONE]" {
+                            return Some(Err(LlmError::StreamError("Unexpected [DONE]".into())));
+                        }
+                        let chunk: OaiStreamChunk = match serde_json::from_str(&event.data) {
+                            Ok(c) => c,
+                            Err(e) => {
+                                warn!("Failed to parse stream chunk: {e}");
+                                return None;
+                            }
+                        };
+
+                        let choice = chunk.choices.first()?;
+                        let delta = &choice.delta;
+
+                        let role = delta.role.as_deref().and_then(|r| match r {
+                            "assistant" => Some(MessageRole::Assistant),
+                            _ => None,
+                        });
+
+                        let tool_use = delta.tool_calls.as_ref().and_then(|calls| {
+                            calls.first().map(|tc| ToolUseDelta {
+                                id: tc.id.clone(),
+                                name: tc.function.as_ref().and_then(|f| f.name.clone()),
+                                input_json: tc.function.as_ref().and_then(|f| f.arguments.clone()),
+                            })
+                        });
+
+                        Some(Ok(StreamEvent::Chunk {
+                            session_id: sid,
+                            delta: delta.content.clone(),
+                            role,
+                            tool_use,
+                        }))
+                    }
+                    Err(e) => Some(Err(LlmError::StreamError(e.to_string()))),
+                }
+            }
+        });
+
+        Ok(Box::pin(event_stream))
+    }
+
+    async fn probe(&self) -> Result<(), LlmError> {
+        let url = self.models_url();
+        let resp = self
+            .client
+            .get(&url)
+            .header("Authorization", format!("Bearer {}", self.api_key()?))
+            .send()
+            .await?;
+
+        let status = resp.status();
+        if status.is_success() {
+            debug!(provider = %self.config.name, "Probe successful");
+            Ok(())
+        } else if status.as_u16() == 401 {
+            Err(LlmError::AuthError("Invalid API key".to_string()))
+        } else if status.as_u16() == 429 {
+            Err(LlmError::RateLimitError {
+                retry_after: resp
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|v| v.parse().ok()),
+            })
+        } else {
+            let body = resp.text().await.unwrap_or_default();
+            Err(LlmError::ApiError {
+                status: status.as_u16(),
+                message: body,
+            })
+        }
+    }
+
+    async fn list_models(&self) -> Result<Vec<String>, LlmError> {
+        let url = self.models_url();
+        let resp = self
+            .client
+            .get(&url)
+            .header("Authorization", format!("Bearer {}", self.api_key()?))
+            .send()
+            .await?;
+
+        let status = resp.status();
+        let body = resp.text().await?;
+
+        if !status.is_success() {
+            // Some providers don't support /v1/models, fall back to config
+            warn!(
+                provider = %self.config.name,
+                "Failed to list models (HTTP {}), using config list",
+                status
+            );
+            return Ok(self.config.models.iter().map(|m| m.id.clone()).collect());
+        }
+
+        match serde_json::from_str::<OaiModelList>(&body) {
+            Ok(list) => Ok(list.data.into_iter().map(|m| m.id).collect()),
+            Err(_) => {
+                warn!("Failed to parse model list, using config");
+                Ok(self.config.models.iter().map(|m| m.id.clone()).collect())
+            }
+        }
+    }
+}
+
+// ── Factory ────────────────────────────────────────────
+
+/// Create an OpenAI-compatible provider from config.
+/// This is a convenience function for the provider registry.
+pub fn create_openai_provider(config: ProviderConfig) -> Result<OpenAiProvider, LlmError> {
+    if config.api_key.is_none() && config.provider_type != ProviderType::Ollama {
+        return Err(LlmError::ProviderNotConfigured(format!(
+            "No API key for {}",
+            config.name
+        )));
+    }
+    Ok(OpenAiProvider::new(config))
+}
+
+// ── Tests ──────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use devpilot_protocol::{ImageSource, ProviderType};
+
+    fn test_config() -> ProviderConfig {
+        ProviderConfig {
+            id: "test-openai".into(),
+            name: "Test OpenAI".into(),
+            provider_type: ProviderType::OpenAI,
+            base_url: "https://api.openai.com".into(),
+            api_key: Some("sk-test-key".into()),
+            models: vec![],
+            enabled: true,
+        }
+    }
+
+    #[test]
+    fn provider_creation() {
+        let config = test_config();
+        let provider = create_openai_provider(config).unwrap();
+        assert_eq!(provider.name(), "Test OpenAI");
+    }
+
+    #[test]
+    fn provider_creation_no_key() {
+        let config = ProviderConfig {
+            api_key: None,
+            ..test_config()
+        };
+        let result = create_openai_provider(config);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("No API key"));
+    }
+
+    #[test]
+    fn convert_simple_message() {
+        let msgs = vec![Message::text(MessageRole::User, "Hello")];
+        let oai_msgs = OpenAiProvider::convert_messages(&msgs);
+        assert_eq!(oai_msgs.len(), 1);
+        assert_eq!(oai_msgs[0].role, "user");
+        assert_eq!(
+            oai_msgs[0].content,
+            serde_json::Value::String("Hello".into())
+        );
+    }
+
+    #[test]
+    fn convert_multimodal_message() {
+        let msgs = vec![Message {
+            role: MessageRole::User,
+            content: vec![
+                ContentBlock::Text {
+                    text: "What is this?".into(),
+                },
+                ContentBlock::Image {
+                    source: ImageSource::Url {
+                        url: "https://example.com/img.png".into(),
+                    },
+                },
+            ],
+            name: None,
+            tool_call_id: None,
+        }];
+        let oai_msgs = OpenAiProvider::convert_messages(&msgs);
+        assert_eq!(oai_msgs.len(), 1);
+        let content = oai_msgs[0].content.as_array().unwrap();
+        assert_eq!(content.len(), 2);
+        assert_eq!(content[0]["type"], "text");
+        assert_eq!(content[1]["type"], "image_url");
+    }
+
+    #[test]
+    fn convert_tools() {
+        let tools = vec![ToolDefinition {
+            name: "read_file".into(),
+            description: "Read a file".into(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "path": { "type": "string" }
+                },
+                "required": ["path"]
+            }),
+        }];
+        let oai_tools = OpenAiProvider::convert_tools(&tools);
+        assert_eq!(oai_tools.len(), 1);
+        assert_eq!(oai_tools[0].tool_type, "function");
+        assert_eq!(oai_tools[0].function.name, "read_file");
+    }
+
+    #[test]
+    fn parse_finish_reasons() {
+        assert_eq!(
+            OpenAiProvider::parse_finish_reason(Some("stop")),
+            FinishReason::Stop
+        );
+        assert_eq!(
+            OpenAiProvider::parse_finish_reason(Some("length")),
+            FinishReason::Length
+        );
+        assert_eq!(
+            OpenAiProvider::parse_finish_reason(Some("tool_calls")),
+            FinishReason::ToolUse
+        );
+        assert_eq!(
+            OpenAiProvider::parse_finish_reason(None),
+            FinishReason::Stop
+        );
+    }
+
+    #[test]
+    fn chat_url_construction() {
+        let provider = OpenAiProvider::new(test_config());
+        assert_eq!(
+            provider.chat_url(),
+            "https://api.openai.com/v1/chat/completions"
+        );
+    }
+
+    #[test]
+    fn chat_url_trailing_slash() {
+        let mut config = test_config();
+        config.base_url = "https://api.openai.com/".into();
+        let provider = OpenAiProvider::new(config);
+        assert_eq!(
+            provider.chat_url(),
+            "https://api.openai.com/v1/chat/completions"
+        );
+    }
+
+    #[test]
+    fn ollama_allows_no_key() {
+        let config = ProviderConfig {
+            id: "test-ollama".into(),
+            name: "Ollama".into(),
+            provider_type: ProviderType::Ollama,
+            base_url: "http://localhost:11434".into(),
+            api_key: None,
+            models: vec![],
+            enabled: true,
+        };
+        // Ollama should not require an API key
+        assert!(create_openai_provider(config).is_ok());
+    }
+}
