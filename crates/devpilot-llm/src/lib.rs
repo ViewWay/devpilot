@@ -18,3 +18,6 @@ pub use ollama::OllamaProvider;
 pub use openai::{OpenAiProvider, create_openai_provider};
 pub use provider::ModelProvider;
 pub use registry::{ProviderRegistry, create_provider};
+pub use types::{
+    CostEstimate, ModelPricing, TokenCountConfig, estimate_chat_tokens, estimate_tokens,
+};

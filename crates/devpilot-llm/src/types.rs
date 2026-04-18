@@ -97,6 +97,45 @@ pub fn estimate_tokens(text: &str, config: &TokenCountConfig) -> u32 {
     (chars / config.chars_per_token).ceil() as u32
 }
 
+/// Estimate total input tokens for a full chat request.
+///
+/// This counts tokens for the system prompt, all messages (including
+/// per-message overhead), and tool definitions. It uses the character-based
+/// estimator which is a rough approximation — actual token counts depend
+/// on the tokenizer used by the specific model.
+pub fn estimate_chat_tokens(
+    system: Option<&str>,
+    messages: &[devpilot_protocol::Message],
+    tools: Option<&[devpilot_protocol::ToolDefinition]>,
+    config: &TokenCountConfig,
+) -> u32 {
+    let mut total = config.system_overhead;
+
+    // System prompt tokens
+    if let Some(sys) = system {
+        total += estimate_tokens(sys, config);
+    }
+
+    // Message tokens (text content + per-message overhead)
+    for msg in messages {
+        total += config.per_message_overhead;
+        total += estimate_tokens(&msg.text_content(), config);
+    }
+
+    // Tool definition tokens (name + description + schema JSON)
+    if let Some(tools) = tools {
+        for tool in tools {
+            total += estimate_tokens(&tool.name, config);
+            total += estimate_tokens(&tool.description, config);
+            // Schema is typically compact JSON
+            let schema_str = serde_json::to_string(&tool.input_schema).unwrap_or_default();
+            total += estimate_tokens(&schema_str, config);
+        }
+    }
+
+    total
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -133,5 +172,37 @@ mod tests {
         assert!(count > 0);
         // "Hello, world!" = 13 chars / 3.0 ≈ 4.33 → 5
         assert_eq!(count, 5);
+    }
+
+    #[test]
+    fn estimate_chat_tokens_basic() {
+        use devpilot_protocol::{Message, MessageRole};
+
+        let config = TokenCountConfig::default();
+        let messages = vec![
+            Message::text(MessageRole::User, "Hello"),
+            Message::text(MessageRole::Assistant, "Hi there!"),
+        ];
+
+        let count = estimate_chat_tokens(Some("You are helpful."), &messages, None, &config);
+        // system overhead (10) + "You are helpful." estimate (6) + 2 messages * (5 + text tokens)
+        assert!(count > 20);
+    }
+
+    #[test]
+    fn estimate_chat_tokens_with_tools() {
+        use devpilot_protocol::{Message, MessageRole, ToolDefinition};
+
+        let config = TokenCountConfig::default();
+        let messages = vec![Message::text(MessageRole::User, "Use the tool")];
+        let tools = vec![ToolDefinition {
+            name: "read_file".to_string(),
+            description: "Read a file from disk".to_string(),
+            input_schema: serde_json::json!({"type": "object", "properties": {"path": {"type": "string"}}}),
+        }];
+
+        let without_tools = estimate_chat_tokens(None, &messages, None, &config);
+        let with_tools = estimate_chat_tokens(None, &messages, Some(&tools), &config);
+        assert!(with_tools > without_tools);
     }
 }
