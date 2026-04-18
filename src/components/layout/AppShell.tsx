@@ -1,23 +1,21 @@
-import type { ReactNode } from "react";
 import { Sidebar } from "./Sidebar";
-import { Header } from "./Header";
+import { TopBar } from "./TopBar";
 import { ChatPanel } from "../chat/ChatPanel";
+import { useState } from "react";
 
-interface AppShellProps {
-  children?: ReactNode;
-}
+export function AppShell() {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
-export function AppShell({ children }: AppShellProps) {
   return (
-    <div className="flex h-screen w-screen bg-[var(--color-bg-primary)]">
+    <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
       {/* Sidebar */}
-      <Sidebar />
+      {sidebarOpen && <Sidebar />}
 
-      {/* Main Area */}
-      <div className="flex flex-1 flex-col min-w-0">
-        <Header />
+      {/* Main content */}
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <TopBar sidebarOpen={sidebarOpen} onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
         <main className="flex-1 overflow-hidden">
-          {children ?? <ChatPanel />}
+          <ChatPanel />
         </main>
       </div>
     </div>
