@@ -122,6 +122,8 @@ const zh: Record<string, string> = {
   scheduler: "定时任务",
   bridge: "桥接",
   preview: "预览",
+  terminal: "终端",
+  close: "关闭",
   file: "文件",
   diff: "对比",
   files: "文件列表",

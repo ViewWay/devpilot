@@ -122,6 +122,8 @@ const en: Record<string, string> = {
   scheduler: "Scheduler",
   bridge: "Bridge",
   preview: "Preview",
+  terminal: "Terminal",
+  close: "Close",
   file: "File",
   diff: "Diff",
   files: "Files",

@@ -6,6 +6,7 @@ import { SplitView } from "../layout/SplitView";
 import { FilesPanel } from "../panels/FilesPanel";
 import { TerminalPanel } from "../panels/TerminalPanel";
 import { PreviewPanel } from "../panels/PreviewPanel";
+import { RightPanelTabs } from "../panels/RightPanelTabs";
 import { Loader2, AlertCircle } from "lucide-react";
 import { useI18n } from "../../i18n";
 
@@ -36,16 +37,16 @@ function ChatContent() {
 
 function RightContent() {
   const rightPanel = useUIStore((s) => s.rightPanel);
-  switch (rightPanel) {
-    case "files":
-      return <FilesPanel />;
-    case "terminal":
-      return <TerminalPanel />;
-    case "preview":
-      return <PreviewPanel />;
-    default:
-      return null;
-  }
+  return (
+    <div className="flex h-full flex-col">
+      <RightPanelTabs />
+      <div className="flex-1 overflow-hidden">
+        {rightPanel === "files" && <FilesPanel />}
+        {rightPanel === "terminal" && <TerminalPanel />}
+        {rightPanel === "preview" && <PreviewPanel />}
+      </div>
+    </div>
+  );
 }
 
 export function ChatPanel() {
