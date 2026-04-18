@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# pre-push: Scan for accidental secrets before pushing to remote
+
+set -euo pipefail
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m'
+
+# Patterns that look like real secrets (not placeholders/tests)
+PATTERNS=(
+  'sk-[a-zA-Z0-9]{20,}'         # OpenAI/Anthropic API keys (real length)
+  'ghp_[a-zA-Z0-9]{30,}'        # GitHub PATs
+  'gho_[a-zA-Z0-9]{30,}'        # GitHub OAuth
+  'xox[bposa]-[a-zA-Z0-9-]{20,}' # Slack tokens
+  'AKIA[A-Z0-9]{16}'            # AWS access keys
+  'AIza[a-zA-Z0-9_-]{35}'       # Google API keys
+  'hooks\.slack\.com/services/T[A-Z0-9]{8,}/B[A-Z0-9]{8,}/[a-zA-Z0-9]{20,}' # Slack webhooks
+  '-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----' # Private keys
+)
+
+FOUND=0
+
+for PATTERN in "${PATTERNS[@]}"; do
+  # Only scan tracked files that are about to be pushed
+  MATCHES=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null | \
+    xargs grep -lE "$PATTERN" 2>/dev/null || true)
+  # Also check uncommitted changes in tracked files
+  MATCHES2=$(git diff --name-only 2>/dev/null | \
+    xargs grep -lE "$PATTERN" 2>/dev/null || true)
+
+  ALL_MATCHES=$(echo -e "${MATCHES}\n${MATCHES2}" | sort -u | grep -v '^$' || true)
+
+  if [ -n "$ALL_MATCHES" ]; then
+    echo -e "${RED}[BLOCKED] Possible secret detected matching: ${PATTERN}${NC}"
+    echo "  Files: $ALL_MATCHES"
+    FOUND=1
+  fi
+done
+
+# Also check git log for recent commits (last 5) being pushed
+REMOTE_BRANCH=$(git rev-parse --abbrev-ref @{push} 2>/dev/null || echo "")
+if [ -n "$REMOTE_BRANCH" ]; then
+  LOCAL_SHA=$(git rev-parse HEAD)
+  REMOTE_SHA=$(git rev-parse "@{push}" 2>/dev/null || echo "")
+
+  if [ "$LOCAL_SHA" != "$REMOTE_SHA" ]; then
+    COMMITS=$(git log "${REMOTE_SHA}..${LOCAL_SHA}" --oneline 2>/dev/null || true)
+    if [ -n "$COMMITS" ]; then
+      for PATTERN in "${PATTERNS[@]}"; do
+        LEAK=$(git log "${REMOTE_SHA}..${LOCAL_SHA}" -p 2>/dev/null | grep -E "$PATTERN" || true)
+        if [ -n "$LEAK" ]; then
+          echo -e "${RED}[BLOCKED] Secret detected in commit history matching: ${PATTERN}${NC}"
+          echo "  To fix: rewrite git history with git rebase -i or BFG Repo-Cleaner"
+          FOUND=1
+        fi
+      done
+    fi
+  fi
+fi
+
+if [ $FOUND -eq 1 ]; then
+  echo ""
+  echo -e "${RED}Push blocked: possible secrets detected.${NC}"
+  echo "If this is a false positive, use: git push --no-verify"
+  exit 1
+fi
+
+echo -e "${GREEN}✓ No secrets detected in push${NC}"
+exit 0
