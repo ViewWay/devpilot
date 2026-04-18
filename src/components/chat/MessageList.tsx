@@ -228,7 +228,8 @@ function DemoApproval() {
         createdAt: new Date().toLocaleTimeString(),
       }}
       onApprove={() => setVisible(false)}
-      onReject={() => setVisible(false)}
+      onDeny={() => setVisible(false)}
+      onAllowAll={() => setVisible(false)}
     />
   );
 }
