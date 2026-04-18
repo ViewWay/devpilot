@@ -12,6 +12,8 @@ const DEFAULT_MODELS: ModelInfo[] = [
 ];
 
 export type Theme = "dark" | "light" | "system";
+export type ActiveView = "chat" | "settings";
+export type RightPanel = "none" | "files" | "terminal" | "preview";
 
 interface UIState {
   sidebarOpen: boolean;
@@ -24,6 +26,16 @@ interface UIState {
 
   activeMode: AgentMode;
   setActiveMode: (mode: AgentMode) => void;
+
+  activeView: ActiveView;
+  setActiveView: (view: ActiveView) => void;
+
+  rightPanel: RightPanel;
+  setRightPanel: (panel: RightPanel) => void;
+  toggleRightPanel: (panel: RightPanel) => void;
+
+  panelSize: number; // percentage 20-80, default 50
+  setPanelSize: (size: number) => void;
 
   theme: Theme;
   setTheme: (theme: Theme) => void;
@@ -38,7 +50,6 @@ function applyTheme(theme: Theme) {
     root.classList.add("light");
     root.classList.remove("dark");
   } else {
-    // system
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     root.classList.toggle("dark", prefersDark);
     root.classList.toggle("light", !prefersDark);
@@ -56,6 +67,17 @@ export const useUIStore = create<UIState>((set) => ({
 
   activeMode: "code",
   setActiveMode: (mode) => set({ activeMode: mode }),
+
+  activeView: "chat",
+  setActiveView: (view) => set({ activeView: view }),
+
+  rightPanel: "none",
+  setRightPanel: (panel) => set({ rightPanel: panel }),
+  toggleRightPanel: (panel) =>
+    set((s) => ({ rightPanel: s.rightPanel === panel ? "none" : panel })),
+
+  panelSize: 50,
+  setPanelSize: (size) => set({ panelSize: Math.max(20, Math.min(80, size)) }),
 
   theme: "dark",
   setTheme: (theme) => {

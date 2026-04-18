@@ -14,6 +14,8 @@ import {
   MessageSquare,
   PanelLeftClose,
   PanelLeft,
+  Pencil,
+  Archive,
 } from "lucide-react";
 
 export function Sidebar() {
@@ -153,18 +155,43 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
   const activeSessionId = useChatStore((s) => s.activeSessionId);
   const setActiveSession = useChatStore((s) => s.setActiveSession);
   const deleteSession = useChatStore((s) => s.deleteSession);
+  const updateSessionTitle = useChatStore((s) => s.updateSessionTitle);
+  const archiveSession = useChatStore((s) => s.archiveSession);
   const searchSessions = useChatStore((s) => s.searchSessions);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const renameRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   // Close menu on click outside
   useEffect(() => {
     if (!menuOpenId) return;
-    const handler = () => setMenuOpenId(null);
-    document.addEventListener("click", handler);
-    return () => document.removeEventListener("click", handler);
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpenId(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, [menuOpenId]);
 
-  const filtered = searchQuery ? searchSessions(searchQuery) : sessions;
+  // Focus rename input
+  useEffect(() => {
+    if (renamingId && renameRef.current) {
+      renameRef.current.focus();
+      renameRef.current.select();
+    }
+  }, [renamingId]);
+
+  const handleRename = (id: string) => {
+    if (renameValue.trim()) {
+      updateSessionTitle(id, renameValue.trim());
+    }
+    setRenamingId(null);
+  };
+
+  const filtered = (searchQuery ? searchSessions(searchQuery) : sessions).filter((s) => !s.archived);
 
   // Group by time period
   const groups = useMemo(() => {
@@ -221,25 +248,78 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
                       : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
                   )}
                   onClick={() => setActiveSession(session.id)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setMenuOpenId(menuOpenId === session.id ? null : session.id);
+                  }}
                 >
                   <MessageSquare size={13} className="shrink-0 opacity-60" />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-xs font-medium">{session.title}</div>
+                    {renamingId === session.id ? (
+                      <input
+                        ref={renameRef}
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onBlur={() => handleRename(session.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleRename(session.id);
+                          if (e.key === "Escape") setRenamingId(null);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full rounded bg-background px-1 py-0 text-xs outline-none ring-1 ring-primary"
+                      />
+                    ) : (
+                      <div className="truncate text-xs font-medium">{session.title}</div>
+                    )}
                     <div className="text-[10px] opacity-60">{relativeTime(session.updatedAt)}</div>
                   </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMenuOpenId(menuOpenId === session.id ? null : session.id);
-                    }}
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10"
-                  >
-                    {menuOpenId === session.id ? (
-                      <Trash2 size={12} className="text-destructive" onClick={(e) => { e.stopPropagation(); deleteSession(session.id); setMenuOpenId(null); }} />
-                    ) : (
+                  <div className="relative" ref={menuOpenId === session.id ? menuRef : undefined}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMenuOpenId(menuOpenId === session.id ? null : session.id);
+                      }}
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-accent"
+                    >
                       <MoreHorizontal size={12} />
+                    </button>
+                    {menuOpenId === session.id && (
+                      <div className="absolute right-0 top-6 z-50 w-40 rounded-lg border border-border bg-popover p-1 shadow-lg">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRenamingId(session.id);
+                            setRenameValue(session.title);
+                            setMenuOpenId(null);
+                          }}
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground transition-colors hover:bg-accent"
+                        >
+                          <Pencil size={12} /> Rename
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            archiveSession(session.id);
+                            setMenuOpenId(null);
+                          }}
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground transition-colors hover:bg-accent"
+                        >
+                          <Archive size={12} /> Archive
+                        </button>
+                        <div className="my-1 h-px bg-border" />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteSession(session.id);
+                            setMenuOpenId(null);
+                          }}
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-destructive transition-colors hover:bg-destructive/10"
+                        >
+                          <Trash2 size={12} /> Delete
+                        </button>
+                      </div>
                     )}
-                  </button>
+                  </div>
                 </div>
               );
             })}

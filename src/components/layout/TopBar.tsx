@@ -1,7 +1,8 @@
 import { useTheme } from "../../hooks/useTheme";
 import { useI18n } from "../../i18n";
 import { useUIStore } from "../../stores/uiStore";
-import { Sun, Moon, PanelLeftClose, PanelLeft, ChevronDown } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { Sun, Moon, PanelLeftClose, PanelLeft, ChevronDown, Settings, FolderOpen, Terminal, Eye } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { cn } from "../../lib/utils";
 
@@ -14,6 +15,8 @@ const modes = [
 export function TopBar() {
   const { locale, setLocale } = useI18n();
   const { toggleTheme, theme } = useTheme();
+  const navigate = useNavigate();
+  const location = useLocation();
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const selectedModel = useUIStore((s) => s.selectedModel);
@@ -21,6 +24,8 @@ export function TopBar() {
   const models = useUIStore((s) => s.models);
   const activeMode = useUIStore((s) => s.activeMode);
   const setActiveMode = useUIStore((s) => s.setActiveMode);
+  const rightPanel = useUIStore((s) => s.rightPanel);
+  const toggleRightPanel = useUIStore((s) => s.toggleRightPanel);
 
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -97,6 +102,51 @@ export function TopBar() {
         ))}
       </div>
 
+      {/* Right Panel Toggles — only show on chat page */}
+      {location.pathname !== "/settings" && (
+        <>
+          <div className="h-4 w-px bg-border" />
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={() => toggleRightPanel("files")}
+              className={cn(
+                "flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-accent",
+                rightPanel === "files"
+                  ? "bg-accent text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              title="Files"
+            >
+              <FolderOpen size={14} />
+            </button>
+            <button
+              onClick={() => toggleRightPanel("terminal")}
+              className={cn(
+                "flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-accent",
+                rightPanel === "terminal"
+                  ? "bg-accent text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              title="Terminal"
+            >
+              <Terminal size={14} />
+            </button>
+            <button
+              onClick={() => toggleRightPanel("preview")}
+              className={cn(
+                "flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-accent",
+                rightPanel === "preview"
+                  ? "bg-accent text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              title="Preview"
+            >
+              <Eye size={14} />
+            </button>
+          </div>
+        </>
+      )}
+
       <div className="flex-1" />
 
       <div className="flex items-center gap-1">
@@ -105,6 +155,17 @@ export function TopBar() {
           className="flex h-7 items-center rounded-md px-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           {locale === "en" ? "中文" : "EN"}
+        </button>
+        <button
+          onClick={() => navigate(location.pathname === "/settings" ? "/" : "/settings")}
+          className={cn(
+            "flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-accent",
+            location.pathname === "/settings"
+              ? "text-primary"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <Settings size={14} />
         </button>
         <button
           onClick={toggleTheme}

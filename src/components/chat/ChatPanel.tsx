@@ -1,9 +1,14 @@
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { useChatStore } from "../../stores/chatStore";
+import { useUIStore } from "../../stores/uiStore";
+import { SplitView } from "../layout/SplitView";
+import { FilesPanel } from "../panels/FilesPanel";
+import { TerminalPanel } from "../panels/TerminalPanel";
+import { PreviewPanel } from "../panels/PreviewPanel";
 import { Loader2, AlertCircle } from "lucide-react";
 
-export function ChatPanel() {
+function ChatContent() {
   const isLoading = useChatStore((s) => s.isLoading);
   const error = useChatStore((s) => s.error);
 
@@ -24,5 +29,31 @@ export function ChatPanel() {
       <MessageList />
       <MessageInput />
     </div>
+  );
+}
+
+function RightContent() {
+  const rightPanel = useUIStore((s) => s.rightPanel);
+  switch (rightPanel) {
+    case "files":
+      return <FilesPanel />;
+    case "terminal":
+      return <TerminalPanel />;
+    case "preview":
+      return <PreviewPanel />;
+    default:
+      return null;
+  }
+}
+
+export function ChatPanel() {
+  const rightPanel = useUIStore((s) => s.rightPanel);
+
+  if (rightPanel === "none") {
+    return <ChatContent />;
+  }
+
+  return (
+    <SplitView left={<ChatContent />} right={<RightContent />} />
   );
 }

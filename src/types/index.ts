@@ -23,6 +23,7 @@ export interface Session {
   provider: string;
   createdAt: string;
   updatedAt: string;
+  archived?: boolean;
   messages: Message[];
 }
 
@@ -34,3 +35,15 @@ export interface ModelInfo {
 }
 
 export type AgentMode = "code" | "plan" | "ask";
+
+export type RiskLevel = "low" | "medium" | "high";
+
+export interface ApprovalRequest {
+  id: string;
+  toolCallId: string;
+  command: string;
+  description: string;
+  riskLevel: RiskLevel;
+  workingDir?: string;
+  createdAt: string;
+}

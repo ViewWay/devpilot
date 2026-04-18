@@ -1,9 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { Bot, Wrench, Sparkles, Code, MessageSquare, Zap } from "lucide-react";
 import { CodeBlock } from "./CodeBlock";
 import { ToolCallList } from "./ToolCallView";
+import { ApprovalOverlay } from "./ApprovalOverlay";
 import { useChatStore } from "../../stores/chatStore";
 
 export function MessageList() {
@@ -28,6 +30,8 @@ export function MessageList() {
           {session.messages.map((msg) => (
             <MessageBubble key={msg.id} message={msg} />
           ))}
+          {/* Demo approval overlay — will be driven by real approval queue later */}
+          <DemoApproval />
           <div ref={bottomRef} />
         </div>
       </div>
@@ -107,6 +111,7 @@ function MessageBubble({ message }: { message: import("../../types").Message }) 
       <div className="min-w-0 flex-1 space-y-2">
         <div className="text-sm leading-relaxed text-assistant-bubble-foreground prose-sm">
           <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
             rehypePlugins={[rehypeRaw]}
             components={{
               code({ className, children }) {
@@ -120,25 +125,70 @@ function MessageBubble({ message }: { message: import("../../types").Message }) 
               },
               table({ children }) {
                 return (
-                  <div className="my-2 overflow-x-auto">
-                    <table className="w-full text-xs border-collapse border border-border">{children}</table>
+                  <div className="my-2 overflow-x-auto rounded-lg border border-border">
+                    <table className="w-full text-xs border-collapse">{children}</table>
                   </div>
                 );
               },
               th({ children }) {
-                return <th className="border border-border bg-muted/50 px-2.5 py-1.5 text-left font-semibold text-muted-foreground">{children}</th>;
+                return <th className="border-b border-border bg-muted/50 px-3 py-2 text-left font-semibold text-foreground">{children}</th>;
               },
               td({ children }) {
-                return <td className="border border-border px-2.5 py-1.5">{children}</td>;
+                return <td className="border-b border-border px-3 py-2 text-muted-foreground">{children}</td>;
+              },
+              tr({ children }) {
+                return <tr className="hover:bg-muted/20 transition-colors">{children}</tr>;
               },
               pre({ children }) {
                 return <>{children}</>;
               },
               a({ href, children }) {
                 return (
-                  <a href={href} className="text-primary underline hover:text-primary/80" target="_blank" rel="noopener noreferrer">
+                  <a href={href} className="text-primary underline underline-offset-2 hover:text-primary/80 transition-colors" target="_blank" rel="noopener noreferrer">
                     {children}
                   </a>
+                );
+              },
+              ul({ children }) {
+                return <ul className="my-1.5 ml-4 list-disc space-y-1 text-sm marker:text-muted-foreground">{children}</ul>;
+              },
+              ol({ children }) {
+                return <ol className="my-1.5 ml-4 list-decimal space-y-1 text-sm marker:text-muted-foreground">{children}</ol>;
+              },
+              li({ children }) {
+                return <li className="leading-relaxed">{children}</li>;
+              },
+              blockquote({ children }) {
+                return (
+                  <blockquote className="my-2 border-l-2 border-primary/40 bg-primary/5 pl-3 py-1 text-sm italic text-muted-foreground">
+                    {children}
+                  </blockquote>
+                );
+              },
+              h1({ children }) {
+                return <h1 className="mt-4 mb-2 text-lg font-bold text-foreground">{children}</h1>;
+              },
+              h2({ children }) {
+                return <h2 className="mt-3 mb-1.5 text-base font-bold text-foreground">{children}</h2>;
+              },
+              h3({ children }) {
+                return <h3 className="mt-2 mb-1 text-sm font-bold text-foreground">{children}</h3>;
+              },
+              p({ children }) {
+                return <p className="my-1 leading-relaxed">{children}</p>;
+              },
+              hr() {
+                return <hr className="my-3 border-border" />;
+              },
+              input({ checked, disabled }) {
+                // GFM task list checkboxes
+                return (
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={disabled}
+                    className="mr-1.5 h-3.5 w-3.5 rounded border-border accent-primary"
+                  />
                 );
               },
             }}
@@ -153,5 +203,29 @@ function MessageBubble({ message }: { message: import("../../types").Message }) 
         </div>
       </div>
     </div>
+  );
+}
+
+/** Temporary demo — shows an approval card so we can see the UI.
+ *  In production this will be driven by a real approval queue from the backend. */
+function DemoApproval() {
+  const [visible, setVisible] = useState(true);
+
+  if (!visible) return null;
+
+  return (
+    <ApprovalOverlay
+      request={{
+        id: "demo-1",
+        toolCallId: "tc-demo-1",
+        command: "rm -rf node_modules && npm install",
+        description: "Remove and reinstall all dependencies to fix version conflicts.",
+        riskLevel: "medium",
+        workingDir: "/home/user/project",
+        createdAt: new Date().toLocaleTimeString(),
+      }}
+      onApprove={() => setVisible(false)}
+      onReject={() => setVisible(false)}
+    />
   );
 }

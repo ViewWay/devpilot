@@ -278,6 +278,7 @@ interface ChatState {
   sendMessage: (content: string, model: string) => void;
   clearMessages: (sessionId: string) => void;
   updateSessionTitle: (sessionId: string, title: string) => void;
+  archiveSession: (id: string) => void;
   setError: (error: string | null) => void;
 }
 
@@ -408,6 +409,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
       sessions: s.sessions.map((sess) =>
         sess.id === sessionId ? { ...sess, title } : sess,
       ),
+    }));
+  },
+
+  archiveSession: (id) => {
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === id ? { ...sess, archived: true } : sess,
+      ),
+      activeSessionId:
+        s.activeSessionId === id
+          ? s.sessions.find((sess) => sess.id !== id && !sess.archived)?.id ?? null
+          : s.activeSessionId,
     }));
   },
 
