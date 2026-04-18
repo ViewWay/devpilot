@@ -2,17 +2,78 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useI18n } from "../../i18n";
 import { useChatStore } from "../../stores/chatStore";
 import { useUIStore } from "../../stores/uiStore";
-import { Send, Paperclip, Globe, Sparkles, StopCircle } from "lucide-react";
+import { Send, Paperclip, Globe, Sparkles, StopCircle, X, Image, FileText } from "lucide-react";
 import { cn } from "../../lib/utils";
+import type { Attachment } from "../../types";
+
+const SLASH_COMMANDS = [
+  { cmd: "/help", descKey: "slashHelp", icon: "❓" },
+  { cmd: "/clear", descKey: "slashClear", icon: "🧹" },
+  { cmd: "/model", descKey: "slashModel", icon: "🤖" },
+  { cmd: "/compact", descKey: "slashCompact", icon: "📦" },
+  { cmd: "/cost", descKey: "slashCost", icon: "💰" },
+  { cmd: "/doctor", descKey: "slashDoctor", icon: "🩺" },
+];
+
+const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"];
+const ACCEPTED_DOC_TYPES = [
+  "text/plain",
+  "text/markdown",
+  "application/json",
+  "application/xml",
+  "text/csv",
+  "text/x-python",
+  "text/javascript",
+  "application/typescript",
+  "text/x-rust",
+  "text/x-c",
+  "text/x-c++",
+  "text/css",
+  "text/html",
+  "application/pdf",
+];
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_ATTACHMENTS = 5;
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
+function generateId(): string {
+  return `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function isImageType(type: string): boolean {
+  return type.startsWith("image/");
+}
 
 export function MessageInput() {
   const { t } = useI18n();
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const hasContent = input.trim().length > 0;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showCommands, setShowCommands] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const hasContent = input.trim().length > 0 || attachments.length > 0;
   const isLoading = useChatStore((s) => s.isLoading);
+  const streamingMessageId = useChatStore((s) => s.streamingMessageId);
+  const isStreaming = !!streamingMessageId;
   const selectedModel = useUIStore((s) => s.selectedModel);
   const sendMessage = useChatStore((s) => s.sendMessage);
+
+  // Filter commands based on input
+  const filteredCommands = input.startsWith("/") && !input.includes(" ")
+    ? SLASH_COMMANDS.filter((c) => c.cmd.startsWith(input.trim()))
+    : [];
+
+  useEffect(() => {
+    setShowCommands(filteredCommands.length > 0);
+    setSelectedIndex(0);
+  }, [filteredCommands.length, input]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -22,104 +83,272 @@ export function MessageInput() {
     el.style.height = Math.min(el.scrollHeight, 128) + "px";
   }, [input]);
 
+  // Process files into attachments
+  const processFiles = useCallback(async (files: FileList | File[]) => {
+    const fileArray = Array.from(files);
+    const validFiles = fileArray.filter((f) => {
+      if (f.size > MAX_FILE_SIZE) return false;
+      return ACCEPTED_IMAGE_TYPES.includes(f.type) || ACCEPTED_DOC_TYPES.includes(f.type);
+    });
+
+    const newAttachments: Attachment[] = [];
+    for (const file of validFiles) {
+      if (attachments.length + newAttachments.length >= MAX_ATTACHMENTS) break;
+
+      const att: Attachment = {
+        id: generateId(),
+        file,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+      };
+
+      // Generate preview for images
+      if (isImageType(file.type)) {
+        try {
+          att.preview = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.readAsDataURL(file);
+          });
+        } catch {
+          // no preview
+        }
+      }
+
+      newAttachments.push(att);
+    }
+
+    if (newAttachments.length > 0) {
+      setAttachments((prev) => [...prev, ...newAttachments].slice(0, MAX_ATTACHMENTS));
+    }
+  }, [attachments.length]);
+
+  const removeAttachment = useCallback((id: string) => {
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  }, []);
+
+  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      processFiles(e.target.files);
+      e.target.value = "";
+    }
+  }, [processFiles]);
+
+  // Drag & drop
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    if (e.dataTransfer.files) {
+      processFiles(e.dataTransfer.files);
+    }
+  }, [processFiles]);
+
   const handleSend = useCallback(() => {
     const trimmed = input.trim();
-    if (!trimmed || isLoading) return;
-    sendMessage(trimmed, selectedModel.name);
+    if ((!trimmed && attachments.length === 0) || isLoading) return;
+    // For now, send text only; attachments will be passed to real LLM later
+    if (trimmed) {
+      sendMessage(trimmed, selectedModel.name);
+    }
     setInput("");
-    // Reset textarea height
+    setAttachments([]);
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
-  }, [input, isLoading, sendMessage, selectedModel.name]);
+  }, [input, isLoading, sendMessage, selectedModel.name, attachments]);
+
+  const handleStop = useCallback(() => {
+    useChatStore.setState({ isLoading: false, streamingMessageId: null });
+  }, []);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      if (showCommands) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setSelectedIndex((i) => Math.min(i + 1, filteredCommands.length - 1));
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setSelectedIndex((i) => Math.max(i - 1, 0));
+          return;
+        }
+        if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) {
+          e.preventDefault();
+          const cmd = filteredCommands[selectedIndex];
+          if (cmd) {
+            setInput(cmd.cmd + " ");
+            textareaRef.current?.focus();
+          }
+          return;
+        }
+        if (e.key === "Escape") {
+          setShowCommands(false);
+          return;
+        }
+      }
+
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handleSend();
       }
     },
-    [handleSend],
+    [handleSend, showCommands, filteredCommands, selectedIndex],
   );
-
-  // Show slash command hint
-  const showSlashHint = input.trim().startsWith("/") && !input.includes(" ");
 
   return (
     <div className="shrink-0 border-t border-border bg-background px-4 pb-4 pt-3">
-      <div className="mx-auto max-w-3xl">
-        {/* Slash command autocomplete hint */}
-        {showSlashHint && (
-          <div className="mb-2 flex flex-wrap gap-1.5">
-            {["/help", "/clear", "/model", "/compact", "/cost"].map((cmd) => (
+      <div className="mx-auto max-w-3xl relative">
+        {/* Slash command autocomplete menu */}
+        {showCommands && (
+          <div className="absolute bottom-full left-0 right-0 mb-1 rounded-lg border border-border bg-popover shadow-lg overflow-hidden z-50">
+            {filteredCommands.map((cmd, idx) => (
               <button
-                key={cmd}
-                onClick={() => setInput(cmd + " ")}
-                className="rounded-md border border-border bg-card px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                key={cmd.cmd}
+                onClick={() => {
+                  setInput(cmd.cmd + " ");
+                  textareaRef.current?.focus();
+                }}
+                className={cn(
+                  "flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors",
+                  idx === selectedIndex ? "bg-accent text-accent-foreground" : "text-popover-foreground hover:bg-accent/50",
+                )}
               >
-                {cmd}
+                <span className="text-base">{cmd.icon}</span>
+                <span className="font-mono text-xs font-medium w-16">{cmd.cmd}</span>
+                <span className="text-xs text-muted-foreground">{t(cmd.descKey)}</span>
               </button>
             ))}
           </div>
         )}
 
-        {/* Input container */}
+        {/* Input container with drag overlay */}
         <div
-          className={cn(
-            "flex items-end gap-2 rounded-xl border bg-background px-3 py-2 transition-colors",
-            hasContent ? "border-ring" : "border-input",
-          )}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className="relative"
         >
-          {/* Attach */}
-          <button
-            title={t("attachFile")}
-            className="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            <Paperclip size={15} />
-          </button>
-
-          {/* Textarea */}
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={t("inputPlaceholder")}
-            rows={1}
-            className="max-h-32 min-h-[28px] flex-1 resize-none bg-transparent py-1 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground outline-none"
-            onKeyDown={handleKeyDown}
-          />
-
-          {/* Web search */}
-          <button
-            title={t("webSearch")}
-            className="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            <Globe size={15} />
-          </button>
-
-          {/* Send / Stop */}
-          {isLoading ? (
-            <button
-              title={t("stopGeneration")}
-              className="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-destructive/90 text-white transition-colors hover:bg-destructive"
-            >
-              <StopCircle size={14} />
-            </button>
-          ) : (
-            <button
-              onClick={handleSend}
-              className={cn(
-                "mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors",
-                hasContent
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                  : "bg-muted text-muted-foreground",
-              )}
-              disabled={!hasContent}
-            >
-              <Send size={14} />
-            </button>
+          {/* Drag overlay */}
+          {isDragOver && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-primary/5">
+              <div className="flex flex-col items-center gap-1 text-primary">
+                <Paperclip size={24} />
+                <span className="text-xs font-medium">{t("dropFilesHere")}</span>
+              </div>
+            </div>
           )}
+
+          {/* Attachment preview bar */}
+          {attachments.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {attachments.map((att) => (
+                <div
+                  key={att.id}
+                  className="group relative flex items-center gap-1.5 rounded-lg border border-border bg-muted/50 px-2 py-1 pr-1 text-xs text-foreground"
+                >
+                  {att.preview ? (
+                    <img src={att.preview} alt={att.name} className="h-6 w-6 rounded object-cover" />
+                  ) : isImageType(att.type) ? (
+                    <Image size={14} className="text-primary shrink-0" />
+                  ) : (
+                    <FileText size={14} className="text-muted-foreground shrink-0" />
+                  )}
+                  <span className="max-w-[100px] truncate">{att.name}</span>
+                  <span className="text-muted-foreground">{formatFileSize(att.size)}</span>
+                  <button
+                    onClick={() => removeAttachment(att.id)}
+                    className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/20 hover:text-destructive group-hover:opacity-100"
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div
+            className={cn(
+              "flex items-end gap-2 rounded-xl border bg-background px-3 py-2 transition-colors",
+              hasContent ? "border-ring" : "border-input",
+              isDragOver && "border-primary",
+            )}
+          >
+            {/* Attach button */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              title={t("attachFile")}
+              className="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <Paperclip size={15} />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={[...ACCEPTED_IMAGE_TYPES, ...ACCEPTED_DOC_TYPES].join(",")}
+              className="hidden"
+              onChange={handleFileInput}
+            />
+
+            {/* Textarea */}
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={t("inputPlaceholder")}
+              rows={1}
+              className="max-h-32 min-h-[28px] flex-1 resize-none bg-transparent py-1 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground outline-none"
+              onKeyDown={handleKeyDown}
+            />
+
+            {/* Web search */}
+            <button
+              title={t("webSearch")}
+              className="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <Globe size={15} />
+            </button>
+
+            {/* Send / Stop */}
+            {isLoading || isStreaming ? (
+              <button
+                onClick={handleStop}
+                title={t("stopGeneration")}
+                className="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-destructive/90 text-white transition-colors hover:bg-destructive"
+              >
+                <StopCircle size={14} />
+              </button>
+            ) : (
+              <button
+                onClick={handleSend}
+                className={cn(
+                  "mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors",
+                  hasContent
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "bg-muted text-muted-foreground",
+                )}
+                disabled={!hasContent}
+              >
+                <Send size={14} />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Footer hint */}

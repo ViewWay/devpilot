@@ -2,18 +2,14 @@ import { useTheme } from "../../hooks/useTheme";
 import { useI18n } from "../../i18n";
 import { useUIStore } from "../../stores/uiStore";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Sun, Moon, PanelLeftClose, PanelLeft, ChevronDown, Settings, FolderOpen, Terminal, Eye } from "lucide-react";
+import { Sun, Moon, PanelLeftClose, PanelLeft, ChevronDown, Settings, FolderOpen, Terminal, Eye, SlidersHorizontal } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { cn } from "../../lib/utils";
 
-const modes = [
-  { id: "code", label: "Code", labelZh: "编码" },
-  { id: "plan", label: "Plan", labelZh: "规划" },
-  { id: "ask", label: "Ask", labelZh: "提问" },
-] as const;
+const MODES = ["code", "plan", "ask"] as const;
 
 export function TopBar() {
-  const { locale, setLocale } = useI18n();
+  const { locale, setLocale, t } = useI18n();
   const { toggleTheme, theme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -26,14 +22,21 @@ export function TopBar() {
   const setActiveMode = useUIStore((s) => s.setActiveMode);
   const rightPanel = useUIStore((s) => s.rightPanel);
   const toggleRightPanel = useUIStore((s) => s.toggleRightPanel);
+  const reasoningEffort = useUIStore((s) => s.reasoningEffort);
+  const setReasoningEffort = useUIStore((s) => s.setReasoningEffort);
 
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const [effortOpen, setEffortOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const effortRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setModelDropdownOpen(false);
+      }
+      if (effortRef.current && !effortRef.current.contains(e.target as Node)) {
+        setEffortOpen(false);
       }
     };
     document.addEventListener("mousedown", handler);
@@ -86,20 +89,55 @@ export function TopBar() {
 
       {/* Mode Tabs */}
       <div className="flex rounded-md border border-input text-xs">
-        {modes.map((mode) => (
+        {MODES.map((mode) => (
           <button
-            key={mode.id}
-            onClick={() => setActiveMode(mode.id)}
+            key={mode}
+            onClick={() => setActiveMode(mode)}
             className={cn(
               "px-2.5 py-1 capitalize transition-colors first:rounded-l-md last:rounded-r-md",
-              activeMode === mode.id
+              activeMode === mode
                 ? "bg-primary text-primary-foreground"
                 : "text-muted-foreground hover:bg-accent hover:text-foreground",
             )}
           >
-            {locale === "zh" ? mode.labelZh : mode.label}
+            {t(mode)}
           </button>
         ))}
+      </div>
+
+      {/* Reasoning Effort Slider */}
+      <div className="relative" ref={effortRef}>
+        <button
+          onClick={() => setEffortOpen(!effortOpen)}
+          className={cn(
+            "flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors",
+            effortOpen ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground",
+          )}
+          title={t("reasoningEffort")}
+        >
+          <SlidersHorizontal size={12} />
+          <span className="hidden sm:inline">{reasoningEffort}%</span>
+        </button>
+        {effortOpen && (
+          <div className="absolute left-1/2 top-full z-50 mt-1 w-56 -translate-x-1/2 rounded-lg border border-border bg-popover p-3 shadow-lg">
+            <div className="mb-2 text-xs font-medium text-foreground">{t("reasoningEffort")}</div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-muted-foreground">{t("reasoningShallow").split(" — ")[0]}</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={reasoningEffort}
+                onChange={(e) => setReasoningEffort(Number(e.target.value))}
+                className="h-1.5 flex-1 cursor-pointer accent-primary"
+              />
+              <span className="text-[10px] text-muted-foreground">{t("reasoningDeep").split(" — ")[0]}</span>
+            </div>
+            <div className="mt-1 text-center text-[10px] text-muted-foreground">
+              {reasoningEffort < 30 ? t("reasoningShallow") : reasoningEffort < 70 ? "⚖️ Balanced" : t("reasoningDeep")}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Right Panel Toggles — only show on chat page */}

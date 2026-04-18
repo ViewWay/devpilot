@@ -151,6 +151,7 @@ export function Sidebar() {
 }
 
 function SessionList({ searchQuery }: { searchQuery: string }) {
+  const { t } = useI18n();
   const sessions = useChatStore((s) => s.sessions);
   const activeSessionId = useChatStore((s) => s.activeSessionId);
   const setActiveSession = useChatStore((s) => s.setActiveSession);
@@ -201,10 +202,10 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
     const weekStart = new Date(todayStart.getTime() - 7 * 86400_000);
 
     const groups: { label: string; sessions: typeof filtered }[] = [
-      { label: "Today", sessions: [] },
-      { label: "Yesterday", sessions: [] },
-      { label: "Previous 7 Days", sessions: [] },
-      { label: "Older", sessions: [] },
+      { label: t("today"), sessions: [] },
+      { label: t("yesterday"), sessions: [] },
+      { label: t("previous7Days"), sessions: [] },
+      { label: t("older"), sessions: [] },
     ];
 
     for (const session of filtered) {
@@ -228,7 +229,7 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
       {groups.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
           <MessageSquare size={24} className="mb-2 opacity-40" />
-          <span className="text-xs">No conversations</span>
+          <span className="text-xs">{t("noSessions")}</span>
         </div>
       ) : (
         groups.map((group) => (
@@ -294,7 +295,7 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
                           }}
                           className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground transition-colors hover:bg-accent"
                         >
-                          <Pencil size={12} /> Rename
+                          <Pencil size={12} /> {t("rename")}
                         </button>
                         <button
                           onClick={(e) => {
@@ -304,7 +305,7 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
                           }}
                           className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground transition-colors hover:bg-accent"
                         >
-                          <Archive size={12} /> Archive
+                          <Archive size={12} /> {t("archive")}
                         </button>
                         <div className="my-1 h-px bg-border" />
                         <button
@@ -315,7 +316,7 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
                           }}
                           className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-destructive transition-colors hover:bg-destructive/10"
                         >
-                          <Trash2 size={12} /> Delete
+                          <Trash2 size={12} /> {t("delete")}
                         </button>
                       </div>
                     )}

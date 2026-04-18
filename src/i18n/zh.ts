@@ -1,18 +1,116 @@
 const zh: Record<string, string> = {
+  // --- Sidebar ---
   newChat: "新对话",
   recentChats: "最近",
   searchChats: "搜索对话...",
-  settings: "设置",
-  gallery: "画廊",
-  scheduler: "定时任务",
-  bridge: "桥接",
+  today: "今天",
+  yesterday: "昨天",
+  previous7Days: "最近7天",
+  older: "更早",
+  rename: "重命名",
+  archive: "归档",
+  delete: "删除",
+  confirmDelete: "删除此对话？",
+  noSessions: "暂无对话",
+  noSessionsHint: "开始新对话",
+
+  // --- TopBar ---
+  code: "代码",
+  plan: "计划",
+  ask: "提问",
+  reasoningEffort: "推理深度",
+  reasoningShallow: "浅层 — 快速简洁",
+  reasoningDeep: "深度 — 深入分析",
+
+  // --- Chat Input ---
   inputPlaceholder: "给 DevPilot 发消息...",
   inputHint: "Enter 发送 · Shift+Enter 换行",
   attachFile: "添加附件",
+  dropFilesHere: "拖放文件到此处",
   webSearch: "联网搜索",
   stopGeneration: "停止生成",
   thinking: "思考中...",
+
+  // --- Slash Commands ---
+  slashHelp: "显示可用命令",
+  slashClear: "清空当前对话",
+  slashModel: "切换模型",
+  slashCompact: "压缩对话历史",
+  slashCost: "查看预估费用",
+  slashDoctor: "运行系统检查",
+
+  // --- Empty State ---
   emptyTitle: "新对话",
+  emptyWelcome: "你好！我是 DevPilot，你的 AI 编程助手。我可以帮你：",
+  emptyBullet1: "编写代码 — 生成功能、重构、修复 Bug",
+  emptyBullet2: "分析代码 — 解释代码库、审查架构",
+  emptyBullet3: "执行操作 — 运行命令、管理文件、应用补丁",
+  emptyPrompt: "想做什么？",
+
+  // --- Settings ---
+  settings: "设置",
+  providers: "服务提供商",
+  appearance: "外观",
+  shortcuts: "快捷键",
+  usage: "用量统计",
+  addCustomProvider: "添加自定义服务商",
+  createProvider: "创建服务商",
+  newProvider: "新服务商",
+  apiKey: "API 密钥",
+  testConnection: "测试连接",
+  testing: "测试中...",
+  connectionSuccess: "连接成功",
+  connectionFailed: "连接失败",
+  baseUrl: "接口地址",
+  models: "模型",
+  enabled: "已启用",
+  removeProvider: "移除服务商",
+  removeConfirm: "确认移除此服务商？",
+  theme: "主题",
+  themeLight: "浅色",
+  themeDark: "深色",
+  themeSystem: "跟随系统",
+  language: "语言",
+  fontSize: "字体大小",
+
+  // --- Usage Tab ---
+  usageTitle: "用量与费用",
+  usageDescription: "追踪各服务商的 Token 用量和预估费用。",
+  inputTokens: "输入 Token",
+  outputTokens: "输出 Token",
+  estCost: "预估费用",
+  byProvider: "按服务商",
+  recentRequests: "最近请求",
+  clearAll: "清除全部",
+  noUsageData: "暂无用量数据。发送消息后可查看统计。",
+
+  // --- Keyboard Shortcuts ---
+  keyboardShortcuts: "快捷键",
+  shortcutsDesc: "高效操作快捷方式。",
+  scSendMessage: "发送消息",
+  scNewLine: "输入框换行",
+  scNewChat: "新建对话",
+  scToggleSidebar: "切换侧栏",
+  scOpenSettings: "打开设置",
+  scSearch: "搜索对话",
+  scTogglePrompt: "切换系统提示",
+  scStopGeneration: "停止生成 / 关闭面板",
+  scPrevConversation: "上一条对话",
+  scNextConversation: "下一条对话",
+
+  // --- Settings extras ---
+  appearanceDesc: "自定义 DevPilot 的外观和体验。",
+  messageFontSize: "消息字体大小",
+  provider: "服务商",
+  tokens: "Token",
+  cost: "费用",
+  usageAndCost: "用量与费用",
+  usageDesc: "追踪各服务商的 Token 用量和预估费用。",
+
+  // --- Gallery / Scheduler / Bridge ---
+  gallery: "画廊",
+  scheduler: "定时任务",
+  bridge: "桥接",
 };
 
 export default zh;

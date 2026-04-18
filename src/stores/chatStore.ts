@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import type { Session, Message } from "../types";
+import { useUsageStore } from "./usageStore";
+import { useUIStore } from "./uiStore";
 
 let nextId = 100;
 function genId() {
@@ -265,6 +267,7 @@ interface ChatState {
   activeSessionId: string | null;
   isLoading: boolean;
   error: string | null;
+  streamingMessageId: string | null;
 
   // Computed
   activeSession: () => Session | undefined;
@@ -273,7 +276,8 @@ interface ChatState {
   createSession: (model: string, provider: string) => string;
   setActiveSession: (id: string) => void;
   deleteSession: (id: string) => void;
-  addMessage: (sessionId: string, msg: Omit<Message, "id" | "timestamp">) => void;
+  addMessage: (sessionId: string, msg: Omit<Message, "id" | "timestamp">) => string;
+  updateMessageContent: (sessionId: string, messageId: string, content: string, streaming?: boolean) => void;
   searchSessions: (query: string) => Session[];
   sendMessage: (content: string, model: string) => void;
   clearMessages: (sessionId: string) => void;
@@ -299,6 +303,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   activeSessionId: "1",
   isLoading: false,
   error: null,
+  streamingMessageId: null,
 
   activeSession: () => {
     const { sessions, activeSessionId } = get();
@@ -344,6 +349,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
           : sess,
       ),
     }));
+    return message.id;
+  },
+
+  updateMessageContent: (sessionId, messageId, content, streaming) => {
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === sessionId
+          ? {
+              ...sess,
+              messages: sess.messages.map((m) =>
+                m.id === messageId ? { ...m, content, streaming } : m,
+              ),
+            }
+          : sess,
+      ),
+      streamingMessageId: streaming ? messageId : null,
+    }));
   },
 
   searchSessions: (query) => {
@@ -352,7 +374,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   sendMessage: (content, model) => {
-    const { activeSessionId, addMessage, createSession, updateSessionTitle } = get();
+    const { activeSessionId, addMessage, updateMessageContent, createSession, updateSessionTitle } = get();
 
     // Auto-create session if none active
     let sessionId = activeSessionId;
@@ -378,20 +400,47 @@ export const useChatStore = create<ChatState>((set, get) => ({
       updateSessionTitle(sessionId, generateTitle(content));
     }
 
-    // Simulate AI response (will be replaced by Tauri IPC)
+    // Simulate streaming AI response
     set({ isLoading: true, error: null });
     const replyContent = pickMockReply(content);
-    const delay = 600 + Math.random() * 1000;
+    const msgId = addMessage(sessionId, { role: "assistant", content: "", model, streaming: true });
+    set({ streamingMessageId: msgId });
 
-    setTimeout(() => {
+    let charIndex = 0;
+    const chunkSize = () => 1 + Math.floor(Math.random() * 3); // 1-3 chars per tick
+    const tickDelay = () => 15 + Math.random() * 25; // 15-40ms per tick
+
+    const streamTick = () => {
       const currentSessionId = get().activeSessionId;
       if (currentSessionId !== sessionId) {
-        set({ isLoading: false });
+        set({ isLoading: false, streamingMessageId: null });
         return;
       }
-      addMessage(sessionId, { role: "assistant", content: replyContent, model });
-      set({ isLoading: false });
-    }, delay);
+
+      if (charIndex < replyContent.length) {
+        const step = chunkSize();
+        charIndex = Math.min(charIndex + step, replyContent.length);
+        const partialContent = replyContent.slice(0, charIndex);
+        updateMessageContent(sessionId, msgId, partialContent, true);
+        setTimeout(streamTick, tickDelay());
+      } else {
+        // Streaming complete
+        updateMessageContent(sessionId, msgId, replyContent, false);
+        set({ isLoading: false });
+
+        // Record usage
+        useUsageStore.getState().recordUsage({
+          sessionId,
+          model,
+          provider: useUIStore.getState().selectedModel.provider ?? "",
+          inputText: content,
+          outputText: replyContent,
+        });
+      }
+    };
+
+    // Start streaming after a small initial delay
+    setTimeout(streamTick, 300 + Math.random() * 400);
   },
 
   clearMessages: (sessionId) => {
@@ -519,6 +568,23 @@ function handleSlashCommand(
         model,
       });
       break;
+    case "/doctor": {
+      const checks = [
+        { name: "Tauri Runtime", status: typeof window !== "undefined" && "__TAURI__" in window ? "Connected" : "Not connected (web preview)" },
+        { name: "SQLite Database", status: "Not connected" },
+        { name: "Default Provider", status: "Mock mode" },
+        { name: "Filesystem Access", status: typeof window !== "undefined" && "__TAURI__" in window ? "Granted" : "Unavailable" },
+        { name: "Terminal (PTY)", status: "Not connected" },
+      ];
+      const statusIcon = (s: string) => s.includes("Connected") || s.includes("Granted") || s.includes("Mock") ? "✅" : "⚠️";
+      const table = checks.map((c) => `| ${statusIcon(c.status)} ${c.name} | ${c.status} |`).join("\n");
+      get().addMessage(sessionId, {
+        role: "assistant",
+        content: `### System Health Check\n\n| Component | Status |\n|-----------|--------|\n${table}\n\n> Most components require the Tauri backend. Running in web preview mode.`,
+        model,
+      });
+      break;
+    }
     default:
       get().addMessage(sessionId, {
         role: "assistant",

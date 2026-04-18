@@ -195,6 +195,9 @@ function MessageBubble({ message }: { message: import("../../types").Message }) 
           >
             {message.content}
           </ReactMarkdown>
+          {message.streaming && (
+            <span className="inline-block h-4 w-0.5 animate-pulse bg-primary ml-0.5 align-text-bottom" />
+          )}
         </div>
         <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
           {message.model && <span>{message.model}</span>}

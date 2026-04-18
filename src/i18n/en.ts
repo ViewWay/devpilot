@@ -1,18 +1,116 @@
-const en = {
+const en: Record<string, string> = {
+  // --- Sidebar ---
   newChat: "New Chat",
   recentChats: "Recent",
   searchChats: "Search conversations...",
-  settings: "Settings",
-  gallery: "Gallery",
-  scheduler: "Scheduler",
-  bridge: "Bridge",
+  today: "Today",
+  yesterday: "Yesterday",
+  previous7Days: "Previous 7 Days",
+  older: "Older",
+  rename: "Rename",
+  archive: "Archive",
+  delete: "Delete",
+  confirmDelete: "Delete this conversation?",
+  noSessions: "No conversations yet",
+  noSessionsHint: "Start a new chat to begin",
+
+  // --- TopBar ---
+  code: "Code",
+  plan: "Plan",
+  ask: "Ask",
+  reasoningEffort: "Reasoning Effort",
+  reasoningShallow: "Shallow — fast, concise",
+  reasoningDeep: "Deep — thorough analysis",
+
+  // --- Chat Input ---
   inputPlaceholder: "Message DevPilot...",
   inputHint: "Enter to send · Shift+Enter for new line",
   attachFile: "Attach file",
+  dropFilesHere: "Drop files here",
   webSearch: "Web search",
   stopGeneration: "Stop generation",
   thinking: "Thinking...",
+
+  // --- Slash Commands ---
+  slashHelp: "Show available commands",
+  slashClear: "Clear current conversation",
+  slashModel: "Switch active model",
+  slashCompact: "Compact conversation history",
+  slashCost: "Show estimated cost",
+  slashDoctor: "Run system health check",
+
+  // --- Empty State ---
   emptyTitle: "New Chat",
+  emptyWelcome: "Hello! I'm DevPilot, your AI coding agent. I can help you:",
+  emptyBullet1: "Write code — Generate features, refactor, fix bugs",
+  emptyBullet2: "Analyze — Explain codebases, review architecture",
+  emptyBullet3: "Execute — Run commands, manage files, apply patches",
+  emptyPrompt: "What would you like to work on?",
+
+  // --- Settings ---
+  settings: "Settings",
+  providers: "Providers",
+  appearance: "Appearance",
+  shortcuts: "Shortcuts",
+  usage: "Usage",
+  addCustomProvider: "Add Custom Provider",
+  createProvider: "Create Provider",
+  newProvider: "New Provider",
+  apiKey: "API Key",
+  testConnection: "Test Connection",
+  testing: "Testing...",
+  connectionSuccess: "Connection successful",
+  connectionFailed: "Connection failed",
+  baseUrl: "Base URL",
+  models: "Models",
+  enabled: "Enabled",
+  removeProvider: "Remove Provider",
+  removeConfirm: "Remove this provider?",
+  theme: "Theme",
+  themeLight: "Light",
+  themeDark: "Dark",
+  themeSystem: "System",
+  language: "Language",
+  fontSize: "Font Size",
+
+  // --- Usage Tab ---
+  usageTitle: "Usage & Cost",
+  usageDescription: "Track token usage and estimated costs across all providers.",
+  inputTokens: "Input Tokens",
+  outputTokens: "Output Tokens",
+  estCost: "Est. Cost",
+  byProvider: "By Provider",
+  recentRequests: "Recent Requests",
+  clearAll: "Clear all",
+  noUsageData: "No usage data yet. Send some messages to see usage stats.",
+
+  // --- Keyboard Shortcuts ---
+  keyboardShortcuts: "Keyboard Shortcuts",
+  shortcutsDesc: "Quick actions for power users.",
+  scSendMessage: "Send message",
+  scNewLine: "New line in input",
+  scNewChat: "New chat",
+  scToggleSidebar: "Toggle sidebar",
+  scOpenSettings: "Open settings",
+  scSearch: "Search conversations",
+  scTogglePrompt: "Toggle system prompt",
+  scStopGeneration: "Stop generation / Close panel",
+  scPrevConversation: "Previous conversation",
+  scNextConversation: "Next conversation",
+
+  // --- Settings extras ---
+  appearanceDesc: "Customize the look and feel of DevPilot.",
+  messageFontSize: "Message Font Size",
+  provider: "Provider",
+  tokens: "Tokens",
+  cost: "Cost",
+  usageAndCost: "Usage & Cost",
+  usageDesc: "Track token usage and estimated costs across all providers.",
+
+  // --- Gallery / Scheduler / Bridge ---
+  gallery: "Gallery",
+  scheduler: "Scheduler",
+  bridge: "Bridge",
 };
 
 export default en;

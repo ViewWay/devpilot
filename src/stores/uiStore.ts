@@ -27,6 +27,9 @@ interface UIState {
   activeMode: AgentMode;
   setActiveMode: (mode: AgentMode) => void;
 
+  reasoningEffort: number; // 0-100, default 50
+  setReasoningEffort: (effort: number) => void;
+
   activeView: ActiveView;
   setActiveView: (view: ActiveView) => void;
 
@@ -67,6 +70,9 @@ export const useUIStore = create<UIState>((set) => ({
 
   activeMode: "code",
   setActiveMode: (mode) => set({ activeMode: mode }),
+
+  reasoningEffort: 50,
+  setReasoningEffort: (effort) => set({ reasoningEffort: Math.max(0, Math.min(100, effort)) }),
 
   activeView: "chat",
   setActiveView: (view) => set({ activeView: view }),
