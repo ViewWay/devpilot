@@ -511,25 +511,28 @@ function handleSlashCommand(
       get().clearMessages(sessionId);
       break;
     case "/model": {
+      const models = useUIStore.getState().models;
       if (!args) {
+        const list = models
+          .map((m) => `- ${m.name} (${m.provider})`)
+          .join("\n");
         get().addMessage(sessionId, {
           role: "assistant",
-          content: `Please specify a model. Available models:\n\n${get().sessions.length > 0 ? "- claude (Claude 4 Sonnet)\n- gpt (GPT-5.2)\n- glm (GLM-5)\n- deepseek (DeepSeek V3)\n- qwen (通义千问 Max)\n- gemini (Gemini 3 Pro)\n- ollama (Llama 4 local)" : ""}\n\nUsage: \`/model claude\``,
+          content: `Available models:\n\n${list}\n\nUsage: \`/model claude\` or \`/model Claude 4 Sonnet\``,
           model,
         });
         return;
       }
-      const modelMap: Record<string, { name: string; provider: string }> = {
-        claude: { name: "Claude 4 Sonnet", provider: "Anthropic" },
-        gpt: { name: "GPT-5.2", provider: "OpenAI" },
-        glm: { name: "GLM-5", provider: "智谱" },
-        deepseek: { name: "DeepSeek V3", provider: "DeepSeek" },
-        qwen: { name: "通义千问 Max", provider: "阿里云" },
-        gemini: { name: "Gemini 3 Pro", provider: "Google" },
-        ollama: { name: "Llama 4 (local)", provider: "Ollama" },
-      };
-      const matched = modelMap[args.toLowerCase()];
+      const argLower = args.toLowerCase();
+      const matched = models.find(
+        (m) =>
+          m.name.toLowerCase() === argLower ||
+          m.id.toLowerCase() === argLower ||
+          m.name.toLowerCase().includes(argLower) ||
+          m.provider.toLowerCase() === argLower,
+      );
       if (matched) {
+        useUIStore.getState().setSelectedModel(matched);
         get().addMessage(sessionId, {
           role: "assistant",
           content: `Switched model to **${matched.name}** (${matched.provider}).`,
@@ -551,23 +554,26 @@ function handleSlashCommand(
         model,
       });
       break;
-    case "/cost":
-      get().addMessage(sessionId, {
-        role: "assistant",
-        content: `### Usage Summary (Mock)
-
-| Provider | Model | Tokens | Est. Cost |
-|----------|-------|--------|-----------|
-| Anthropic | Claude 4 Sonnet | ~2,450 | $0.018 |
-| OpenAI | GPT-5.2 | ~1,200 | $0.009 |
-| 智谱 | GLM-5 | ~800 | ¥0.006 |
-
-**Total estimated cost:** ~$0.027
-
-> Cost tracking will be accurate once connected to the Tauri backend with real provider APIs.`,
-        model,
-      });
+    case "/cost": {
+      const summary = useUsageStore.getState().getSummary();
+      if (summary.totalInputTokens + summary.totalOutputTokens === 0) {
+        get().addMessage(sessionId, {
+          role: "assistant",
+          content: "No usage data yet. Send some messages first, then check back!",
+          model,
+        });
+      } else {
+        const providerRows = Object.entries(summary.byProvider)
+          .map(([provider, data]) => `| ${provider} | ${data.tokens.toLocaleString()} | $${data.cost.toFixed(4)} |`)
+          .join("\n");
+        get().addMessage(sessionId, {
+          role: "assistant",
+          content: `### Usage Summary\n\n| Provider | Tokens | Est. Cost |\n|----------|--------|----------|\n${providerRows}\n\n**Total:** ${summary.totalInputTokens + summary.totalOutputTokens.toLocaleString()} tokens, $${summary.totalCost.toFixed(4)}`,
+          model,
+        });
+      }
       break;
+    }
     case "/doctor": {
       const checks = [
         { name: "Tauri Runtime", status: typeof window !== "undefined" && "__TAURI__" in window ? "Connected" : "Not connected (web preview)" },
