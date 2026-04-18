@@ -275,7 +275,7 @@ pub struct ToolUseDelta {
 // ── Provider Types ─────────────────────────────────────
 
 /// Supported provider backends.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ProviderType {
     Anthropic,
