@@ -21,12 +21,14 @@ function genId() {
 
 /** Map provider ID to provider type string matching Rust enum. */
 function mapProviderType(providerId: string): string {
-  if (providerId.includes("anthropic")) {return "anthropic";}
-  if (providerId.includes("openai")) {return "openai";}
-  if (providerId.includes("ollama")) {return "ollama";}
-  if (providerId.includes("google")) {return "google";}
-  if (providerId.includes("zhipu")) {return "custom";}
-  if (providerId.includes("deepseek")) {return "openai";}
+  if (providerId.includes("anthropic")) { return "anthropic"; }
+  if (providerId.includes("openrouter")) { return "openrouter"; }
+  if (providerId.includes("ollama")) { return "ollama"; }
+  if (providerId.includes("google")) { return "google"; }
+  if (providerId.includes("qwen")) { return "openai"; }    // Qwen uses OpenAI-compatible API
+  if (providerId.includes("deepseek")) { return "openai"; } // DeepSeek uses OpenAI-compatible API
+  if (providerId.includes("zhipu")) { return "openai"; }    // 智谱 uses OpenAI-compatible API
+  if (providerId.includes("openai")) { return "openai"; }
   return "custom";
 }
 
@@ -34,8 +36,8 @@ const MOCK_SESSIONS: Session[] = [
   {
     id: "1",
     title: "Rust HDLC parser refactor",
-    model: "Claude 4 Sonnet",
-    provider: "Anthropic",
+    model: "claude-4-sonnet",
+    provider: "provider-anthropic",
     createdAt: new Date(Date.now() - 120_000).toISOString(),
     updatedAt: new Date(Date.now() - 120_000).toISOString(),
     messages: [
@@ -122,8 +124,8 @@ pub enum ToolHandlerKind {
   {
     id: "2",
     title: "Fix auth middleware token expiry",
-    model: "GPT-5.2",
-    provider: "OpenAI",
+    model: "gpt-5.2",
+    provider: "provider-openai",
     createdAt: new Date(Date.now() - 900_000).toISOString(),
     updatedAt: new Date(Date.now() - 900_000).toISOString(),
     messages: [],
@@ -131,8 +133,8 @@ pub enum ToolHandlerKind {
   {
     id: "3",
     title: "DLMS COSEM integration tests",
-    model: "GLM-5",
-    provider: "智谱",
+    model: "glm-5",
+    provider: "provider-zhipu",
     createdAt: new Date(Date.now() - 3600_000).toISOString(),
     updatedAt: new Date(Date.now() - 3600_000).toISOString(),
     messages: [],
@@ -140,8 +142,8 @@ pub enum ToolHandlerKind {
   {
     id: "4",
     title: "Add WebSocket transport layer",
-    model: "DeepSeek V3",
-    provider: "DeepSeek",
+    model: "deepseek-v3",
+    provider: "provider-deepseek",
     createdAt: new Date(Date.now() - 10800_000).toISOString(),
     updatedAt: new Date(Date.now() - 10800_000).toISOString(),
     messages: [],
@@ -149,8 +151,8 @@ pub enum ToolHandlerKind {
   {
     id: "5",
     title: "Power quality THD analysis",
-    model: "通义千问 Max",
-    provider: "阿里云",
+    model: "qwen-max",
+    provider: "provider-qwen",
     createdAt: new Date(Date.now() - 86400_000).toISOString(),
     updatedAt: new Date(Date.now() - 86400_000).toISOString(),
     messages: [],

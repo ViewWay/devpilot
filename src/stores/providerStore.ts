@@ -101,6 +101,31 @@ const DEFAULT_PROVIDERS: Provider[] = [
     enabled: true,
   },
   {
+    id: "provider-openrouter",
+    name: "OpenRouter",
+    baseUrl: "https://openrouter.ai/api/v1",
+    apiKey: "",
+    models: [
+      { id: "anthropic/claude-4-sonnet", name: "Claude 4 Sonnet (OpenRouter)", maxTokens: 200000, supportsStreaming: true, supportsVision: true, inputPrice: 3, outputPrice: 15 },
+      { id: "openai/gpt-5.2", name: "GPT-5.2 (OpenRouter)", maxTokens: 128000, supportsStreaming: true, supportsVision: true, inputPrice: 2.5, outputPrice: 10 },
+      { id: "google/gemini-3-pro", name: "Gemini 3 Pro (OpenRouter)", maxTokens: 1000000, supportsStreaming: true, supportsVision: true, inputPrice: 1.25, outputPrice: 10 },
+    ],
+    enabled: false,
+  },
+  {
+    id: "provider-qwen",
+    name: "通义千问 (Qwen)",
+    baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    apiKey: "",
+    models: [
+      { id: "qwen-max", name: "Qwen Max", maxTokens: 32000, supportsStreaming: true, supportsVision: false, inputPrice: 0.4, outputPrice: 1.2 },
+      { id: "qwen-plus", name: "Qwen Plus", maxTokens: 131072, supportsStreaming: true, supportsVision: true, inputPrice: 0.08, outputPrice: 0.2 },
+      { id: "qwen-turbo", name: "Qwen Turbo", maxTokens: 131072, supportsStreaming: true, supportsVision: false, inputPrice: 0.02, outputPrice: 0.06 },
+      { id: "qwen3-coder", name: "Qwen3 Coder", maxTokens: 131072, supportsStreaming: true, supportsVision: false, inputPrice: 0.08, outputPrice: 0.2 },
+    ],
+    enabled: true,
+  },
+  {
     id: "provider-ollama",
     name: "Ollama (Local)",
     baseUrl: "http://localhost:11434",
@@ -116,12 +141,14 @@ const DEFAULT_PROVIDERS: Provider[] = [
 
 /** Map provider ID to provider type string matching Rust enum. */
 function mapProviderType(providerId: string): string {
-  if (providerId.includes("anthropic")) {return "anthropic";}
-  if (providerId.includes("openai")) {return "openai";}
-  if (providerId.includes("ollama")) {return "ollama";}
-  if (providerId.includes("google")) {return "google";}
-  if (providerId.includes("zhipu")) {return "custom";}
-  if (providerId.includes("deepseek")) {return "openai";}
+  if (providerId.includes("anthropic")) { return "anthropic"; }
+  if (providerId.includes("openrouter")) { return "openrouter"; }
+  if (providerId.includes("ollama")) { return "ollama"; }
+  if (providerId.includes("google")) { return "google"; }
+  if (providerId.includes("qwen")) { return "openai"; }    // Qwen uses OpenAI-compatible API
+  if (providerId.includes("deepseek")) { return "openai"; } // DeepSeek uses OpenAI-compatible API
+  if (providerId.includes("zhipu")) { return "openai"; }    // 智谱 uses OpenAI-compatible API
+  if (providerId.includes("openai")) { return "openai"; }
   return "custom";
 }
 
