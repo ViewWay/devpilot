@@ -693,6 +693,7 @@ dependencies = [
  "devpilot-llm",
  "devpilot-protocol",
  "devpilot-store",
+ "devpilot-tools",
  "futures",
  "serde",
  "serde_json",
@@ -746,6 +747,22 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror 2.0.18",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "devpilot-tools"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "devpilot-protocol",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
  "tracing",
  "uuid",
 ]

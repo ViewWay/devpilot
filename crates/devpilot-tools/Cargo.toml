@@ -1,0 +1,19 @@
+[package]
+name = "devpilot-tools"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Tool registry, shell execution, file operations for DevPilot"
+
+[dependencies]
+devpilot-protocol = { path = "../devpilot-protocol" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }

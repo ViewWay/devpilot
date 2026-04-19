@@ -4,6 +4,7 @@ members = [
     "crates/devpilot-llm",
     "crates/devpilot-protocol",
     "crates/devpilot-store",
+    "crates/devpilot-tools",
     "src-tauri",
 ]
 

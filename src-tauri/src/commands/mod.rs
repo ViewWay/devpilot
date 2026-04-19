@@ -3,6 +3,7 @@ use devpilot_store::{MessageInfo, PingResponse, SessionInfo, SettingEntry, Usage
 use tauri::State;
 
 pub mod llm;
+pub mod tools;
 
 /// Health check / ping command.
 #[tauri::command]

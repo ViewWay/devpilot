@@ -78,6 +78,65 @@ function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
+    case "list_tools":
+      return [
+        {
+          name: "shell_exec",
+          description: "Execute a shell command",
+          inputSchema: {
+            type: "object",
+            properties: {
+              command: { type: "string", description: "Command to execute" },
+            },
+            required: ["command"],
+          },
+        },
+        {
+          name: "file_read",
+          description: "Read file contents",
+          inputSchema: {
+            type: "object",
+            properties: {
+              path: { type: "string", description: "File path" },
+            },
+            required: ["path"],
+          },
+        },
+        {
+          name: "file_write",
+          description: "Write content to a file",
+          inputSchema: {
+            type: "object",
+            properties: {
+              path: { type: "string", description: "File path" },
+              content: { type: "string", description: "File content" },
+            },
+            required: ["path", "content"],
+          },
+        },
+        {
+          name: "apply_patch",
+          description: "Apply a find-and-replace patch to a file",
+          inputSchema: {
+            type: "object",
+            properties: {
+              path: { type: "string", description: "File path" },
+              old_string: { type: "string", description: "Text to find" },
+              new_string: { type: "string", description: "Replacement text" },
+            },
+            required: ["path", "old_string", "new_string"],
+          },
+        },
+      ];
+    case "execute_tool":
+      return {
+        approval: "auto_approved",
+        output: `[mock] Tool ${args?.toolName} executed`,
+        isError: false,
+        durationMs: 42,
+      };
+    case "pending_approvals":
+      return 0;
     default:
       console.warn(`[IPC mock] Unhandled command: ${cmd}`);
       return null;
@@ -142,6 +201,17 @@ export interface IPCCommands {
   // Usage
   get_session_usage: { sessionId: string };
   get_total_usage: void;
+
+  // Tools
+  list_tools: void;
+  execute_tool: {
+    toolName: string;
+    input: unknown;
+    sessionId: string;
+    workingDir: string;
+  };
+  resolve_tool_approval: { request: ResolveApprovalRequestIPC };
+  pending_approvals: void;
 }
 
 export interface ProviderConfigIPC {
@@ -307,3 +377,39 @@ export interface SettingEntryIPC {
   key: string;
   value: string;
 }
+
+// ── Tool Types ─────────────────────────────────────────────────
+
+export interface ToolDefinitionIPC {
+  name: string;
+  description: string;
+  inputSchema: unknown;
+}
+
+export interface ToolExecutionResultIPC {
+  approval: "approved" | "rejected" | "auto_approved";
+  output?: string;
+  isError: boolean;
+  metadata?: unknown;
+  durationMs: number;
+}
+
+export interface ResolveApprovalRequestIPC {
+  requestId: string;
+  approved: boolean;
+}
+
+/** Event payload for `tool-executed` events from the backend. */
+export interface ToolExecutedEventIPC {
+  toolName: string;
+  isError: boolean;
+  durationMs: number;
+}
+
+// ── Tool Events ────────────────────────────────────────────────
+
+/** Event names used by the Rust backend for tool execution. */
+export const TOOL_EVENTS = {
+  /** A tool was executed. Payload: ToolExecutedEventIPC */
+  EXECUTED: "tool-executed",
+} as const;
