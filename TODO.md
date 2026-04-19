@@ -3,9 +3,9 @@
 ## 项目概况
 
 - **版本**: 0.4.0 (开发中)
-- **后端**: 12 Rust crates, 12,250+ 行, 202 tests, 全部通过
-- **前端**: 55+ TS/TSX 文件, ~10,200 行, 142 tests (11 files)
-- **IPC**: 51 个 Tauri 命令已注册 (28 个 #[tauri::command])
+- **后端**: 13 Rust crates, 13,100+ 行, 281 tests, 全部通过
+- **前端**: 65+ TS/TSX 文件, ~12,000 行, 142 tests (11 files)
+- **IPC**: 56 个 Tauri 命令已注册 (33 个 #[tauri::command])
 - **编译**: cargo build OK, cargo clippy OK, tsc OK
 
 ---
@@ -50,9 +50,36 @@
 
 ---
 
+## Phase 5: Persona & Memory + Split View — 完成 ✅
+
+### P5-A: Persona File System
+
+- [x] **P5-1** devpilot-memory crate: PersonaFiles (SOUL/USER/MEMORY/AGENTS.md) + DailyMemory + search_memory + build_persona_prompt — 31 tests (f382c5f)
+- [x] **P5-2** Tauri IPC: 5 memory commands (load_persona_files, save_persona_file, list_daily_memories, search_memories, create_daily_memory) (f382c5f)
+- [x] **P5-3** Frontend PersonaMemoryTab: Settings tab with 4 persona editors, daily memories viewer, cross-source search (1f9fc1b)
+
+### P5-B: Split View
+
+- [x] **P5-4** Split view: DualSessionSplitView with resizable divider, mobile responsive (74d3efa)
+- [x] **P5-5** Sidebar smart selection in split mode + TopBar toggle button (74d3efa)
+
+### P5-C: Session Rewind
+
+- [x] **P5-6** CheckpointPanel: Timeline view with create/rewind — already existed from P3
+
+---
+
+## Phase 6: Generative UI + Shortcuts — 完成 ✅
+
+- [x] **P6-1** SandboxRenderer: iframe-based sandbox with srcdoc, resize handle, open-in-new-tab, error boundary (e5ef4f2)
+- [x] **P6-2** SandboxBlock: Chat message block for html code blocks — auto-detected in MessageList (e5ef4f2)
+- [x] **P6-3** Keyboard shortcuts: 9 default shortcuts, customizable with click-to-rebind recording, persistence (2a22820)
+
+---
+
 ## 已完成模块
 
-### Rust Crates (12)
+### Rust Crates (13)
 
 - [x] devpilot-protocol (494行, 36 tests) — 共享类型 (含 GLM/Qwen/DeepSeek ProviderType)
 - [x] devpilot-llm (2,910行, 48 tests) — 多Provider LLM客户端 (含 chinese.rs 模型目录)
@@ -65,8 +92,9 @@
 - [x] devpilot-bridge (799行, 6 tests) — IM通知桥接
 - [x] devpilot-media (544行, 8 tests) — 图像生成
 - [x] devpilot-mcp (~730行, 32 tests) — MCP客户端 (stdio/SSE transport + tool discovery)
+- [x] devpilot-memory (~863行, 31 tests) — Persona files + daily memory + search
 
-### Tauri IPC (51命令, 28 个 #[tauri::command])
+### Tauri IPC (56命令, 33 个 #[tauri::command])
 
 - [x] Session CRUD (5)
 - [x] Message CRUD (3)
@@ -83,15 +111,19 @@
 - [x] Checkpoint create/list/rewind (3)
 - [x] Context compaction (1)
 - [x] MCP CRUD+connect/disconnect/list (6)
+- [x] Memory/Persona load/save/list/search/create (5)
 
-### 前端 (55+文件, ~10,200行, 142 tests)
+### 前端 (65+文件, ~12,000行, 142 tests)
 
 - [x] ChatPanel + MessageList + MessageInput + CodeBlock + ToolCallView
 - [x] ApprovalOverlay → ApprovalQueue (工具审批 UI)
 - [x] Sidebar (含归档区) + TopBar (动态模型选择器)
-- [x] SettingsPage (Provider/Model/Bridge/Scheduler/Media)
+- [x] SettingsPage (Provider/Model/Bridge/Scheduler/Media/PersonaMemory/Shortcuts)
 - [x] SchedulerPage + GalleryPage
 - [x] TerminalPanel + PreviewPanel + FileTree
+- [x] CheckpointPanel + SessionPanelView + DualSessionSplitView
+- [x] SandboxRenderer + SandboxBlock (iframe-based generative UI)
+- [x] memoryStore + shortcutStore
 - [x] i18n (EN + CN) 全覆盖
 - [x] 流式中止 + 竞态修复
 - [x] Provider 持久化 + 加密 API key 水合
@@ -101,7 +133,7 @@
 
 ### 测试覆盖
 
-- 后端: 202 Rust tests (12 crates + 10 E2E, 全部通过)
+- 后端: 281 Rust tests (13 crates + 10 E2E, 全部通过)
 - 前端: 142 tests (11 files, 全部通过)
   - components: MessageInput.test.tsx, Sidebar.test.tsx
   - stores: chatStore, providerStore, usageStore, uiStore, schedulerStore, checkpointStore, streaming
@@ -114,3 +146,4 @@
 - 2026-04-19 Session L: P3-6 Chinese Provider + P3-1 测试完善
 - 2026-04-19 Session M: P3-4 E2E 集成测试 + 提交推送 (587aa31)
 - 2026-04-19 Session N: P4 规划 + 开始开发
+- 2026-04-20 Session O: P5+P6 开发 — devpilot-memory crate, persona UI, split view, sandbox renderer, keyboard shortcuts
