@@ -9,6 +9,8 @@ const zh: Record<string, string> = {
   older: "更早",
   rename: "重命名",
   archive: "归档",
+  archived: "已归档",
+  unarchive: "取消归档",
   delete: "删除",
   confirmDelete: "删除此对话？",
   noSessions: "暂无对话",

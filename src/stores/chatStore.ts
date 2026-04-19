@@ -299,6 +299,8 @@ function mockStreamReply(
   const tickDelay = () => 15 + Math.random() * 25;
 
   const streamTick = () => {
+    if (!get().isLoading) { return; } // aborted
+
     const currentSessionId = get().activeSessionId;
     if (currentSessionId !== sessionId) {
       set({ isLoading: false, streamingMessageId: null });
@@ -361,8 +363,13 @@ interface ChatState {
   updateSessionTitle: (sessionId: string, title: string) => void;
   archiveSession: (id: string) => void;
   setError: (error: string | null) => void;
+  /** Abort an in-progress streaming response, cleaning up listeners. */
+  abortStreaming: () => void;
   /** Hydrate store from Tauri backend (SQLite). No-op in browser dev mode. */
   hydrateFromBackend: () => Promise<void>;
+
+  // Internal
+  _streamCleanup: (() => void) | null;
 }
 
 function relativeTime(date: string): string {
@@ -383,6 +390,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isLoading: false,
   error: null,
   streamingMessageId: null,
+  _streamCleanup: null,
 
   activeSession: () => {
     const { sessions, activeSessionId } = get();
@@ -532,14 +540,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }));
         messages.push({ role: "user", content: [{ type: "text" as const, text: content }] });
 
-        // Start streaming via IPC
-        await invoke("send_message_stream", {
-          provider: providerConfig,
-          chatRequest: { model, messages, stream: true },
-          sessionId,
-        });
-
-        // Listen for stream events — backend emits globally:
+        // Register listeners BEFORE invoking to avoid missing early events.
+        // Backend emits globally:
         //   "stream-chunk"  → StreamEvent::Chunk { sessionId, delta, ... }
         //   "stream-done"   → StreamEvent::Done  { sessionId, usage, ... }
         //   "stream-error"  → StreamEvent::Error { sessionId, message, ... }
@@ -595,7 +597,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 .find((m) => m.id === assistantMsgId)?.content as string ?? "",
               false,
             );
-            set({ isLoading: false, streamingMessageId: null });
+            set({ isLoading: false, streamingMessageId: null, _streamCleanup: null });
             cleanup();
           },
         );
@@ -609,10 +611,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
               `⚠️ Stream error: ${payload.message}`,
               false,
             );
-            set({ isLoading: false, streamingMessageId: null });
+            set({ isLoading: false, streamingMessageId: null, _streamCleanup: null });
             cleanup();
           },
         );
+
+        // Save cleanup so abortStreaming can cancel listeners
+        set({ _streamCleanup: cleanup });
+
+        // NOW start streaming — listeners are already registered
+        await invoke("send_message_stream", {
+          provider: providerConfig,
+          chatRequest: { model, messages, stream: true },
+          sessionId,
+        });
 
         return; // Tauri handled it
       } catch {
@@ -659,6 +671,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   setError: (error) => set({ error }),
+
+  abortStreaming: () => {
+    const cleanup = get()._streamCleanup;
+    if (cleanup) {
+      cleanup();
+    }
+    // Finalize any streaming message
+    const { streamingMessageId, activeSessionId } = get();
+    if (streamingMessageId && activeSessionId) {
+      const session = get().sessions.find(s => s.id === activeSessionId);
+      const msg = session?.messages.find(m => m.id === streamingMessageId);
+      if (msg && typeof msg.content === "string") {
+        get().updateMessageContent(activeSessionId, streamingMessageId, msg.content + "\n\n*[Generation stopped]*", false);
+      }
+    }
+    set({ isLoading: false, streamingMessageId: null, _streamCleanup: null });
+  },
 
   hydrateFromBackend: async () => {
     const data = await hydrateSessions();

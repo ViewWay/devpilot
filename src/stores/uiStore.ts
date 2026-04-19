@@ -12,7 +12,7 @@ const DEFAULT_MODELS: ModelInfo[] = [
 ];
 
 export type Theme = "dark" | "light" | "system";
-export type ActiveView = "chat" | "settings";
+export type ActiveView = "chat" | "settings" | "scheduler" | "gallery";
 export type RightPanel = "none" | "files" | "terminal" | "preview";
 
 interface UIState {

@@ -2,6 +2,20 @@
 
 All notable changes to DevPilot will be documented in this file.
 
+## [0.3.0] — 2026-04-19 (In Progress)
+
+### Added — Frontend Integration
+
+- Router system: page switching between chat / scheduler / gallery / settings
+- SchedulerPanel: task CRUD, enable/disable toggle, execution history
+- GalleryPanel: image generation UI (prompt, provider, size), browse gallery
+- SettingsPage: Bridge notification config, Sandbox policy config
+- IPC layer: scheduler/bridge/media Tauri invoke bindings
+- Zustand stores: schedulerStore, mediaStore, bridgeStore
+- i18n: full CN/EN translations for new panels
+
+---
+
 ## [0.2.0] — 2026-04-19
 
 ### Added — Backend Crates
@@ -24,6 +38,13 @@ All notable changes to DevPilot will be documented in this file.
 - `GenerateRequest` / `GenerateResponse` / `ImageData` types
 - Provider registration (custom generators pluggable at runtime)
 
+### Added — src-tauri IPC Integration
+
+- 5 new IPC command modules: sandbox, search, scheduler, bridge, media
+- `AppState` extended with `SchedulerState`, `BridgeManager`, `MediaState`
+- 16 new Tauri invoke commands (21 total)
+- All 10 backend crates wired into Tauri binary
+
 ### Changed
 
 - Workspace now has 10 crate members (up from 8)
@@ -41,6 +62,12 @@ All notable changes to DevPilot will be documented in this file.
 - src-tauri `lib.rs`: removed reference to deleted `get_session_usage` IPC handler
 - devpilot-media: `ImageProvider` missing `Hash` derive — needed for `HashMap` key
 - devpilot-media: test `use crate::ImageSize` not imported in providers.rs test module
+- src-tauri IPC: 39 API mismatch errors across sandbox/search/scheduler/bridge/media modules
+  - SandboxedCommand builder API corrected
+  - SearchQuery field names aligned
+  - TaskAction variant names aligned
+  - BridgeManager method signatures aligned
+  - MessagePayload field names aligned
 
 ---
 

@@ -9,6 +9,8 @@ const en: Record<string, string> = {
   older: "Older",
   rename: "Rename",
   archive: "Archive",
+  archived: "Archived",
+  unarchive: "Unarchive",
   delete: "Delete",
   confirmDelete: "Delete this conversation?",
   noSessions: "No conversations yet",

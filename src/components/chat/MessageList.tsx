@@ -5,7 +5,6 @@ import rehypeRaw from "rehype-raw";
 import { Bot, Wrench, Sparkles, Code, MessageSquare, Zap, Copy, Check, RefreshCw } from "lucide-react";
 import { CodeBlock } from "./CodeBlock";
 import { ToolCallList } from "./ToolCallView";
-import { ApprovalOverlay } from "./ApprovalOverlay";
 import { useChatStore } from "../../stores/chatStore";
 import { toast } from "../../stores/toastStore";
 import type { Message } from "../../types";
@@ -33,8 +32,6 @@ export function MessageList() {
           {session.messages.map((msg) => (
             <MessageBubble key={msg.id} message={msg} />
           ))}
-          {/* Demo approval overlay — will be driven by real approval queue later */}
-          <DemoApproval />
           <div ref={bottomRef} />
         </div>
       </div>
@@ -246,30 +243,5 @@ function MessageBubble({ message }: { message: Message }) {
         </div>
       </div>
     </div>
-  );
-}
-
-/** Temporary demo — shows an approval card so we can see the UI.
- *  In production this will be driven by a real approval queue from the backend. */
-function DemoApproval() {
-  const [visible, setVisible] = useState(true);
-
-  if (!visible) {return null;}
-
-  return (
-    <ApprovalOverlay
-      request={{
-        id: "demo-1",
-        toolCallId: "tc-demo-1",
-        command: "rm -rf node_modules && npm install",
-        description: "Remove and reinstall all dependencies to fix version conflicts.",
-        riskLevel: "medium",
-        workingDir: "/home/user/project",
-        createdAt: new Date().toLocaleTimeString(),
-      }}
-      onApprove={() => setVisible(false)}
-      onDeny={() => setVisible(false)}
-      onAllowAll={() => setVisible(false)}
-    />
   );
 }

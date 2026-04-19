@@ -172,7 +172,7 @@ export function MessageInput() {
   }, [input, isLoading, sendMessage, selectedModel.name, attachments]);
 
   const handleStop = useCallback(() => {
-    useChatStore.setState({ isLoading: false, streamingMessageId: null });
+    useChatStore.getState().abortStreaming();
   }, []);
 
   const handleKeyDown = useCallback(

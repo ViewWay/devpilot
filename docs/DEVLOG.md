@@ -1,6 +1,22 @@
 # DevPilot Development Log
 
-## 2026-04-19 Session B (commit 0aaf7d4)
+## 2026-04-19 Session C — Frontend Integration (commit 40fdf06 →)
+
+### Goal
+
+Connect React frontend to the 10-crate backend: routing, new panels, IPC bindings.
+
+### Phase 6: Router + SchedulerPanel + GalleryPanel
+
+**Goal:** Add page routing system and build the two major missing panels.
+
+**Implementation:**
+
+- (pending)
+
+---
+
+## 2026-04-19 Session B (commit 0aaf7d4 → 40fdf06)
 
 ### Phase 4: devpilot-bridge
 
@@ -70,14 +86,39 @@
 
 ---
 
-### Session Totals
+### Phase 5.5: src-tauri IPC Integration
+
+**Goal:** Wire all 10 backend crates into Tauri IPC commands.
+
+**Implementation:**
+
+- 5 new command modules: `sandbox.rs`, `search.rs`, `scheduler.rs`, `bridge.rs`, `media.rs`
+- `AppState` extended with `SchedulerState`, `BridgeManager`, `MediaState`
+- 16 new invoke commands registered in `lib.rs`
+- Total: 21 IPC commands across 7 modules
+
+**Issues & Fixes:**
+
+1. **39 API mismatch errors** — IPC modules used incorrect API surfaces from the actual crates. Delegate agent fixed all by reading crate source and rewriting:
+   - `SandboxedCommand` builder API: `new()` → `.command()` → `.policy()` chain
+   - `SearchQuery` fields: `directory` not `path`, `pattern` naming
+   - `TaskAction` variants: `ShellCommand`/`HttpRequest`/`Custom` not `Shell`/`Http`
+   - `BridgeManager` methods: `create_bridge()` not `add()`, `list_bridges()` not `list()`
+   - `MessagePayload` fields: `text` not `content`, `level` not `priority`
+
+**Result:** src-tauri compiles clean, 155/155 workspace tests pass, clippy + fmt clean. Commit `40fdf06`.
+
+---
+
+### Session B Totals
 
 | Metric   | Before Session B | After Session B |
 | -------- | ---------------- | --------------- |
 | Crates   | 8                | 10              |
-| Rust LOC | 9,853            | 10,473          |
+| Rust LOC | 9,853            | 11,737          |
+| IPC cmds | 5                | 21              |
 | Tests    | 101              | 155             |
-| Commits  | aa2cdd6          | 0aaf7d4         |
+| Commits  | aa2cdd6          | 40fdf06         |
 
 Quality gates: `cargo fmt`, `cargo clippy -D warnings`, `cargo test --workspace` — all passing.
 

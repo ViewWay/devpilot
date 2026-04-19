@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useI18n } from "../../i18n";
 import { useChatStore, relativeTime } from "../../stores/chatStore";
 import { useUIStore } from "../../stores/uiStore";
@@ -20,6 +21,7 @@ import {
 
 export function Sidebar() {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const collapsed = useUIStore((s) => !s.sidebarOpen);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
@@ -75,7 +77,7 @@ export function Sidebar() {
           <button className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title={t("gallery")}>
             <Image size={16} />
           </button>
-          <button className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title={t("settings")}>
+          <button onClick={() => navigate("/settings")} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title={t("settings")}>
             <Settings size={16} />
           </button>
         </div>
@@ -136,7 +138,7 @@ export function Sidebar() {
           <Image size={13} />
           <span>{t("gallery")}</span>
         </button>
-        <button className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title={t("settings")}>
+        <button onClick={() => navigate("/settings")} className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title={t("settings")}>
           <Settings size={13} />
         </button>
       </div>
@@ -231,6 +233,8 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
 
     return groups.filter((g) => g.sessions.length > 0);
   }, [filtered]);
+
+  const archivedSessions = sessions.filter((s) => s.archived);
 
   return (
     <div className="flex-1 overflow-y-auto px-2 py-1">
@@ -334,6 +338,42 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
             })}
           </div>
         ))
+      )}
+      {/* Archived sessions */}
+      {archivedSessions.length > 0 && (
+        <div className="mt-3 mb-2">
+          <div className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
+            {t("archived")}
+          </div>
+          {archivedSessions.map((session) => (
+            <div
+              key={session.id}
+              className="group flex items-center gap-2 rounded-lg px-2 py-1.5 cursor-pointer transition-colors opacity-60 hover:opacity-100 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+              onClick={() => handleSelectSession(session.id)}
+            >
+              <Archive size={13} className="shrink-0 opacity-60" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-xs font-medium">{session.title}</div>
+                <div className="text-[10px] opacity-60">{relativeTime(session.updatedAt)}</div>
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // Unarchive: set archived = false
+                  useChatStore.setState(s => ({
+                    sessions: s.sessions.map(sess =>
+                      sess.id === session.id ? { ...sess, archived: false } : sess
+                    ),
+                  }));
+                }}
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-accent"
+                title={t("unarchive")}
+              >
+                <MessageSquare size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
