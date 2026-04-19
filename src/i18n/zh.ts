@@ -129,6 +129,7 @@ const zh: Record<string, string> = {
   // --- Settings extras ---
   appearanceDesc: "自定义 DevPilot 的外观和体验。",
   messageFontSize: "消息字体大小",
+  messages: "条消息",
   provider: "服务商",
   tokens: "Token",
   cost: "费用",
@@ -285,6 +286,18 @@ const zh: Record<string, string> = {
   mcpSse: "SSE",
   mcpNoServers: "未配置 MCP 服务器",
   mcpSave: "保存服务器",
+
+  // --- Security ---
+  security: "安全",
+  securityDesc: "配置沙盒执行策略和安全设置。",
+  sandboxPolicy: "沙盒策略",
+  sandboxPolicyDesc: "控制命令在沙盒中的执行方式。影响文件系统访问、网络访问和资源限制。",
+  sandboxDefault: "默认",
+  sandboxDefaultDesc: "均衡策略 — 允许工作目录读写、禁止网络、60秒超时。",
+  sandboxPermissive: "宽松",
+  sandboxPermissiveDesc: "宽松策略 — 允许完整文件系统和网络访问、120秒超时。",
+  sandboxStrict: "严格",
+  sandboxStrictDesc: "限制策略 — 只读文件系统、禁止网络、30秒超时。",
 };
 
 export default zh;

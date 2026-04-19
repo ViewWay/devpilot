@@ -16,7 +16,7 @@
 
 ---
 
-## Phase 4: 实用化 (P4) — 11/15 完成
+## Phase 4: 实用化 (P4) — 15/15 完成 ✅
 
 ### P4-A: 核心面板真实化 (Critical)
 
@@ -39,14 +39,14 @@
 ### P4-D: 设置完善 (Medium)
 
 - [x] **P4-10** MCP Server 管理: SettingsPage MCP 标签页 + mcpStore + 18 i18n keys (30affbe)
-- [ ] **P4-11** 字体大小: uiStore + SettingsPage slider 联动
-- [ ] **P4-12** Sandbox 策略选择: SettingsPage 安全性标签页
+- [x] **P4-11** 字体大小: uiStore fontSize + SettingsPage slider → MessageBubble 联动 (f40d2d4+)
+- [x] **P4-12** Sandbox 策略选择: SecurityTab + TerminalPanel 接入 sandboxPolicy (f40d2d4+)
 
 ### P4-E: 清理 & 配置 (Low)
 
 - [x] **P4-13** 删除 dead Header.tsx, useTauri.ts, 重复快捷键 (2c6d966)
 - [x] **P4-14** tauri.conf.json: 版本号 0.4.0 + 标题栏 "DevPilot — AI Coding Agent" (b8b6a22)
-- [ ] **P4-15** i18n 修补: loading/mode keys
+- [x] **P4-15** i18n 修补: messages key 补全 (f40d2d4+)
 
 ---
 

@@ -129,6 +129,7 @@ const en: Record<string, string> = {
   // --- Settings extras ---
   appearanceDesc: "Customize the look and feel of DevPilot.",
   messageFontSize: "Message Font Size",
+  messages: "messages",
   provider: "Provider",
   tokens: "Tokens",
   cost: "Cost",
@@ -285,6 +286,18 @@ const en: Record<string, string> = {
   mcpSse: "SSE",
   mcpNoServers: "No MCP servers configured",
   mcpSave: "Save Server",
+
+  // --- Security ---
+  security: "Security",
+  securityDesc: "Configure sandbox execution policies and safety settings.",
+  sandboxPolicy: "Sandbox Policy",
+  sandboxPolicyDesc: "Controls how commands are executed in the sandbox. Affects file system access, network access, and resource limits.",
+  sandboxDefault: "Default",
+  sandboxDefaultDesc: "Balanced policy — allows file read/write in working directory, blocks network, 60s timeout.",
+  sandboxPermissive: "Permissive",
+  sandboxPermissiveDesc: "Relaxed policy — allows full file system access and network, 120s timeout.",
+  sandboxStrict: "Strict",
+  sandboxStrictDesc: "Restricted policy — read-only file system, no network, 30s timeout.",
 };
 
 export default en;

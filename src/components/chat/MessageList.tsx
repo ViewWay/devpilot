@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { Bot, Wrench, Sparkles, Code, MessageSquare, Zap, Copy, Check, RefreshCw } from "lucide-react";
+import { useUIStore } from "../../stores/uiStore";
 import { CodeBlock } from "./CodeBlock";
 import { ToolCallList } from "./ToolCallView";
 import { useChatStore } from "../../stores/chatStore";
@@ -106,11 +107,12 @@ function MessageActions({ content, onRegenerate }: { content: string; onRegenera
 function MessageBubble({ message }: { message: Message }) {
   const isUser = message.role === "user";
   const isTool = message.role === "tool";
+  const fontSize = useUIStore((s) => s.fontSize);
 
   if (isUser) {
     return (
       <div className="group flex justify-end">
-        <div className="max-w-[75%] rounded-2xl rounded-br-sm bg-user-bubble px-4 py-2.5 text-sm leading-relaxed text-user-bubble-foreground">
+        <div className="max-w-[75%] rounded-2xl rounded-br-sm bg-user-bubble px-4 py-2.5 leading-relaxed text-user-bubble-foreground" style={{ fontSize }}>
           {message.content}
           <div className="flex items-center justify-between mt-1">
             <div className="text-[10px] text-user-bubble-foreground/60">{message.timestamp}</div>
@@ -145,7 +147,7 @@ function MessageBubble({ message }: { message: Message }) {
         <Bot size={12} className="text-primary-foreground" />
       </div>
       <div className="min-w-0 flex-1 space-y-2">
-        <div className="text-sm leading-relaxed text-assistant-bubble-foreground prose-sm">
+        <div className="leading-relaxed text-assistant-bubble-foreground prose-sm" style={{ fontSize }}>
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             rehypePlugins={[rehypeRaw]}

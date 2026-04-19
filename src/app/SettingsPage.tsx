@@ -83,6 +83,7 @@ export function SettingsPage() {
         {activeTab === "usage" && <UsageTab />}
         {activeTab === "bridge" && <BridgeTab />}
         {activeTab === "mcp" && <McpTab />}
+        {activeTab === "security" && <SecurityTab />}
       </div>
     </div>
   );
@@ -1017,7 +1018,66 @@ function BridgeTab() {
   );
 }
 
-// --- MCP Tab ---
+// --- Security Tab ---
+
+const SANDBOX_POLICIES: { id: "default" | "permissive" | "strict"; labelKey: string; descKey: string }[] = [
+  { id: "default", labelKey: "sandboxDefault", descKey: "sandboxDefaultDesc" },
+  { id: "permissive", labelKey: "sandboxPermissive", descKey: "sandboxPermissiveDesc" },
+  { id: "strict", labelKey: "sandboxStrict", descKey: "sandboxStrictDesc" },
+];
+
+function SecurityTab() {
+  const { t } = useI18n();
+  const sandboxPolicy = useUIStore((s) => s.sandboxPolicy);
+  const setSandboxPolicy = useUIStore((s) => s.setSandboxPolicy);
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-6">
+      <div>
+        <h2 className="text-base font-semibold text-foreground">{t("security")}</h2>
+        <p className="text-xs text-muted-foreground mt-1">{t("securityDesc")}</p>
+      </div>
+
+      {/* Sandbox Policy */}
+      <div>
+        <label className="text-xs font-medium text-foreground">{t("sandboxPolicy")}</label>
+        <p className="text-[10px] text-muted-foreground mt-1 mb-3">{t("sandboxPolicyDesc")}</p>
+        <div className="space-y-2">
+          {SANDBOX_POLICIES.map((policy) => (
+            <button
+              key={policy.id}
+              onClick={() => setSandboxPolicy(policy.id)}
+              className={cn(
+                "flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors",
+                sandboxPolicy === policy.id
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:border-accent",
+              )}
+            >
+              <div className={cn(
+                "mt-0.5 h-4 w-4 shrink-0 rounded-full border-2",
+                sandboxPolicy === policy.id
+                  ? "border-primary bg-primary"
+                  : "border-muted-foreground/30",
+              )} />
+              <div>
+                <div className={cn(
+                  "text-xs font-medium",
+                  sandboxPolicy === policy.id ? "text-primary" : "text-foreground",
+                )}>
+                  {t(policy.labelKey)}
+                </div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">
+                  {t(policy.descKey)}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function McpTab() {
   const { t } = useI18n();

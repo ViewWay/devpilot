@@ -75,7 +75,7 @@ async function processCommand(term: import("@xterm/xterm").Terminal, cmd: string
         denialReason: string | null;
         durationMs: number;
       }>("sandbox_execute", {
-        request: { command: cmd, workingDir, policy: "default" },
+        request: { command: cmd, workingDir, policy: useUIStore.getState().sandboxPolicy },
       });
       if (result.denied) {
         term.writeln(`\x1b[31mDenied: ${result.denialReason ?? "policy restriction"}\x1b[0m`);

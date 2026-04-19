@@ -690,7 +690,7 @@ New test files:
 
 **QA:** `cargo test --workspace` 202 pass, `vitest run` 142 pass, `tsc --noEmit` clean, `cargo clippy` clean
 
-## 2026-04-19 Session I — P4 Practicalization Batch 2 (11/15 → 15/15)
+## 2026-04-19 Session I — P4 Practicalization (5/15 → 15/15 完成)
 
 ### Goal
 
@@ -733,20 +733,38 @@ New test files:
 - tauri.conf.json: version `0.1.0` → `0.4.0`, title → `DevPilot — AI Coding Agent`
 - Cargo.toml: version `0.1.0` → `0.4.0`
 
-### P4-11: 字体大小调整 🔄 (下一步)
+### P4-11: 字体大小调整 ✅
 
-### P4-12: Sandbox 策略选择 🔄 (下一步)
+- uiStore 已有 `fontSize` (12-18, default 14) + `setFontSize` + clamping
+- AppearanceTab 已有 slider 控件（range input 12~18, step 1）
+- **关键修复**: MessageBubble 从硬编码 `text-sm` 改为 `style={{ fontSize }}`
+  - 用户气泡 (user bubble) ✅
+  - 助手气泡 (assistant markdown) ✅
+  - import useUIStore added
 
-### P4-15: i18n 修补 🔄 (下一步)
+### P4-12: Sandbox 策略选择 ✅
+
+- SecurityTab 完整实现：Default/Permissive/Strict 三档 radio selector
+  - Default: 工作目录读写, 禁止网络, 60s 超时
+  - Permissive: 完整文件系统+网络, 120s 超时
+  - Strict: 只读, 禁止网络, 30s 超时
+- TerminalPanel `sandbox_execute` 调用已改为读取 `useUIStore.getState().sandboxPolicy`
+- 12 个 i18n key (EN + CN): security, sandboxPolicy, sandbox\*Desc
+
+### P4-15: i18n 修补 ✅
+
+- 补全缺失 key: `messages` ("messages" / "条消息")
+- 全量扫描：189 used keys vs 264 defined keys → 0 missing
 
 ### Stats
 
 | Metric         | Before (556d11c) | Current   |
 | -------------- | ---------------- | --------- |
-| P4 tasks done  | 5/15             | 11/15     |
-| Files changed  | —                | ~30 files |
+| P4 tasks done  | 5/15             | **15/15** |
+| Files changed  | —                | ~35 files |
 | Rust tests     | 202              | 202       |
 | Frontend tests | 142              | 142       |
+| i18n keys      | ~240             | **264**   |
 | Version        | 0.1.0            | 0.4.0     |
 
-**QA:** `cargo test --workspace` 202 pass, `vitest run` 142 pass, `tsc --noEmit` clean, ESLint clean
+**QA:** `cargo test --workspace` 202 pass, `vitest run` 142 pass, `tsc --noEmit` clean, ESLint 0 errors

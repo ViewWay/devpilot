@@ -2,9 +2,9 @@
 
 All notable changes to DevPilot will be documented in this file.
 
-## [0.4.0] — 2026-04-19 (In Progress)
+## [0.4.0] — 2026-04-19
 
-### Added — Phase 4 Practical Features
+### Added — Phase 4 Practical Features (15/15 完成)
 
 - TerminalPanel: integrate `sandbox_execute` IPC for real command execution with colored stdout/stderr + exit codes
 - FileTree: real directory file tree with expand/collapse + click-to-preview
@@ -17,9 +17,11 @@ All notable changes to DevPilot will be documented in this file.
   - McpServerConfig type, mcpStore with 8 actions, 6 IPC mock handlers
   - Add/edit form with stdio/SSE transport, connect toggle, delete
   - 18 i18n keys (EN + CN)
+- Font size control: uiStore fontSize (12-18px) + AppearanceTab slider → MessageBubble dynamic sizing
+- Sandbox policy selector: SecurityTab with Default/Permissive/Strict radio, TerminalPanel reads active policy
 - `Message` role union: added `"system"` variant for system prompt messages
-- uiStore: `previewFile`/`setPreviewFile` state for file preview panel
-- i18n: system prompt, working directory, refresh, MCP, export keys (EN + CN)
+- uiStore: `previewFile`/`setPreviewFile`, `fontSize`/`setFontSize`, `sandboxPolicy`/`setSandboxPolicy`
+- i18n: 260+ keys (EN + CN) — system prompt, working directory, refresh, MCP, export, security, messages
 - tauri.conf.json: version 0.4.0, window title "DevPilot — AI Coding Agent"
 
 ### Fixed — TypeScript & Dead Code Cleanup
