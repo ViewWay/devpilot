@@ -5,6 +5,7 @@ import rehypeRaw from "rehype-raw";
 import { Bot, Wrench, Sparkles, Code, MessageSquare, Zap, Copy, Check, RefreshCw } from "lucide-react";
 import { useUIStore } from "../../stores/uiStore";
 import { CodeBlock } from "./CodeBlock";
+import { SandboxBlock } from "./SandboxBlock";
 import { ToolCallList } from "./ToolCallView";
 import { useChatStore } from "../../stores/chatStore";
 import { toast } from "../../stores/toastStore";
@@ -180,7 +181,12 @@ function MessageBubble({ message, isLastAssistant }: { message: Message; isLastA
                 if (isInline) {
                   return <code className="rounded bg-muted px-1 py-0.5 text-xs font-mono">{children}</code>;
                 }
-                return <CodeBlock code={codeStr} lang={match?.[1]} />;
+                const lang = match?.[1];
+                // Render HTML code blocks as interactive sandbox previews
+                if (lang === "html") {
+                  return <SandboxBlock code={codeStr} />;
+                }
+                return <CodeBlock code={codeStr} lang={lang} />;
               },
               table({ children }) {
                 return (

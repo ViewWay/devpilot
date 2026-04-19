@@ -327,6 +327,13 @@ const en: Record<string, string> = {
   noSearchResults: "No results found",
   personaNoWorkspace: "Open a workspace directory to manage persona files",
 
+  // --- Sandbox / Generative UI ---
+  sandboxLoading: "Rendering...",
+  sandboxPreview: "Sandbox Preview",
+  sandboxOpenNewTab: "Open in new tab",
+  sandboxGeneratedUI: "Generated UI",
+  sandboxCopyCode: "Copy Code",
+
   // --- Split View ---
   splitView: "Split View",
   splitViewDesc: "View two chat sessions side-by-side",

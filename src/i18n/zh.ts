@@ -327,6 +327,13 @@ const zh: Record<string, string> = {
   noSearchResults: "未找到结果",
   personaNoWorkspace: "请打开工作目录以管理人设文件",
 
+  // --- Sandbox / Generative UI ---
+  sandboxLoading: "渲染中...",
+  sandboxPreview: "沙盒预览",
+  sandboxOpenNewTab: "在新标签页打开",
+  sandboxGeneratedUI: "生成的界面",
+  sandboxCopyCode: "复制代码",
+
   // --- Split View ---
   splitView: "分屏视图",
   splitViewDesc: "并排查看两个聊天会话",
