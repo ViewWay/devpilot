@@ -266,6 +266,25 @@ const en: Record<string, string> = {
   errorStream: "Stream error",
   errorCompact: "Compaction failed",
   errorProvider: "Provider error",
+
+  // --- MCP Servers ---
+  mcpServers: "MCP Servers",
+  mcpAddServer: "Add Server",
+  mcpName: "Name",
+  mcpTransport: "Transport",
+  mcpCommand: "Command",
+  mcpArgs: "Arguments",
+  mcpUrl: "URL",
+  mcpEnabled: "Enabled",
+  mcpConnected: "Connected",
+  mcpDisconnected: "Disconnected",
+  mcpConnect: "Connect",
+  mcpDisconnect: "Disconnect",
+  mcpDelete: "Delete Server",
+  mcpStdio: "stdio",
+  mcpSse: "SSE",
+  mcpNoServers: "No MCP servers configured",
+  mcpSave: "Save Server",
 };
 
 export default en;

@@ -174,6 +174,18 @@ function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
       return { id: "cp-mock-1", sessionId: args?.sessionId, messageId: args?.messageId, summary: args?.summary, tokenCount: args?.tokenCount, createdAt: new Date().toISOString() };
     case "rewind_checkpoint":
       return 0;
+    case "list_mcp_servers":
+      return [];
+    case "mcp_list_connected":
+      return [];
+    case "upsert_mcp_server":
+      return args?.server ?? { id: args?.id, name: "Mock MCP", transport: "stdio", enabled: true, createdAt: new Date().toISOString() };
+    case "delete_mcp_server":
+      return null;
+    case "mcp_connect_server":
+      return null;
+    case "mcp_disconnect_server":
+      return null;
     default:
       console.warn(`[IPC mock] Unhandled command: ${cmd}`);
       return null;

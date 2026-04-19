@@ -266,6 +266,25 @@ const zh: Record<string, string> = {
   errorStream: "流式传输错误",
   errorCompact: "压缩失败",
   errorProvider: "服务商错误",
+
+  // --- MCP Servers ---
+  mcpServers: "MCP 服务器",
+  mcpAddServer: "添加服务器",
+  mcpName: "名称",
+  mcpTransport: "传输方式",
+  mcpCommand: "命令",
+  mcpArgs: "参数",
+  mcpUrl: "URL",
+  mcpEnabled: "已启用",
+  mcpConnected: "已连接",
+  mcpDisconnected: "已断开",
+  mcpConnect: "连接",
+  mcpDisconnect: "断开",
+  mcpDelete: "删除服务器",
+  mcpStdio: "stdio",
+  mcpSse: "SSE",
+  mcpNoServers: "未配置 MCP 服务器",
+  mcpSave: "保存服务器",
 };
 
 export default zh;

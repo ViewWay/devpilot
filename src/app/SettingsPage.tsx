@@ -5,6 +5,7 @@ import { useUIStore } from "../stores/uiStore";
 import { useUsageStore } from "../stores/usageStore";
 import { cn } from "../lib/utils";
 import { invoke, type BridgeInfoIPC } from "../lib/ipc";
+import { useMcpStore } from "../stores/mcpStore";
 import {
   Settings,
   Palette,
@@ -25,9 +26,10 @@ import {
   MessageSquare,
   Send,
   AlertCircle,
+  Wrench,
 } from "lucide-react";
 
-type TabId = "providers" | "appearance" | "shortcuts" | "usage" | "bridge";
+type TabId = "providers" | "appearance" | "shortcuts" | "usage" | "bridge" | "mcp";
 
 const TABS: { id: TabId; icon: typeof Settings; labelKey: string }[] = [
   { id: "providers", icon: Plug, labelKey: "providers" },
@@ -35,6 +37,7 @@ const TABS: { id: TabId; icon: typeof Settings; labelKey: string }[] = [
   { id: "shortcuts", icon: Keyboard, labelKey: "shortcuts" },
   { id: "usage", icon: BarChart3, labelKey: "usage" },
   { id: "bridge" as const, icon: MessageSquare, labelKey: "bridge" },
+  { id: "mcp" as const, icon: Wrench, labelKey: "mcpServers" },
 ];
 
 export function SettingsPage() {
@@ -76,6 +79,7 @@ export function SettingsPage() {
         {activeTab === "shortcuts" && <ShortcutsTab />}
         {activeTab === "usage" && <UsageTab />}
         {activeTab === "bridge" && <BridgeTab />}
+        {activeTab === "mcp" && <McpTab />}
       </div>
     </div>
   );
@@ -729,7 +733,7 @@ function BridgeTab() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     refreshList();
@@ -994,6 +998,288 @@ function BridgeTab() {
             </div>
           )}
         </>
+      )}
+    </div>
+  );
+}
+
+// --- MCP Tab ---
+
+function McpTab() {
+  const { t } = useI18n();
+  const servers = useMcpStore((s) => s.servers);
+  const connectedIds = useMcpStore((s) => s.connectedIds);
+  const loading = useMcpStore((s) => s.loading);
+  const fetchServers = useMcpStore((s) => s.fetchServers);
+  const fetchConnected = useMcpStore((s) => s.fetchConnected);
+  const addServer = useMcpStore((s) => s.addServer);
+  const updateServer = useMcpStore((s) => s.updateServer);
+  const removeServer = useMcpStore((s) => s.removeServer);
+  const toggleEnabled = useMcpStore((s) => s.toggleEnabled);
+  const connectServer = useMcpStore((s) => s.connect);
+  const disconnectServer = useMcpStore((s) => s.disconnect);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formName, setFormName] = useState("");
+  const [formTransport, setFormTransport] = useState<"stdio" | "sse">("stdio");
+  const [formCommand, setFormCommand] = useState("");
+  const [formArgs, setFormArgs] = useState("");
+  const [formUrl, setFormUrl] = useState("");
+  const [formEnabled, setFormEnabled] = useState(true);
+
+  useEffect(() => {
+    fetchServers();
+    fetchConnected();
+  }, [fetchServers, fetchConnected]);
+
+  const resetForm = () => {
+    setFormName("");
+    setFormTransport("stdio");
+    setFormCommand("");
+    setFormArgs("");
+    setFormUrl("");
+    setFormEnabled(true);
+    setShowAddForm(false);
+    setEditingId(null);
+  };
+
+  const handleSave = async () => {
+    if (!formName.trim()) { return; }
+    const server = {
+      id: editingId ?? `mcp-${Date.now()}`,
+      name: formName.trim(),
+      transport: formTransport,
+      command: formTransport === "stdio" ? formCommand.trim() || undefined : undefined,
+      args: formTransport === "stdio" && formArgs.trim() ? formArgs.split(",").map((a) => a.trim()).filter(Boolean) : undefined,
+      url: formTransport === "sse" ? formUrl.trim() || undefined : undefined,
+      enabled: formEnabled,
+      createdAt: new Date().toISOString(),
+    };
+    if (editingId) {
+      await updateServer(server as McpServerConfig);
+    } else {
+      await addServer(server as McpServerConfig);
+    }
+    resetForm();
+  };
+
+  const handleEdit = (srv: McpServerConfig) => {
+    setEditingId(srv.id);
+    setFormName(srv.name);
+    setFormTransport(srv.transport);
+    setFormCommand(srv.command ?? "");
+    setFormArgs(srv.args?.join(", ") ?? "");
+    setFormUrl(srv.url ?? "");
+    setFormEnabled(srv.enabled);
+    setShowAddForm(true);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground">{t("mcpServers")}</h2>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Model Context Protocol servers</p>
+        </div>
+        {!showAddForm && (
+          <button
+            onClick={() => { resetForm(); setShowAddForm(true); }}
+            className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            <Plus size={12} />
+            {t("mcpAddServer")}
+          </button>
+        )}
+      </div>
+
+      {loading && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 size={14} className="animate-spin" />
+          {t("loading")}
+        </div>
+      )}
+
+      {/* Server list */}
+      <div className="space-y-2">
+        {servers.map((srv) => {
+          const isConnected = connectedIds.includes(srv.id);
+          return (
+            <div key={srv.id} className="rounded-lg border border-border bg-card p-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-foreground">{srv.name}</span>
+                  <span className={cn(
+                    "rounded px-1.5 py-0.5 text-[10px] font-medium",
+                    srv.transport === "stdio"
+                      ? "bg-blue-500/10 text-blue-500"
+                      : "bg-green-500/10 text-green-500",
+                  )}>
+                    {srv.transport === "stdio" ? t("mcpStdio") : t("mcpSse")}
+                  </span>
+                  <span className={cn(
+                    "rounded px-1.5 py-0.5 text-[10px]",
+                    isConnected
+                      ? "bg-green-500/10 text-green-500"
+                      : "bg-muted text-muted-foreground",
+                  )}>
+                    {isConnected ? t("mcpConnected") : t("mcpDisconnected")}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => toggleEnabled(srv.id)}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    title={t("mcpEnabled")}
+                  >
+                    {srv.enabled ? <ToggleRight size={16} className="text-green-500" /> : <ToggleLeft size={16} />}
+                  </button>
+                  {isConnected ? (
+                    <button
+                      onClick={() => disconnectServer(srv.id)}
+                      className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    >
+                      {t("mcpDisconnect")}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => connectServer(srv.id)}
+                      disabled={!srv.enabled}
+                      className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+                    >
+                      {t("mcpConnect")}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleEdit(srv)}
+                    className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    <Pencil size={12} />
+                  </button>
+                  <button
+                    onClick={() => removeServer(srv.id)}
+                    className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {servers.length === 0 && !showAddForm && (
+          <div className="rounded-lg border border-dashed border-border p-8 text-center">
+            <Wrench size={24} className="mx-auto text-muted-foreground/40 mb-2" />
+            <p className="text-xs text-muted-foreground">
+              {t("mcpNoServers")}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Add/Edit form */}
+      {showAddForm && (
+        <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-foreground">
+              {editingId ? t("mcpSave") : t("mcpAddServer")}
+            </span>
+            <button onClick={resetForm} className="text-muted-foreground hover:text-foreground">
+              <X size={14} />
+            </button>
+          </div>
+          <div className="space-y-2">
+            <div>
+              <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                {t("mcpName")}
+              </label>
+              <input
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                placeholder="My MCP Server"
+                className="mt-1 w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-ring"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                {t("mcpTransport")}
+              </label>
+              <select
+                value={formTransport}
+                onChange={(e) => setFormTransport(e.target.value as "stdio" | "sse")}
+                className="mt-1 w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-ring"
+              >
+                <option value="stdio">{t("mcpStdio")}</option>
+                <option value="sse">{t("mcpSse")}</option>
+              </select>
+            </div>
+            {formTransport === "stdio" && (
+              <>
+                <div>
+                  <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    {t("mcpCommand")}
+                  </label>
+                  <input
+                    value={formCommand}
+                    onChange={(e) => setFormCommand(e.target.value)}
+                    placeholder="npx"
+                    className="mt-1 w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-ring"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    {t("mcpArgs")}
+                  </label>
+                  <input
+                    value={formArgs}
+                    onChange={(e) => setFormArgs(e.target.value)}
+                    placeholder="-y, @modelcontextprotocol/server-memory"
+                    className="mt-1 w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-ring"
+                  />
+                </div>
+              </>
+            )}
+            {formTransport === "sse" && (
+              <div>
+                <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  {t("mcpUrl")}
+                </label>
+                <input
+                  type="url"
+                  value={formUrl}
+                  onChange={(e) => setFormUrl(e.target.value)}
+                  placeholder="http://localhost:3001/sse"
+                  className="mt-1 w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-ring"
+                />
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setFormEnabled(!formEnabled)}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {formEnabled ? <ToggleRight size={16} className="text-green-500" /> : <ToggleLeft size={16} />}
+              </button>
+              <span className="text-xs text-muted-foreground">{t("mcpEnabled")}</span>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleSave}
+              disabled={!formName.trim()}
+              className="flex-1 rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              {t("mcpSave")}
+            </button>
+            <button
+              onClick={resetForm}
+              className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent transition-colors"
+            >
+              {t("cancel")}
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

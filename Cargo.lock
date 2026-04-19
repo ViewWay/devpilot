@@ -762,7 +762,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -795,7 +795,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-bridge"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -810,7 +810,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-core"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -828,7 +828,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-llm"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "devpilot-protocol",
@@ -845,7 +845,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-mcp"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -864,7 +864,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-media"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -880,7 +880,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-protocol"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -888,7 +888,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-sandbox"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -899,7 +899,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-scheduler"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "chrono",
  "cron",
@@ -913,7 +913,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-search"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "regex",
  "serde",
@@ -927,7 +927,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-store"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -946,7 +946,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-tools"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "async-trait",

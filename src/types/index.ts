@@ -84,3 +84,15 @@ export interface CheckpointInfo {
   tokenCount: number;
   createdAt: string;
 }
+
+export interface McpServerConfig {
+  id: string;
+  name: string;
+  transport: "stdio" | "sse";
+  command?: string;
+  args?: string[];
+  url?: string;
+  env?: Record<string, string>;
+  enabled: boolean;
+  createdAt: string;
+}
