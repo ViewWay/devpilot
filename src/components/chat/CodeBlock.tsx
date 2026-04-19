@@ -6,13 +6,61 @@ import { useI18n } from "../../i18n";
 
 let highlighterPromise: Promise<Highlighter> | undefined;
 
+/** Map common language aliases to Shiki language IDs. */
+const LANG_ALIASES: Record<string, string> = {
+  js: "javascript",
+  ts: "typescript",
+  tsx: "typescript",
+  jsx: "javascript",
+  sh: "shell",
+  zsh: "shell",
+  py: "python",
+  rb: "ruby",
+  rs: "rust",
+  golang: "go",
+  cs: "csharp",
+  makefile: "ini",
+  docker: "dockerfile",
+  yml: "yaml",
+  md: "markdown",
+  proto: "protobuf",
+  tf: "hcl",  // Terraform — may not be available, falls back gracefully
+};
+
+function resolveLang(lang: string | undefined): string {
+  if (!lang) {
+    return "text";
+  }
+  const lower = lang.toLowerCase().replace(/[-_.]/g, "");
+  // Direct match first
+  if (LANG_ALIASES[lower]) {
+    return LANG_ALIASES[lower];
+  }
+  // Try original lowercase
+  return lang.toLowerCase();
+}
+
 function getShiki(): Promise<Highlighter> {
   if (!highlighterPromise) {
     highlighterPromise = createHighlighter({
       themes: ["github-dark", "github-light"],
       langs: [
-        "rust", "typescript", "javascript", "python", "go", "toml",
-        "json", "yaml", "bash", "shell", "sql", "markdown", "html", "css",
+        // Core languages
+        "rust", "typescript", "javascript", "python", "go", "java",
+        "c", "cpp", "csharp",
+        // Web & markup
+        "html", "css", "scss", "json", "yaml", "toml", "xml",
+        "markdown", "mdx",
+        // Shell & scripting
+        "bash", "shell", "powershell", "lua", "perl", "ruby", "php",
+        // Data & query
+        "sql", "graphql", "protobuf",
+        // Systems & infra
+        "dockerfile", "nix", "ini",
+        // Functional & other
+        "haskell", "elixir", "kotlin", "swift", "scala", "zig",
+        // Config formats
+        "diff",
       ],
     });
   }
@@ -32,11 +80,13 @@ export function CodeBlock({ code, lang, className }: CodeBlockProps) {
   const [showLineNumbers, setShowLineNumbers] = useState(false);
 
   useMemo(() => {
-    const language = lang || "text";
+    const language = resolveLang(lang);
     getShiki().then((h) => {
       try {
+        // Check if language is loaded; fall back to 'text' if not
+        const resolvedLang = h.getLoadedLanguages().includes(language) ? language : "text";
         const result = h.codeToHtml(code, {
-          lang: language,
+          lang: resolvedLang,
           themes: { dark: "github-dark", light: "github-light" },
           defaultColor: false,
         });
