@@ -225,6 +225,12 @@ const zh: Record<string, string> = {
   bridgeRemoved: "桥接已删除",
   noBridges: "暂无桥接配置",
   noBridgesHint: "添加通知桥接以接收告警",
+  bridgeIntegrations: "通知桥接与集成",
+  channelOptional: "频道（可选）",
+  tokenOptional: "令牌（可选）",
+  create: "创建",
+  test: "测试",
+  bridgeError: "桥接操作失败",
 };
 
 export default zh;

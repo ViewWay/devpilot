@@ -33,6 +33,7 @@ pub fn run() {
             // Messages
             commands::get_session_messages,
             commands::add_message,
+            commands::update_message_content,
             // Settings
             commands::get_setting,
             commands::set_setting,

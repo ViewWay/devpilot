@@ -104,6 +104,18 @@ pub fn add_message(
     .map_err(|e| e.to_string())
 }
 
+/// Update a message's content (used after streaming to persist final content).
+#[tauri::command(rename_all = "camelCase")]
+pub fn update_message_content(
+    state: State<'_, AppState>,
+    message_id: String,
+    content: String,
+) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.update_message_content(&message_id, &content)
+        .map_err(|e| e.to_string())
+}
+
 // ── Settings ──────────────────────────────────────────
 
 /// Get a setting value by key.

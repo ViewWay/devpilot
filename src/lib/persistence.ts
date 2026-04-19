@@ -95,15 +95,18 @@ export async function persistAddMessage(
 }
 
 export async function persistUpdateMessageContent(
-  _sessionId: string,
-  _messageId: string,
-  _content: string,
+  sessionId: string,
+  messageId: string,
+  content: string,
 ): Promise<void> {
-  // The backend doesn't have a separate update_message_content command yet.
-  // For now, message content updates (streaming chunks) are handled in-memory
-  // only. The final content is saved when the stream completes via add_message
-  // or a future update_message command.
-  // TODO: Add update_message_content Tauri command for robust persistence.
+  try {
+    await invoke("update_message_content", {
+      messageId,
+      content,
+    });
+  } catch (err) {
+    console.error("[persistence] update_message_content failed:", err, { sessionId, messageId });
+  }
 }
 
 // ── Boot-time hydration ──────────────────────────────────────

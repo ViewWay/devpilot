@@ -210,6 +210,10 @@ export interface IPCCommands {
     toolCalls?: string;
     toolCallId?: string;
   };
+  update_message_content: {
+    messageId: string;
+    content: string;
+  };
 
   // LLM
   send_message: {

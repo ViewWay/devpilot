@@ -24,6 +24,7 @@ import {
   Pencil,
   MessageSquare,
   Send,
+  AlertCircle,
 } from "lucide-react";
 
 type TabId = "providers" | "appearance" | "shortcuts" | "usage" | "bridge";
@@ -716,6 +717,7 @@ function BridgeTab() {
   const [formChannel, setFormChannel] = useState("");
   const [formToken, setFormToken] = useState("");
   const [sendingTestId, setSendingTestId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
   const refreshList = useCallback(async () => {
@@ -723,7 +725,7 @@ function BridgeTab() {
       const list = await invoke<BridgeInfoIPC[]>("bridge_list");
       setBridges(list);
     } catch {
-      // TODO: i18n error handling
+      setError(t("bridgeError"));
     } finally {
       setLoading(false);
     }
@@ -752,7 +754,7 @@ function BridgeTab() {
       setShowAddForm(false);
       await refreshList();
     } catch {
-      // TODO: i18n error handling
+      setError(t("bridgeError"));
     } finally {
       setCreating(false);
     }
@@ -763,7 +765,7 @@ function BridgeTab() {
       await invoke("bridge_remove", { bridgeId });
       await refreshList();
     } catch {
-      // TODO: i18n error handling
+      setError(t("bridgeError"));
     }
   };
 
@@ -776,7 +778,7 @@ function BridgeTab() {
       }
       await refreshList();
     } catch {
-      // TODO: i18n error handling
+      setError(t("bridgeError"));
     }
   };
 
@@ -789,7 +791,7 @@ function BridgeTab() {
         title: "Test",
       });
     } catch {
-      // TODO: i18n error handling
+      setError(t("bridgeError"));
     } finally {
       setSendingTestId(null);
     }
@@ -800,10 +802,22 @@ function BridgeTab() {
       <div>
         <h2 className="text-base font-semibold text-foreground">{t("bridge")}</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          {/* TODO: i18n */}
-          Notification bridges &amp; integrations
+          {t("bridgeIntegrations")}
         </p>
       </div>
+
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <AlertCircle size={14} />
+          <span>{error}</span>
+          <button
+            onClick={() => setError(null)}
+            className="ml-auto text-destructive/70 hover:text-destructive"
+          >
+            <X size={12} />
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-8">
@@ -852,8 +866,7 @@ function BridgeTab() {
                       ) : (
                         <Send size={11} />
                       )}
-                      {/* TODO: i18n */}
-                      Test
+                      {t("test")}
                     </button>
                     <button
                       onClick={() => handleRemove(bridge.id)}
@@ -870,8 +883,7 @@ function BridgeTab() {
               <div className="rounded-lg border border-dashed border-border p-8 text-center">
                 <MessageSquare size={24} className="mx-auto text-muted-foreground/40 mb-2" />
                 <p className="text-xs text-muted-foreground">
-                  {/* TODO: i18n */}
-                  No bridges configured
+                  {t("noBridges")}
                 </p>
               </div>
             )}
@@ -884,15 +896,13 @@ function BridgeTab() {
               className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-card/50 px-4 py-3 text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
             >
               <Plus size={14} />
-              {/* TODO: i18n */}
-              Add Bridge
+              {t("addBridge")}
             </button>
           ) : (
             <div className="rounded-lg border border-border bg-card p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-foreground">
-                  {/* TODO: i18n */}
-                  Add Bridge
+                  {t("addBridge")}
                 </span>
                 <button onClick={() => setShowAddForm(false)} className="text-muted-foreground hover:text-foreground">
                   <X size={14} />
@@ -914,8 +924,7 @@ function BridgeTab() {
                 </div>
                 <div>
                   <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                    {/* TODO: i18n */}
-                    Platform
+                    {t("platform")}
                   </label>
                   <select
                     value={formPlatform}
@@ -944,8 +953,7 @@ function BridgeTab() {
                 </div>
                 <div>
                   <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                    {/* TODO: i18n */}
-                    Channel (optional)
+                    {t("channelOptional")}
                   </label>
                   <input
                     value={formChannel}
@@ -957,8 +965,7 @@ function BridgeTab() {
                 </div>
                 <div>
                   <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                    {/* TODO: i18n */}
-                    Token (optional)
+                    {t("tokenOptional")}
                   </label>
                   <input
                     value={formToken}
@@ -975,7 +982,7 @@ function BridgeTab() {
                   disabled={!formName.trim() || !formUrl.trim() || creating}
                   className="flex-1 rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
                 >
-                  {creating ? <Loader2 size={12} className="animate-spin inline" /> : "Create"}
+                  {creating ? <Loader2 size={12} className="animate-spin inline" /> : t("create")}
                 </button>
                 <button
                   onClick={() => setShowAddForm(false)}

@@ -225,6 +225,12 @@ const en: Record<string, string> = {
   bridgeRemoved: "Bridge removed",
   noBridges: "No bridges configured",
   noBridgesHint: "Add a notification bridge to receive alerts",
+  bridgeIntegrations: "Notification bridges & integrations",
+  channelOptional: "Channel (optional)",
+  tokenOptional: "Token (optional)",
+  create: "Create",
+  test: "Test",
+  bridgeError: "Bridge operation failed",
 };
 
 export default en;

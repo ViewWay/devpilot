@@ -318,6 +318,15 @@ impl Store {
         Ok(())
     }
 
+    /// Update a message's content (used during streaming to persist final content).
+    pub fn update_message_content(&self, id: &str, content: &str) -> Result<()> {
+        self.conn.execute(
+            "UPDATE messages SET content = ?2 WHERE id = ?1",
+            rusqlite::params![id, content],
+        )?;
+        Ok(())
+    }
+
     // ── Settings ──────────────────────────────────────
 
     /// Get a setting value by key.
