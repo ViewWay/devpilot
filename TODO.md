@@ -22,12 +22,27 @@
 
 ## Phase 3: Frontend Integration (In Progress)
 
-- [ ] **Router 路由系统** — 页面切换 (chat / scheduler / gallery / settings)
+### ✅ Done
+
+- [x] **Router 系统** — react-router-dom 路由 (chat/scheduler/gallery/settings)
+- [x] **ActiveView 扩展** — scheduler + gallery 路由类型
+- [x] **Sidebar 路由联动** — 底部按钮 navigate + active 高亮
+- [x] **Streaming 修复** — 监听器注册提前到 invoke 前，解决竞态
+- [x] **Abort 支持** — chatStore.abortStreaming() + stop 按钮
+- [x] **归档会话** — 归档区 + 取消归档
+- [x] **动态模型选择器** — TopBar 从 providerStore 动态获取模型
+- [x] **模型管理 UI** — SettingsPage ProviderCard 增删改查模型
+
+### 🔄 In Progress
+
 - [ ] **SchedulerPanel** — 定时任务 CRUD、启用/禁用、执行历史
-- [ ] **GalleryPanel** — 图片生成 (prompt → provider)、浏览、下载
+- [ ] **GalleryPanel** — 图片生成 (prompt + provider + size)、浏览、下载
+
+### Planned
+
 - [ ] **SettingsPage 扩展** — Bridge 通知配置、Sandbox 策略配置
 - [ ] **IPC 层扩展** — ipc.ts 新增 scheduler/bridge/media invoke 调用
-- [ ] **i18n 补全** — 所有新面板的中英文翻译
+- [ ] **i18n 补全** — 新面板完整中英文翻译
 - [ ] **Zustand stores** — schedulerStore, mediaStore, bridgeStore
 
 ## Phase 4: E2E & Polish (Planned)
@@ -37,18 +52,19 @@
 - [ ] Performance profiling (streaming latency)
 - [ ] Accessibility audit
 
-## Code Stats (as of 2026-04-19)
+## Code Stats (as of 2026-04-19, commit 2d0328f)
 
 | Component                | Lines      | Tests   |
 | ------------------------ | ---------- | ------- |
 | Rust backend (10 crates) | 10,473     | 155     |
 | src-tauri (IPC layer)    | 1,264      | —       |
-| React frontend (TS/TSX)  | 7,420      | —       |
-| **Total**                | **19,157** | **155** |
+| React frontend (TS/TSX)  | 7,814      | —       |
+| **Total**                | **19,551** | **155** |
 
 ## Priority Order
 
-1. Frontend routing + SchedulerPanel + GalleryPanel
-2. SettingsPage extension (Bridge + Sandbox)
-3. IPC layer + Zustand stores for new features
-4. E2E testing
+1. **SchedulerPage** — 完整定时任务管理面板
+2. **GalleryPage** — 完整图片生成/浏览面板
+3. SettingsPage 扩展 (Bridge + Sandbox)
+4. IPC layer + Zustand stores
+5. E2E testing

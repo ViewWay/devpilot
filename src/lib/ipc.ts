@@ -137,6 +137,37 @@ function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
       };
     case "pending_approvals":
       return 0;
+    case "scheduler_create_task":
+      return `task-${Date.now()}`;
+    case "scheduler_list_tasks":
+      return [
+        { id: "task-1", name: "Daily Backup", cronExpr: "0 2 * * *", status: "Active", executionCount: 42, maxExecutions: null },
+        { id: "task-2", name: "Health Check", cronExpr: "*/15 * * * *", status: "Paused", executionCount: 120, maxExecutions: null },
+      ];
+    case "scheduler_remove_task":
+    case "scheduler_pause_task":
+    case "scheduler_resume_task":
+      return null;
+    case "bridge_create":
+      return `bridge-${Date.now()}`;
+    case "bridge_list":
+      return [
+        { id: "bridge-1", name: "Dev Alerts", platform: "Telegram", enabled: true },
+        { id: "bridge-2", name: "CI Notify", platform: "Discord", enabled: false },
+      ];
+    case "bridge_remove":
+    case "bridge_send":
+    case "bridge_enable":
+    case "bridge_disable":
+      return null;
+    case "media_generate":
+      return {
+        provider: "openai",
+        model: "dall-e-3",
+        images: [{ url: "https://picsum.photos/1024/1024", b64Json: null, revisedPrompt: "A scenic landscape" }],
+      };
+    case "media_providers":
+      return ["openai", "stability", "generic"];
     default:
       console.warn(`[IPC mock] Unhandled command: ${cmd}`);
       return null;
@@ -212,6 +243,44 @@ export interface IPCCommands {
   };
   resolve_tool_approval: { request: ResolveApprovalRequestIPC };
   pending_approvals: void;
+
+  // Scheduler
+  scheduler_create_task: {
+    name: string;
+    cronExpr: string;
+    action: { type: string; command?: string; url?: string; method?: string; headers?: [string, string][]; body?: string; id?: string };
+    maxExecutions?: number;
+  };
+  scheduler_list_tasks: void;
+  scheduler_remove_task: { taskId: string };
+  scheduler_pause_task: { taskId: string };
+  scheduler_resume_task: { taskId: string };
+
+  // Bridge
+  bridge_create: {
+    name: string;
+    platform: string;
+    url: string;
+    channel?: string;
+    token?: string;
+  };
+  bridge_list: void;
+  bridge_remove: { bridgeId: string };
+  bridge_send: { bridgeId: string; content: string; title?: string };
+  bridge_enable: { bridgeId: string };
+  bridge_disable: { bridgeId: string };
+
+  // Media
+  media_generate: {
+    prompt: string;
+    model?: string;
+    size?: string;
+    n?: number;
+    provider?: string;
+    apiKey: string;
+    apiBase?: string;
+  };
+  media_providers: void;
 }
 
 export interface ProviderConfigIPC {
@@ -413,3 +482,42 @@ export const TOOL_EVENTS = {
   /** A tool was executed. Payload: ToolExecutedEventIPC */
   EXECUTED: "tool-executed",
 } as const;
+
+// ── Scheduler Types ──────────────────────────────────────────
+
+export interface TaskInfoIPC {
+  id: string;
+  name?: string;
+  cronExpr: string;
+  status: string;
+  executionCount: number;
+  maxExecutions?: number;
+}
+
+export type TaskActionIPC =
+  | { type: "shellCommand"; command: string }
+  | { type: "httpRequest"; url: string; method: string; headers?: [string, string][]; body?: string }
+  | { type: "custom"; id: string };
+
+// ── Bridge Types ──────────────────────────────────────────────
+
+export interface BridgeInfoIPC {
+  id: string;
+  name?: string;
+  platform: string;
+  enabled: boolean;
+}
+
+// ── Media Types ───────────────────────────────────────────────
+
+export interface GenerateImageResultIPC {
+  provider: string;
+  model: string;
+  images: ImageResultItemIPC[];
+}
+
+export interface ImageResultItemIPC {
+  url?: string;
+  b64Json?: string;
+  revisedPrompt?: string;
+}

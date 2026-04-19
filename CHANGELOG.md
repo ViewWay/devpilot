@@ -6,13 +6,30 @@ All notable changes to DevPilot will be documented in this file.
 
 ### Added — Frontend Integration
 
-- Router system: page switching between chat / scheduler / gallery / settings
-- SchedulerPanel: task CRUD, enable/disable toggle, execution history
-- GalleryPanel: image generation UI (prompt, provider, size), browse gallery
-- SettingsPage: Bridge notification config, Sandbox policy config
-- IPC layer: scheduler/bridge/media Tauri invoke bindings
-- Zustand stores: schedulerStore, mediaStore, bridgeStore
-- i18n: full CN/EN translations for new panels
+- Router system: react-router-dom with /chat /scheduler /gallery /settings routes
+- `ActiveView` type extended: `"scheduler"` | `"gallery"` routes
+- Sidebar: bottom buttons navigate to scheduler/gallery/settings with active highlight
+- `SchedulerPage` stub route placeholder
+- `GalleryPage` stub route placeholder
+- Dynamic model selector in TopBar — derives from providerStore enabled providers
+- Model management UI in SettingsPage — add/edit/delete models per provider
+- Archived sessions section in sidebar with unarchive support
+- i18n keys: archived/unarchive, model management (10 keys), scheduler/gallery labels
+- Abort streaming support — `chatStore.abortStreaming()` + stop button in MessageInput
+
+### Changed
+
+- Streaming listener registration moved BEFORE `invoke()` call to prevent race condition
+- TopBar model selector: now dynamic (from providerStore) instead of hardcoded DEFAULT_MODELS
+- SettingsPage: expanded ProviderCard with full model CRUD form
+- Sidebar settings button: now uses `navigate('/settings')` instead of `setActiveView`
+- Removed DemoApproval overlay from production chat rendering
+
+### Fixed
+
+- **Stream race condition** — early stream events missed because listeners registered after `invoke()`. Moved listener setup before the invoke call.
+- **Sidebar navigation** — settings/scheduler/gallery buttons had no navigation handlers. Wired to `useNavigate()`.
+- **Model disappear** — switching providers could leave invalid model selected. Auto-select first available model.
 
 ---
 

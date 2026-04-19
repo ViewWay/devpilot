@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useI18n } from "../i18n";
 import { useProviderStore, type Provider, type ModelConfig } from "../stores/providerStore";
 import { useUIStore } from "../stores/uiStore";
 import { useUsageStore } from "../stores/usageStore";
 import { cn } from "../lib/utils";
+import { invoke, type BridgeInfoIPC } from "../lib/ipc";
 import {
   Settings,
   Palette,
@@ -21,15 +22,18 @@ import {
   Plus,
   BarChart3,
   Pencil,
+  MessageSquare,
+  Send,
 } from "lucide-react";
 
-type TabId = "providers" | "appearance" | "shortcuts" | "usage";
+type TabId = "providers" | "appearance" | "shortcuts" | "usage" | "bridge";
 
 const TABS: { id: TabId; icon: typeof Settings; labelKey: string }[] = [
   { id: "providers", icon: Plug, labelKey: "providers" },
   { id: "appearance", icon: Palette, labelKey: "appearance" },
   { id: "shortcuts", icon: Keyboard, labelKey: "shortcuts" },
   { id: "usage", icon: BarChart3, labelKey: "usage" },
+  { id: "bridge" as const, icon: MessageSquare, labelKey: "bridge" },
 ];
 
 export function SettingsPage() {
@@ -70,6 +74,7 @@ export function SettingsPage() {
         {activeTab === "appearance" && <AppearanceTab />}
         {activeTab === "shortcuts" && <ShortcutsTab />}
         {activeTab === "usage" && <UsageTab />}
+        {activeTab === "bridge" && <BridgeTab />}
       </div>
     </div>
   );
@@ -690,6 +695,298 @@ function UsageTab() {
           <BarChart3 size={24} className="mx-auto text-muted-foreground/40 mb-2" />
           <p className="text-xs text-muted-foreground">{t("noUsageData")}</p>
         </div>
+      )}
+    </div>
+  );
+}
+
+// --- Bridge Tab ---
+
+const BRIDGE_PLATFORMS = ["telegram", "discord", "feishu", "slack", "webhook"] as const;
+type BridgePlatform = (typeof BRIDGE_PLATFORMS)[number];
+
+function BridgeTab() {
+  const { t } = useI18n();
+  const [bridges, setBridges] = useState<BridgeInfoIPC[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [formName, setFormName] = useState("");
+  const [formPlatform, setFormPlatform] = useState<BridgePlatform>("telegram");
+  const [formUrl, setFormUrl] = useState("");
+  const [formChannel, setFormChannel] = useState("");
+  const [formToken, setFormToken] = useState("");
+  const [sendingTestId, setSendingTestId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  const refreshList = useCallback(async () => {
+    try {
+      const list = await invoke<BridgeInfoIPC[]>("bridge_list");
+      setBridges(list);
+    } catch {
+      // TODO: i18n error handling
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshList();
+  }, [refreshList]);
+
+  const handleCreate = async () => {
+    if (!formName.trim() || !formUrl.trim()) { return; }
+    setCreating(true);
+    try {
+      await invoke("bridge_create", {
+        name: formName.trim(),
+        platform: formPlatform,
+        url: formUrl.trim(),
+        channel: formChannel.trim() || undefined,
+        token: formToken.trim() || undefined,
+      });
+      setFormName("");
+      setFormPlatform("telegram");
+      setFormUrl("");
+      setFormChannel("");
+      setFormToken("");
+      setShowAddForm(false);
+      await refreshList();
+    } catch {
+      // TODO: i18n error handling
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleRemove = async (bridgeId: string) => {
+    try {
+      await invoke("bridge_remove", { bridgeId });
+      await refreshList();
+    } catch {
+      // TODO: i18n error handling
+    }
+  };
+
+  const handleToggle = async (bridge: BridgeInfoIPC) => {
+    try {
+      if (bridge.enabled) {
+        await invoke("bridge_disable", { bridgeId: bridge.id });
+      } else {
+        await invoke("bridge_enable", { bridgeId: bridge.id });
+      }
+      await refreshList();
+    } catch {
+      // TODO: i18n error handling
+    }
+  };
+
+  const handleTestSend = async (bridgeId: string) => {
+    setSendingTestId(bridgeId);
+    try {
+      await invoke("bridge_send", {
+        bridgeId,
+        content: "Test notification from DevPilot",
+        title: "Test",
+      });
+    } catch {
+      // TODO: i18n error handling
+    } finally {
+      setSendingTestId(null);
+    }
+  };
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-4">
+      <div>
+        <h2 className="text-base font-semibold text-foreground">{t("bridge")}</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {/* TODO: i18n */}
+          Notification bridges &amp; integrations
+        </p>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 size={20} className="animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <>
+          {/* Bridge cards */}
+          <div className="space-y-2">
+            {bridges.map((bridge) => (
+              <div
+                key={bridge.id}
+                className="rounded-lg border border-border bg-card"
+              >
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => handleToggle(bridge)}>
+                      {bridge.enabled ? (
+                        <ToggleRight size={22} className="text-primary" />
+                      ) : (
+                        <ToggleLeft size={22} className="text-muted-foreground" />
+                      )}
+                    </button>
+                    <div>
+                      <div className="text-sm font-medium text-foreground">
+                        {bridge.name || bridge.id}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-medium uppercase text-muted-foreground">
+                          {bridge.platform}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {bridge.enabled ? t("enabled") : "Disabled"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleTestSend(bridge.id)}
+                      disabled={sendingTestId === bridge.id}
+                      className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+                    >
+                      {sendingTestId === bridge.id ? (
+                        <Loader2 size={11} className="animate-spin" />
+                      ) : (
+                        <Send size={11} />
+                      )}
+                      {/* TODO: i18n */}
+                      Test
+                    </button>
+                    <button
+                      onClick={() => handleRemove(bridge.id)}
+                      className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {bridges.length === 0 && !showAddForm && (
+              <div className="rounded-lg border border-dashed border-border p-8 text-center">
+                <MessageSquare size={24} className="mx-auto text-muted-foreground/40 mb-2" />
+                <p className="text-xs text-muted-foreground">
+                  {/* TODO: i18n */}
+                  No bridges configured
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Add Bridge Form */}
+          {!showAddForm ? (
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-card/50 px-4 py-3 text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+            >
+              <Plus size={14} />
+              {/* TODO: i18n */}
+              Add Bridge
+            </button>
+          ) : (
+            <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-foreground">
+                  {/* TODO: i18n */}
+                  Add Bridge
+                </span>
+                <button onClick={() => setShowAddForm(false)} className="text-muted-foreground hover:text-foreground">
+                  <X size={14} />
+                </button>
+              </div>
+              <div className="space-y-2">
+                <div>
+                  <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    {t("name")}
+                  </label>
+                  <input
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                    placeholder="My Notification Bridge"
+                    className="mt-1 w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-ring"
+                    onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    {/* TODO: i18n */}
+                    Platform
+                  </label>
+                  <select
+                    value={formPlatform}
+                    onChange={(e) => setFormPlatform(e.target.value as BridgePlatform)}
+                    className="mt-1 w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-ring"
+                  >
+                    {BRIDGE_PLATFORMS.map((p) => (
+                      <option key={p} value={p}>
+                        {p.charAt(0).toUpperCase() + p.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    URL
+                  </label>
+                  <input
+                    type="url"
+                    value={formUrl}
+                    onChange={(e) => setFormUrl(e.target.value)}
+                    placeholder="https://"
+                    className="mt-1 w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-ring"
+                    onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    {/* TODO: i18n */}
+                    Channel (optional)
+                  </label>
+                  <input
+                    value={formChannel}
+                    onChange={(e) => setFormChannel(e.target.value)}
+                    placeholder="#general"
+                    className="mt-1 w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-ring"
+                    onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    {/* TODO: i18n */}
+                    Token (optional)
+                  </label>
+                  <input
+                    value={formToken}
+                    onChange={(e) => setFormToken(e.target.value)}
+                    placeholder="bot-token / webhook-secret"
+                    className="mt-1 w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-ring"
+                    onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCreate}
+                  disabled={!formName.trim() || !formUrl.trim() || creating}
+                  className="flex-1 rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  {creating ? <Loader2 size={12} className="animate-spin inline" /> : "Create"}
+                </button>
+                <button
+                  onClick={() => setShowAddForm(false)}
+                  className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent transition-colors"
+                >
+                  {t("cancel")}
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

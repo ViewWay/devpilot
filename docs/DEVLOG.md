@@ -1,18 +1,71 @@
 # DevPilot Development Log
 
-## 2026-04-19 Session C — Frontend Integration (commit 40fdf06 →)
+## 2026-04-19 Session D — Frontend Panels (commit 2d0328f →)
 
 ### Goal
 
-Connect React frontend to the 10-crate backend: routing, new panels, IPC bindings.
+Build out SchedulerPanel and GalleryPanel — the two stub pages need real functionality.
 
-### Phase 6: Router + SchedulerPanel + GalleryPanel
+### Phase 8: SchedulerPanel + GalleryPanel
 
-**Goal:** Add page routing system and build the two major missing panels.
+**Goal:** Full CRUD panels for scheduler tasks and media gallery.
 
 **Implementation:**
 
-- (pending)
+- (in progress)
+
+---
+
+## 2026-04-19 Session C (commit 40fdf06 → 2d0328f)
+
+### Phase 6: Router + Streaming Fixes
+
+**Goal:** Fix critical streaming bugs, add routing for new pages.
+
+**Implementation:**
+
+- Router: added /scheduler and /gallery routes with stub pages
+- `ActiveView` extended with `"scheduler" | "gallery"`
+- Sidebar: bottom buttons wired to `useNavigate()` with active-state highlighting
+- `RouteSync` component: syncs URL path → `activeView` store on location change
+- Sidebar: archived sessions section with unarchive button
+- Removed `DemoApproval` overlay from production chat rendering
+
+**Issues & Fixes:**
+
+1. **Stream race condition** — stream listeners were registered AFTER `invoke("send_message_stream")`, so early chunks emitted between the Rust side starting and the JS listeners being attached were lost. Fixed by restructuring: register all listeners first, then invoke.
+2. **Abort support** — added `chatStore.abortStreaming()` method that cleans up listeners, marks message as finalized, and sets `isLoading = false`. Wired to stop button in MessageInput.
+3. **Sidebar navigation dead buttons** — scheduler/gallery/settings buttons had no `onClick`. Wired to `navigate()`.
+4. **Early abort in mock** — mock streaming loop now checks `isLoading` flag each tick, respecting user abort.
+
+**Result:** 6 files changed, commit `02517ff`
+
+---
+
+### Phase 7: Dynamic Model Selector + Model Management
+
+**Goal:** TopBar model selector should be dynamic from providerStore, not hardcoded.
+
+**Implementation:**
+
+- TopBar: model dropdown now reads from `providerStore.enabledProviders`
+- Models grouped by provider in dropdown, colored section headers
+- Auto-select first available model when current selection disappears
+- SettingsPage: `ProviderCard` expanded with model add/edit/delete UI
+- Model form: id, name, maxTokens, supportsVision, inputPrice, outputPrice
+- Added 10 i18n keys for model management (EN + CN)
+
+**Result:** 4 files changed, commit `2d0328f`
+
+---
+
+### Session C Totals
+
+| Metric       | Before Session C   | After Session C                        |
+| ------------ | ------------------ | -------------------------------------- |
+| Frontend LOC | 7,420              | 7,814                                  |
+| Pages        | 2 (chat, settings) | 4 (chat, settings, scheduler, gallery) |
+| Commits      | 40fdf06            | 2d0328f                                |
 
 ---
 
@@ -80,7 +133,7 @@ Connect React frontend to the 10-crate backend: routing, new panels, IPC binding
 - Updated DB migration schemas
 - `error.rs`: added `#[allow(dead_code)]` on unused `Result` alias
 
-**Additional fix:** `src-tauri/src/commands/mod.rs` — removed `get_session_usage` IPC handler that called the deleted method. Also removed from `src-tauri/src/lib.rs` handler registration.
+**Additional fix:** `src-tauri/src/commands/mod.rs` — removed `get_session_usage` IPC handler. Also removed from `src-tauri/src/lib.rs` handler registration.
 
 **Result:** All 155 workspace tests passing, clippy clean
 
@@ -163,8 +216,8 @@ Quality gates: `cargo fmt`, `cargo clippy -D warnings`, `cargo test --workspace`
 
 1. **Glob char pattern typo** — `'{' '}'` missing `|` separator → `'{' | '}'`
 2. **Fuzzy word_boundary test** — `fuzzy_match("r", "xyzabc")` returns `None` because "xyzabc" has no 'r'. Changed to `fuzzy_match("r", "parser")`.
-3. **Test relative paths** — `cargo test` runs from `target/` dir, relative paths like `crates/devpilot-search/src` don't resolve. Fixed with `CARGO_MANIFEST_DIR` + double `.parent()` traversal.
-4. **Missing tempfile dev-dependency** — content.rs tests use `tempfile::NamedTempFile`. Added `tempfile = "3"` to `[dev-dependencies]`.
+3. **Test relative paths** — `cargo test` runs from `target/` dir, relative paths don't resolve. Fixed with `CARGO_MANIFEST_DIR` + double `.parent()` traversal.
+4. **Missing tempfile dev-dependency** — added `tempfile = "3"` to `[dev-dependencies]`.
 
 **Result:** 581 lines, 14 tests, commit `904e161`
 
@@ -183,8 +236,8 @@ Quality gates: `cargo fmt`, `cargo clippy -D warnings`, `cargo test --workspace`
 
 **Issues & Fixes:**
 
-1. **Schedule not Default** — `cron::Schedule` doesn't implement `Default`, so `TaskDef` couldn't derive it. Fixed by removing `#[derive(Default)]` and storing `cron_expr: String` instead of `Schedule` directly. Schedule parsed on-demand via `fn schedule(&self)`.
-2. **Unused imports** — `TaskAction`, `TaskId` imported but unused after refactor. Fixed by `cargo clippy --fix`.
+1. **Schedule not Default** — `cron::Schedule` doesn't implement `Default`. Fixed by storing `cron_expr: String`, parsed on demand.
+2. **Unused imports** — Fixed by `cargo clippy --fix`.
 
 **Result:** 562 lines, 12 tests, commit `aa2cdd6`
 
