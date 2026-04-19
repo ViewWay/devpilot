@@ -383,3 +383,49 @@ Quality gates: `cargo fmt`, `cargo clippy -D warnings`, `cargo test --workspace`
 | Commits  | bd61612 | aa2cdd6 |
 
 All quality gates passing: `cargo fmt`, `cargo clippy -D warnings`, `cargo test --workspace`.
+
+---
+
+## Session G — 2026-04-19 (P0 Complete + P1 Provider Management)
+
+**Goal:** Complete P0 remaining tasks (Tool Approval UI, Capabilities) and implement P1 Provider Management.
+
+### What was done
+
+1. **Committed Agent Loop Integration** (from previous session)
+   - EventBus→Tauri bridge, streaming tool events, ApprovalQueue, ToolCallView
+   - IPC signature fix, chatStore event listeners
+
+2. **P0-5: Tauri Capabilities**
+   - `capabilities/default.json`: added shell, dialog, fs permissions
+   - CSP connect-src: 15+ provider domains including localhost for Ollama
+
+3. **P1-1: Provider CRUD IPC**
+   - Added 4 Tauri commands: `list_providers`, `get_provider`, `upsert_provider`, `delete_provider`
+   - `ProviderRecordIPC` type in frontend
+   - `providerStore` mutations persist to SQLite via IPC
+
+4. **P1-2: API Key Encryption**
+   - New `devpilot-store/crypto` module: AES-256-GCM with machine-specific key
+   - `Store::upsert_provider_with_key()` — encrypts before storage
+   - `Store::get_provider_api_key()` — decrypts on read
+   - `get_provider_api_key` Tauri command (42 total)
+   - Frontend hydration restores API keys from encrypted backend
+
+5. **P1-3: CSP Update**
+   - Added DeepSeek, Qwen, Moonshot, MiniMax, Volcengine, OpenRouter, LiteLLM, localhost
+
+6. **P1-4: Provider Hydration**
+   - `providerStore.hydrateFromBackend()` on app startup
+   - Merges persisted providers with defaults
+   - API keys restored from encrypted storage
+
+### Stats
+
+| Metric   | Before  | After   |
+| -------- | ------- | ------- |
+| IPC Cmds | 37      | 42      |
+| Tests    | 155     | 159     |
+| Commits  | 6b8e263 | 1f49ee6 |
+
+All quality gates passing: `cargo fmt`, `cargo clippy -D warnings`, `cargo test --workspace`, `tsc --noEmit`.

@@ -17,15 +17,37 @@ All notable changes to DevPilot will be documented in this file.
 - i18n keys: archived/unarchive, model management (10 keys), scheduler/gallery labels
 - Abort streaming support — `chatStore.abortStreaming()` + stop button in MessageInput
 
-### Added — Agent Loop Integration (Session F)
+### Added — Agent Loop Integration
 
 - `AppState` extended with `Agent` + `EventBus` instances
-- `start_event_bridge()` — tokio task bridging EventBus broadcast → Tauri `app.emit()`
-- CoreEvent → Tauri event mapping: StreamDelta→stream-chunk, ToolCallStarted→stream-tool-start, etc.
-- `send_message_stream` IPC command now calls `Agent::run()` instead of direct LLM provider call
-- chatStore: listeners for `stream-tool-start`, `stream-tool-result`, `stream-approval` events
-- `activeToolCalls` tracking in chatStore for real-time tool call display
-- CoreEvent re-exported from `devpilot-core`
+- CoreEvent → Tauri event bridge: chunk/tool-start/tool-result/approval/done/error/compacted
+- `send_message_stream` IPC command now calls `Agent::run()` (full tool loop)
+- chatStore: listeners for all stream events including tool calls and approvals
+- `ApprovalOverlay` → `ApprovalQueue` integrated in ChatPanel
+- `resolveApproval` + `approveAll` in chatStore
+- Tool call rendering via `ToolCallView` in `MessageList`
+- Fix resolve_tool_approval IPC signature
+
+### Added — Tauri Capabilities
+
+- `capabilities/default.json`: shell, dialog, fs permissions for main window
+- CSP `connect-src`: added DeepSeek, Qwen, Moonshot, MiniMax, Volcengine, OpenRouter, LiteLLM, localhost (Ollama/LM Studio)
+
+### Added — Provider Persistence (P1)
+
+- Tauri IPC: `list_providers`, `get_provider`, `upsert_provider`, `get_provider_api_key`, `delete_provider` (42 total commands)
+- Provider config persisted to SQLite `providers` table
+- `providerStore.hydrateFromBackend()`: loads from SQLite on startup, merges with defaults
+- All provider mutations (add/update/remove/setApiKey) persist to backend
+
+### Added — API Key Encryption (P1)
+
+- `devpilot-store/crypto`: AES-256-GCM encryption for API keys at rest
+- Machine-specific key derivation (SHA-256 of data dir + label)
+- `Store::upsert_provider_with_key()` — encrypts before SQLite storage
+- `Store::get_provider_api_key()` — decrypts on read
+- Frontend hydration restores encrypted API keys from backend
+- 4 unit tests (roundtrip, different ciphertexts, invalid inputs)
 
 ### Changed
 
@@ -35,7 +57,6 @@ All notable changes to DevPilot will be documented in this file.
 - SettingsPage: expanded ProviderCard with full model CRUD form
 - Sidebar settings button: now uses `navigate('/settings')` instead of `setActiveView`
 - Removed DemoApproval overlay from production chat rendering
-- Tool approval currently auto-approves (pending UI integration)
 
 ### Fixed
 
