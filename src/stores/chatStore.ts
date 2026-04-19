@@ -1,11 +1,33 @@
 import { create } from "zustand";
 import type { Session, Message } from "../types";
 import { useUsageStore } from "./usageStore";
+import { useProviderStore } from "./providerStore";
 import { useUIStore } from "./uiStore";
+import {
+  persistCreateSession,
+  persistDeleteSession,
+  persistUpdateSessionTitle,
+  persistArchiveSession,
+  persistAddMessage,
+  hydrateSessions,
+  type HydratedSession,
+} from "../lib/persistence";
+import { invoke, listen, isTauriRuntime } from "../lib/ipc";
 
 let nextId = 100;
 function genId() {
   return String(++nextId);
+}
+
+/** Map provider ID to provider type string matching Rust enum. */
+function mapProviderType(providerId: string): string {
+  if (providerId.includes("anthropic")) {return "anthropic";}
+  if (providerId.includes("openai")) {return "openai";}
+  if (providerId.includes("ollama")) {return "ollama";}
+  if (providerId.includes("google")) {return "google";}
+  if (providerId.includes("zhipu")) {return "custom";}
+  if (providerId.includes("deepseek")) {return "openai";}
+  return "custom";
 }
 
 const MOCK_SESSIONS: Session[] = [
@@ -252,6 +274,59 @@ function pickMockReply(input: string): string {
   return DEFAULT_REPLY;
 }
 
+/**
+ * Fallback mock streaming — used when NOT running inside Tauri.
+ * Extracted from sendMessage so the Tauri path can take priority.
+ */
+function mockStreamReply(
+  sessionId: string,
+  model: string,
+  content: string,
+  get: () => ChatState,
+  updateMessageContent: (sid: string, mid: string, c: string, s?: boolean) => void,
+  addMessage: (sid: string, msg: Omit<Message, "id" | "timestamp">) => string,
+  set: (partial: Partial<ChatState> | ((s: ChatState) => Partial<ChatState>)) => void,
+) {
+  set({ isLoading: true, error: null });
+  const replyContent = pickMockReply(content);
+  const msgId = addMessage(sessionId, { role: "assistant", content: "", model, streaming: true });
+  set({ streamingMessageId: msgId });
+
+  let charIndex = 0;
+  const chunkSize = () => 1 + Math.floor(Math.random() * 3);
+  const tickDelay = () => 15 + Math.random() * 25;
+
+  const streamTick = () => {
+    const currentSessionId = get().activeSessionId;
+    if (currentSessionId !== sessionId) {
+      set({ isLoading: false, streamingMessageId: null });
+      return;
+    }
+
+    if (charIndex < replyContent.length) {
+      const step = chunkSize();
+      charIndex = Math.min(charIndex + step, replyContent.length);
+      const partialContent = replyContent.slice(0, charIndex);
+      updateMessageContent(sessionId, msgId, partialContent, true);
+      setTimeout(streamTick, tickDelay());
+    } else {
+      updateMessageContent(sessionId, msgId, replyContent, false);
+      set({ isLoading: false });
+
+      // Record usage
+      useUsageStore.getState().recordUsage({
+        sessionId,
+        model,
+        provider: useUIStore.getState().selectedModel.provider ?? "",
+        inputText: content,
+        outputText: replyContent,
+      });
+    }
+  };
+
+  setTimeout(streamTick, 300 + Math.random() * 400);
+}
+
 function generateTitle(content: string): string {
   // Take first ~40 chars, strip markdown, trim
   const cleaned = content
@@ -284,6 +359,8 @@ interface ChatState {
   updateSessionTitle: (sessionId: string, title: string) => void;
   archiveSession: (id: string) => void;
   setError: (error: string | null) => void;
+  /** Hydrate store from Tauri backend (SQLite). No-op in browser dev mode. */
+  hydrateFromBackend: () => Promise<void>;
 }
 
 function relativeTime(date: string): string {
@@ -325,19 +402,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
       sessions: [session, ...s.sessions],
       activeSessionId: id,
     }));
+    persistCreateSession(id, "New Chat", model, provider);
     return id;
   },
 
   setActiveSession: (id) => set({ activeSessionId: id }),
 
-  deleteSession: (id) =>
+  deleteSession: (id) => {
     set((s) => {
       const sessions = s.sessions.filter((sess) => sess.id !== id);
       const activeSessionId = s.activeSessionId === id
         ? sessions[0]?.id ?? null
         : s.activeSessionId;
       return { sessions, activeSessionId };
-    }),
+    });
+    persistDeleteSession(id);
+  },
 
   addMessage: (sessionId, msg) => {
     const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -349,6 +429,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           : sess,
       ),
     }));
+    persistAddMessage(sessionId, message.id, msg.role, msg.content ?? "", msg.model);
     return message.id;
   },
 
@@ -400,47 +481,147 @@ export const useChatStore = create<ChatState>((set, get) => ({
       updateSessionTitle(sessionId, generateTitle(content));
     }
 
-    // Simulate streaming AI response
-    set({ isLoading: true, error: null });
-    const replyContent = pickMockReply(content);
-    const msgId = addMessage(sessionId, { role: "assistant", content: "", model, streaming: true });
-    set({ streamingMessageId: msgId });
+    // Add placeholder assistant message for streaming
+    const assistantMsgId = addMessage(sessionId, { role: "assistant", content: "", model, streaming: true });
+    set({ isLoading: true, error: null, streamingMessageId: assistantMsgId });
 
-    let charIndex = 0;
-    const chunkSize = () => 1 + Math.floor(Math.random() * 3); // 1-3 chars per tick
-    const tickDelay = () => 15 + Math.random() * 25; // 15-40ms per tick
+    // Try Tauri backend first, fall back to mock streaming
+    const tryTauri = async () => {
+      try {
+        if (!isTauriRuntime()) {
+          // Not in Tauri — use mock streaming
+          mockStreamReply(sessionId, model, content, get, updateMessageContent, addMessage, set);
+          return;
+        }
 
-    const streamTick = () => {
-      const currentSessionId = get().activeSessionId;
-      if (currentSessionId !== sessionId) {
-        set({ isLoading: false, streamingMessageId: null });
-        return;
-      }
+        // Build provider config from providerStore
+        const provider = useProviderStore.getState().getProviderById(
+          session.provider || "provider-anthropic",
+        );
+        if (!provider) {
+          throw new Error(`Provider "${session.provider}" not found`);
+        }
 
-      if (charIndex < replyContent.length) {
-        const step = chunkSize();
-        charIndex = Math.min(charIndex + step, replyContent.length);
-        const partialContent = replyContent.slice(0, charIndex);
-        updateMessageContent(sessionId, msgId, partialContent, true);
-        setTimeout(streamTick, tickDelay());
-      } else {
-        // Streaming complete
-        updateMessageContent(sessionId, msgId, replyContent, false);
-        set({ isLoading: false });
+        const providerConfig = {
+          id: provider.id,
+          name: provider.name,
+          providerType: mapProviderType(provider.id),
+          baseUrl: provider.baseUrl,
+          apiKey: provider.apiKey || undefined,
+          models: provider.models.map((m) => ({
+            id: m.id,
+            name: m.name,
+            provider: mapProviderType(provider.id),
+            maxInputTokens: m.maxTokens,
+            maxOutputTokens: 4096,
+            supportsStreaming: m.supportsStreaming,
+            supportsTools: true,
+            supportsVision: m.supportsVision,
+            inputPricePerMillion: m.inputPrice,
+            outputPricePerMillion: m.outputPrice,
+          })),
+          enabled: provider.enabled,
+        };
 
-        // Record usage
-        useUsageStore.getState().recordUsage({
+        // Build messages history
+        const messages = session.messages.map((m) => ({
+          role: m.role,
+          content: [{ type: "text" as const, text: typeof m.content === "string" ? m.content : "" }],
+        }));
+        messages.push({ role: "user", content: [{ type: "text" as const, text: content }] });
+
+        // Start streaming via IPC
+        await invoke("send_message_stream", {
+          provider: providerConfig,
+          chatRequest: { model, messages, stream: true },
           sessionId,
-          model,
-          provider: useUIStore.getState().selectedModel.provider ?? "",
-          inputText: content,
-          outputText: replyContent,
         });
+
+        // Listen for stream events — backend emits globally:
+        //   "stream-chunk"  → StreamEvent::Chunk { sessionId, delta, ... }
+        //   "stream-done"   → StreamEvent::Done  { sessionId, usage, ... }
+        //   "stream-error"  → StreamEvent::Error { sessionId, message, ... }
+        // We filter by sessionId in the handler.
+        const cleanup = () => {
+          unlistenChunk();
+          unlistenDone();
+          unlistenError();
+        };
+
+        let unlistenChunk = () => {};
+        let unlistenDone = () => {};
+        let unlistenError = () => {};
+
+        unlistenChunk = await listen<{
+          event: "chunk"; sessionId: string; delta?: string;
+        }>(
+          "stream-chunk",
+          (payload) => {
+            if (payload.sessionId !== sessionId) {return;}
+            const delta = payload.delta ?? "";
+            if (!delta) {return;}
+            updateMessageContent(
+              sessionId,
+              assistantMsgId,
+              (get().sessions.find((s) => s.id === sessionId)?.messages
+                .find((m) => m.id === assistantMsgId)?.content as string ?? "") + delta,
+              true,
+            );
+          },
+        );
+        unlistenDone = await listen<{
+          event: "done"; sessionId: string;
+          usage: { inputTokens: number; outputTokens: number; cacheReadTokens?: number; cacheWriteTokens?: number };
+          finishReason: string;
+        }>(
+          "stream-done",
+          async (payload) => {
+            if (payload.sessionId !== sessionId) {return;}
+            if (payload.usage) {
+              try {
+                useUsageStore.getState().recordUsageFromTokens({
+                  sessionId,
+                  model,
+                  provider: provider.id,
+                  inputTokens: payload.usage.inputTokens ?? 0,
+                  outputTokens: payload.usage.outputTokens ?? 0,
+                });
+              } catch { /* ignore */ }
+            }
+            updateMessageContent(sessionId, assistantMsgId,
+              get().sessions.find((s) => s.id === sessionId)?.messages
+                .find((m) => m.id === assistantMsgId)?.content as string ?? "",
+              false,
+            );
+            set({ isLoading: false, streamingMessageId: null });
+            cleanup();
+          },
+        );
+        unlistenError = await listen<{
+          event: "error"; sessionId: string; message: string; code?: string;
+        }>(
+          "stream-error",
+          (payload) => {
+            if (payload.sessionId !== sessionId) {return;}
+            updateMessageContent(sessionId, assistantMsgId,
+              `⚠️ Stream error: ${payload.message}`,
+              false,
+            );
+            set({ isLoading: false, streamingMessageId: null });
+            cleanup();
+          },
+        );
+
+        return; // Tauri handled it
+      } catch {
+        // Fall through to mock
       }
+
+      // Mock streaming fallback
+      mockStreamReply(sessionId, model, content, get, updateMessageContent, addMessage, set);
     };
 
-    // Start streaming after a small initial delay
-    setTimeout(streamTick, 300 + Math.random() * 400);
+    tryTauri();
   },
 
   clearMessages: (sessionId) => {
@@ -459,6 +640,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         sess.id === sessionId ? { ...sess, title } : sess,
       ),
     }));
+    persistUpdateSessionTitle(sessionId, title);
   },
 
   archiveSession: (id) => {
@@ -471,10 +653,45 @@ export const useChatStore = create<ChatState>((set, get) => ({
           ? s.sessions.find((sess) => sess.id !== id && !sess.archived)?.id ?? null
           : s.activeSessionId,
     }));
+    persistArchiveSession(id, true);
   },
 
   setError: (error) => set({ error }),
+
+  hydrateFromBackend: async () => {
+    const data = await hydrateSessions();
+    if (!data) { return; } // not in Tauri runtime
+
+    if (data.length > 0) {
+      const sessions: Session[] = data.map(convertHydratedSession);
+      set({
+        sessions,
+        activeSessionId: sessions[0]?.id ?? null,
+      });
+    }
+  },
 }));
+
+/** Convert a HydratedSession from the persistence layer into a store Session. */
+function convertHydratedSession(hs: HydratedSession): Session {
+  return {
+    id: hs.id,
+    title: hs.title,
+    model: hs.model,
+    provider: hs.provider,
+    archived: hs.archived,
+    createdAt: hs.createdAt,
+    updatedAt: hs.updatedAt,
+    messages: hs.messages.map((hm) => ({
+      id: hm.id,
+      role: hm.role as Message["role"],
+      content: hm.content,
+      model: hm.model,
+      timestamp: hm.timestamp,
+      streaming: hm.streaming,
+    })),
+  };
+}
 
 // Slash command handler
 function handleSlashCommand(

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { invoke, isTauriRuntime } from "../lib/ipc";
 
 export interface Provider {
   id: string;
@@ -113,6 +114,17 @@ const DEFAULT_PROVIDERS: Provider[] = [
   },
 ];
 
+/** Map provider ID to provider type string matching Rust enum. */
+function mapProviderType(providerId: string): string {
+  if (providerId.includes("anthropic")) {return "anthropic";}
+  if (providerId.includes("openai")) {return "openai";}
+  if (providerId.includes("ollama")) {return "ollama";}
+  if (providerId.includes("google")) {return "google";}
+  if (providerId.includes("zhipu")) {return "custom";}
+  if (providerId.includes("deepseek")) {return "openai";}
+  return "custom";
+}
+
 export const useProviderStore = create<ProviderStore>((set, get) => ({
   providers: DEFAULT_PROVIDERS,
 
@@ -150,7 +162,7 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
       return false;
     }
 
-    // Simulate connection test (will use Tauri IPC in production)
+    // Clear previous status
     set((s) => ({
       providers: s.providers.map((p) =>
         p.id === id
@@ -158,8 +170,67 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
       ),
     }));
 
+    // Try real Tauri backend first
+    if (isTauriRuntime()) {
+      try {
+        const result = await invoke<{ connected: boolean; message: string; modelsCount?: number }>(
+          "check_provider",
+          {
+            config: {
+              id: provider.id,
+              name: provider.name,
+              providerType: mapProviderType(provider.id),
+              baseUrl: provider.baseUrl,
+              apiKey: provider.apiKey || undefined,
+              models: provider.models.map((m) => ({
+                id: m.id,
+                name: m.name,
+                provider: mapProviderType(provider.id),
+                maxInputTokens: m.maxTokens,
+                maxOutputTokens: 4096,
+                supportsStreaming: m.supportsStreaming,
+                supportsTools: true,
+                supportsVision: m.supportsVision,
+                inputPricePerMillion: m.inputPrice,
+                outputPricePerMillion: m.outputPrice,
+              })),
+              enabled: provider.enabled,
+            },
+          },
+        );
+
+        set((s) => ({
+          providers: s.providers.map((p) =>
+            p.id === id
+              ? {
+                  ...p,
+                  testStatus: result.connected ? ("ok" as const) : ("error" as const),
+                  testError: result.connected ? undefined : result.message,
+                  lastTested: new Date().toISOString(),
+                }
+              : p,
+          ),
+        }));
+        return result.connected;
+      } catch (err) {
+        set((s) => ({
+          providers: s.providers.map((p) =>
+            p.id === id
+              ? {
+                  ...p,
+                  testStatus: "error" as const,
+                  testError: err instanceof Error ? err.message : String(err),
+                  lastTested: new Date().toISOString(),
+                }
+              : p,
+          ),
+        }));
+        return false;
+      }
+    }
+
+    // Browser mock fallback
     try {
-      // Mock: Ollama doesn't need API key
       if (!requiresApiKey) {
         await new Promise((resolve) => setTimeout(resolve, 500));
         set((s) => ({
@@ -172,7 +243,6 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
         return true;
       }
 
-      // Mock: simulate test for other providers
       await new Promise((resolve) => setTimeout(resolve, 800 + Math.random() * 500));
       const success = provider.apiKey.length > 0;
       set((s) => ({

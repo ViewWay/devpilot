@@ -12,12 +12,13 @@ import { useI18n } from "../../i18n";
 
 function ChatContent() {
   const isLoading = useChatStore((s) => s.isLoading);
+  const streamingMessageId = useChatStore((s) => s.streamingMessageId);
   const error = useChatStore((s) => s.error);
   const { t } = useI18n();
 
   return (
     <div className="flex h-full flex-col">
-      {isLoading && (
+      {isLoading && !streamingMessageId && (
         <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-4 py-2">
           <Loader2 size={14} className="animate-spin text-primary" />
           <span className="text-xs text-muted-foreground">{t("thinking")}</span>

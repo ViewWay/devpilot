@@ -30,6 +30,14 @@ interface UsageState {
     inputText: string;
     outputText: string;
   }) => UsageRecord;
+  /** Record usage from actual token counts (received from Tauri backend). */
+  recordUsageFromTokens: (params: {
+    sessionId: string;
+    model: string;
+    provider: string;
+    inputTokens: number;
+    outputTokens: number;
+  }) => UsageRecord;
   getSummary: () => UsageSummary;
   getSessionUsage: (sessionId: string) => { tokens: number; cost: number };
   clearUsage: () => void;
@@ -43,6 +51,25 @@ export const useUsageStore = create<UsageState>((set, get) => ({
   recordUsage: ({ sessionId, model, provider, inputText, outputText }) => {
     const inputTokens = estimateTokens(inputText);
     const outputTokens = estimateTokens(outputText);
+    const pricing = MODEL_PRICING[model] || { input: 0.003, output: 0.015 };
+    const estimatedCost = (inputTokens * pricing.input + outputTokens * pricing.output) / 1000;
+
+    const record: UsageRecord = {
+      id: `usage-${++usageIdCounter}`,
+      sessionId,
+      model,
+      provider,
+      inputTokens,
+      outputTokens,
+      estimatedCost,
+      timestamp: new Date().toISOString(),
+    };
+
+    set((s) => ({ records: [...s.records, record] }));
+    return record;
+  },
+
+  recordUsageFromTokens: ({ sessionId, model, provider, inputTokens, outputTokens }) => {
     const pricing = MODEL_PRICING[model] || { input: 0.003, output: 0.015 };
     const estimatedCost = (inputTokens * pricing.input + outputTokens * pricing.output) / 1000;
 
