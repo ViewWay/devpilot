@@ -73,6 +73,15 @@ impl ProviderRegistry {
         self.register(ProviderType::DeepSeek, |config| {
             Box::new(OpenAiProvider::new(config))
         });
+        self.register(ProviderType::Kimi, |config| {
+            Box::new(OpenAiProvider::new(config))
+        });
+        self.register(ProviderType::MiniMax, |config| {
+            Box::new(OpenAiProvider::new(config))
+        });
+        self.register(ProviderType::VolcEngine, |config| {
+            Box::new(OpenAiProvider::new(config))
+        });
     }
 
     /// Register a factory function for a provider type.
@@ -184,6 +193,9 @@ mod tests {
         assert!(registry.has_provider(&ProviderType::GLM));
         assert!(registry.has_provider(&ProviderType::Qwen));
         assert!(registry.has_provider(&ProviderType::DeepSeek));
+        assert!(registry.has_provider(&ProviderType::Kimi));
+        assert!(registry.has_provider(&ProviderType::MiniMax));
+        assert!(registry.has_provider(&ProviderType::VolcEngine));
     }
 
     #[test]
@@ -236,7 +248,10 @@ mod tests {
         assert!(types.contains(&ProviderType::GLM));
         assert!(types.contains(&ProviderType::Qwen));
         assert!(types.contains(&ProviderType::DeepSeek));
-        assert!(types.len() >= 8);
+        assert!(types.contains(&ProviderType::Kimi));
+        assert!(types.contains(&ProviderType::MiniMax));
+        assert!(types.contains(&ProviderType::VolcEngine));
+        assert!(types.len() >= 11);
     }
 
     #[test]
@@ -261,5 +276,29 @@ mod tests {
         let config = test_config(ProviderType::DeepSeek);
         let provider = registry.create(config).unwrap();
         assert_eq!(provider.name(), "deepseek Test");
+    }
+
+    #[test]
+    fn create_kimi_provider() {
+        let registry = ProviderRegistry::with_defaults();
+        let config = test_config(ProviderType::Kimi);
+        let provider = registry.create(config).unwrap();
+        assert_eq!(provider.name(), "kimi Test");
+    }
+
+    #[test]
+    fn create_minimax_provider() {
+        let registry = ProviderRegistry::with_defaults();
+        let config = test_config(ProviderType::MiniMax);
+        let provider = registry.create(config).unwrap();
+        assert_eq!(provider.name(), "minimax Test");
+    }
+
+    #[test]
+    fn create_volcengine_provider() {
+        let registry = ProviderRegistry::with_defaults();
+        let config = test_config(ProviderType::VolcEngine);
+        let provider = registry.create(config).unwrap();
+        assert_eq!(provider.name(), "volcengine Test");
     }
 }

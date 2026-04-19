@@ -11,6 +11,8 @@ use devpilot_protocol::{
     ChatRequest, ChatResponse, ContentBlock, FinishReason, ImageSource, Message, MessageRole,
     ProviderConfig, StreamEvent, ToolDefinition, ToolUseDelta, Usage,
 };
+#[cfg(test)]
+use devpilot_protocol::ProviderType;
 use eventsource_stream::Eventsource;
 use futures::StreamExt;
 use reqwest::Client;
@@ -229,8 +231,8 @@ impl GeminiProvider {
                         })
                     } else {
                         // Try to parse content as JSON for structured response
-                        let response_val: serde_json::Value =
-                            serde_json::from_str(content).unwrap_or(serde_json::json!({
+                        let response_val: serde_json::Value = serde_json::from_str(content)
+                            .unwrap_or(serde_json::json!({
                                 "result": content,
                             }));
                         serde_json::json!({
@@ -284,10 +286,7 @@ impl GeminiProvider {
                 }
             } else if let Some(fc) = part.get("function_call") {
                 let name = fc["name"].as_str().unwrap_or_default().to_string();
-                let input = fc
-                    .get("args")
-                    .cloned()
-                    .unwrap_or(serde_json::json!({}));
+                let input = fc.get("args").cloned().unwrap_or(serde_json::json!({}));
                 // Generate a deterministic ID from the function name
                 let id = format!("call_{}", name);
                 content_blocks.push(ContentBlock::ToolUse { id, name, input });
@@ -347,10 +346,7 @@ impl ModelProvider for GeminiProvider {
             });
         }
 
-        let tools = request
-            .tools
-            .as_ref()
-            .map(|t| Self::convert_tools(t));
+        let tools = request.tools.as_ref().map(|t| Self::convert_tools(t));
 
         let generation_config = GeminiGenerationConfig {
             temperature: request.temperature,
@@ -392,14 +388,13 @@ impl ModelProvider for GeminiProvider {
             });
         }
 
-        let gemini_resp: GeminiResponse = serde_json::from_str(&body)
-            .map_err(|e| LlmError::UnexpectedResponse(format!("Failed to parse Gemini response: {e}")))?;
+        let gemini_resp: GeminiResponse = serde_json::from_str(&body).map_err(|e| {
+            LlmError::UnexpectedResponse(format!("Failed to parse Gemini response: {e}"))
+        })?;
 
-        let candidate = gemini_resp
-            .candidates
-            .into_iter()
-            .next()
-            .ok_or_else(|| LlmError::UnexpectedResponse("No candidates in Gemini response".into()))?;
+        let candidate = gemini_resp.candidates.into_iter().next().ok_or_else(|| {
+            LlmError::UnexpectedResponse("No candidates in Gemini response".into())
+        })?;
 
         let message = candidate
             .content
@@ -441,10 +436,7 @@ impl ModelProvider for GeminiProvider {
             });
         }
 
-        let tools = request
-            .tools
-            .as_ref()
-            .map(|t| Self::convert_tools(t));
+        let tools = request.tools.as_ref().map(|t| Self::convert_tools(t));
 
         let generation_config = GeminiGenerationConfig {
             temperature: request.temperature,
@@ -520,7 +512,10 @@ impl ModelProvider for GeminiProvider {
                             .and_then(|p| p.get("function_call"))
                             .map(|fc| ToolUseDelta {
                                 id: None,
-                                name: fc.get("name").and_then(|n| n.as_str()).map(|s| s.to_string()),
+                                name: fc
+                                    .get("name")
+                                    .and_then(|n| n.as_str())
+                                    .map(|s| s.to_string()),
                                 input_json: fc
                                     .get("args")
                                     .map(|a| serde_json::to_string(a).unwrap_or_default()),
@@ -533,12 +528,15 @@ impl ModelProvider for GeminiProvider {
                             .and_then(|c| c.finish_reason.as_deref());
 
                         if let Some(_reason) = finish_reason {
-                            let usage = chunk.usage_metadata.map(|u| Usage {
-                                input_tokens: u.prompt_token_count,
-                                output_tokens: u.candidates_token_count,
-                                cache_read_tokens: None,
-                                cache_write_tokens: None,
-                            }).unwrap_or_default();
+                            let usage = chunk
+                                .usage_metadata
+                                .map(|u| Usage {
+                                    input_tokens: u.prompt_token_count,
+                                    output_tokens: u.candidates_token_count,
+                                    cache_read_tokens: None,
+                                    cache_write_tokens: None,
+                                })
+                                .unwrap_or_default();
 
                             return Some(Ok(StreamEvent::Done {
                                 session_id: sid,
@@ -568,11 +566,7 @@ impl ModelProvider for GeminiProvider {
 
     async fn probe(&self) -> Result<(), LlmError> {
         let url = self.models_url();
-        let resp = self
-            .client
-            .get(&url)
-            .send()
-            .await?;
+        let resp = self.client.get(&url).send().await?;
 
         let status = resp.status();
         if status.is_success() {
@@ -593,11 +587,7 @@ impl ModelProvider for GeminiProvider {
 
     async fn list_models(&self) -> Result<Vec<String>, LlmError> {
         let url = self.models_url();
-        let resp = self
-            .client
-            .get(&url)
-            .send()
-            .await?;
+        let resp = self.client.get(&url).send().await?;
 
         let status = resp.status();
         let body = resp.text().await?;
@@ -618,9 +608,7 @@ impl ModelProvider for GeminiProvider {
                     .into_iter()
                     .filter_map(|m| {
                         // Gemini returns "models/gemini-2.0-flash" — strip the prefix
-                        m.name
-                            .strip_prefix("models/")
-                            .map(|s| s.to_string())
+                        m.name.strip_prefix("models/").map(|s| s.to_string())
                     })
                     .collect();
                 if model_ids.is_empty() {
@@ -737,7 +725,10 @@ mod tests {
         }];
         let contents = GeminiProvider::convert_messages(&msgs);
         let parts = &contents[0].parts;
-        assert_eq!(parts[0]["file_data"]["file_uri"], "https://example.com/img.png");
+        assert_eq!(
+            parts[0]["file_data"]["file_uri"],
+            "https://example.com/img.png"
+        );
     }
 
     #[test]

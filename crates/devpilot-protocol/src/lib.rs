@@ -289,6 +289,12 @@ pub enum ProviderType {
     Qwen,
     /// DeepSeek (深度求索)
     DeepSeek,
+    /// Kimi (Moonshot AI / 月之暗面)
+    Kimi,
+    /// MiniMax
+    MiniMax,
+    /// VolcEngine (豆包 / 字节跳动)
+    VolcEngine,
     Custom,
 }
 
@@ -303,6 +309,9 @@ impl std::fmt::Display for ProviderType {
             Self::GLM => write!(f, "glm"),
             Self::Qwen => write!(f, "qwen"),
             Self::DeepSeek => write!(f, "deepseek"),
+            Self::Kimi => write!(f, "kimi"),
+            Self::MiniMax => write!(f, "minimax"),
+            Self::VolcEngine => write!(f, "volcengine"),
             Self::Custom => write!(f, "custom"),
         }
     }
@@ -532,6 +541,9 @@ mod tests {
         assert_eq!(ProviderType::GLM.to_string(), "glm");
         assert_eq!(ProviderType::Qwen.to_string(), "qwen");
         assert_eq!(ProviderType::DeepSeek.to_string(), "deepseek");
+        assert_eq!(ProviderType::Kimi.to_string(), "kimi");
+        assert_eq!(ProviderType::MiniMax.to_string(), "minimax");
+        assert_eq!(ProviderType::VolcEngine.to_string(), "volcengine");
     }
 
     #[test]
@@ -543,6 +555,9 @@ mod tests {
             ProviderType::Qwen,
             ProviderType::DeepSeek,
             ProviderType::Ollama,
+            ProviderType::Kimi,
+            ProviderType::MiniMax,
+            ProviderType::VolcEngine,
         ] {
             let json = serde_json::to_string(&pt).unwrap();
             let parsed: ProviderType = serde_json::from_str(&json).unwrap();

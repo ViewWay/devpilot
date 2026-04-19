@@ -15,7 +15,9 @@ pub mod registry;
 pub mod types;
 
 pub use anthropic::{AnthropicProvider, create_anthropic_provider};
-pub use chinese::{deepseek_config, glm_config, qwen_config};
+pub use chinese::{
+    deepseek_config, glm_config, kimi_config, minimax_config, qwen_config, volcengine_config,
+};
 pub use error::LlmError;
 pub use google::{GeminiProvider, create_gemini_provider};
 pub use ollama::OllamaProvider;
