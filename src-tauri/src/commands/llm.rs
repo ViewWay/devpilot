@@ -326,6 +326,28 @@ pub async fn send_message_stream(
     let cost_usd =
         calculate_cost_from_tokens(total_input, total_output, &request.provider, &model_id);
 
+    // Persist usage to database
+    if total_input > 0 || total_output > 0 {
+        let provider_name = request.provider.name.clone();
+        if let Ok(db) = state.db.lock() {
+            if let Err(e) = db.add_usage(
+                &session_id,
+                &model_id,
+                &provider_name,
+                total_input as i64,
+                total_output as i64,
+                cost_usd,
+            ) {
+                warn!("Failed to persist usage: {}", e);
+            } else {
+                info!(
+                    "Usage persisted: {} input, {} output, ${:.4} cost",
+                    total_input, total_output, cost_usd
+                );
+            }
+        }
+    }
+
     Ok(StreamResult {
         session_id,
         total_input_tokens: total_input,

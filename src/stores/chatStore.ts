@@ -847,7 +847,7 @@ function convertHydratedSession(hs: HydratedSession): Session {
 }
 
 // Slash command handler
-function handleSlashCommand(
+async function handleSlashCommand(
   input: string,
   sessionId: string,
   model: string,
@@ -918,13 +918,75 @@ function handleSlashCommand(
       }
       break;
     }
-    case "/compact":
-      get().addMessage(sessionId, {
-        role: "assistant",
-        content: "Context compaction is not yet available. This feature will summarize older messages to save context window space when connected to the Rust backend.",
-        model,
-      });
+    case "/compact": {
+      try {
+        const result = await invoke<{
+          messagesRemoved: number;
+          summaryAdded: boolean;
+        }>("compact_session", {
+          sessionId,
+          keepLast: null,
+        });
+        if (result.messagesRemoved === 0) {
+          get().addMessage(sessionId, {
+            role: "assistant",
+            content: "No compaction needed — the conversation is short enough already.",
+            model,
+          });
+        } else {
+          // Reload messages from DB to reflect compacted state
+          if (isTauriRuntime()) {
+            try {
+              const dbMessages = await invoke<
+                Array<{
+                  id: string;
+                  sessionId: string;
+                  role: string;
+                  content: string;
+                  model: string | null;
+                  tokenInput: number;
+                  tokenOutput: number;
+                  tokenCacheRead: number;
+                  tokenCacheWrite: number;
+                  costUsd: number;
+                  toolCalls: string | null;
+                  toolCallId: string | null;
+                  createdAt: string;
+                }>
+              >("get_session_messages", { sessionId });
+              const session = get().sessions.find((s) => s.id === sessionId);
+              if (session) {
+                session.messages = dbMessages.map((m) => ({
+                  id: m.id,
+                  role: m.role as Message["role"],
+                  content: m.content,
+                  model: m.model ?? undefined,
+                  timestamp: m.createdAt,
+                }));
+                _set({ sessions: [...get().sessions] });
+              }
+            } catch {
+              // Silently ignore reload failure
+            }
+          }
+          const summaryNote = result.summaryAdded
+            ? "\nA summary of the older messages has been prepended."
+            : "";
+          get().addMessage(sessionId, {
+            role: "assistant",
+            content: `✅ Context compacted: **${result.messagesRemoved}** messages removed.${summaryNote}`,
+            model,
+          });
+        }
+      } catch (err) {
+        get().addMessage(sessionId, {
+          role: "assistant",
+          content: `Compaction failed: ${err}`,
+          model,
+        });
+      }
       break;
+    }
     case "/cost": {
       const summary = useUsageStore.getState().getSummary();
       if (summary.totalInputTokens + summary.totalOutputTokens === 0) {

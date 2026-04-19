@@ -71,6 +71,18 @@ pub struct UsageRecord {
     pub request_count: i64,
 }
 
+/// A checkpoint for session rewind support.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckpointInfo {
+    pub id: String,
+    pub session_id: String,
+    pub message_id: String,
+    pub summary: String,
+    pub token_count: i64,
+    pub created_at: String,
+}
+
 /// Provider record for persistent provider configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

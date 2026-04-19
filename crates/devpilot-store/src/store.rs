@@ -303,6 +303,15 @@ impl Store {
         })
     }
 
+    /// Delete all messages for a session (used during context compaction).
+    pub fn delete_session_messages(&self, session_id: &str) -> Result<()> {
+        self.conn.execute(
+            "DELETE FROM messages WHERE session_id = ?1",
+            rusqlite::params![session_id],
+        )?;
+        Ok(())
+    }
+
     /// Update a message's token usage and cost (after LLM response).
     pub fn update_message_usage(
         &self,
@@ -518,6 +527,119 @@ impl Store {
         self.conn
             .execute("DELETE FROM providers WHERE id = ?1", rusqlite::params![id])?;
         Ok(())
+    }
+
+    // ── Checkpoints ────────────────────────────────────
+
+    /// Create a new checkpoint for a session.
+    pub fn create_checkpoint(
+        &self,
+        session_id: &str,
+        message_id: &str,
+        summary: &str,
+        token_count: i64,
+    ) -> Result<CheckpointInfo> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().to_rfc3339();
+        self.conn.execute(
+            "INSERT INTO checkpoints (id, session_id, message_id, summary, token_count, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            rusqlite::params![id, session_id, message_id, summary, token_count, now],
+        )?;
+        Ok(CheckpointInfo {
+            id,
+            session_id: session_id.to_string(),
+            message_id: message_id.to_string(),
+            summary: summary.to_string(),
+            token_count,
+            created_at: now,
+        })
+    }
+
+    /// List all checkpoints for a session, ordered by creation time.
+    pub fn list_checkpoints(&self, session_id: &str) -> Result<Vec<CheckpointInfo>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, session_id, message_id, summary, token_count, created_at
+             FROM checkpoints WHERE session_id = ?1 ORDER BY created_at DESC",
+        )?;
+        let checkpoints = stmt
+            .query_map(rusqlite::params![session_id], |row| {
+                Ok(CheckpointInfo {
+                    id: row.get(0)?,
+                    session_id: row.get(1)?,
+                    message_id: row.get(2)?,
+                    summary: row.get(3)?,
+                    token_count: row.get(4)?,
+                    created_at: row.get(5)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(checkpoints)
+    }
+
+    /// Get a single checkpoint by ID.
+    pub fn get_checkpoint(&self, id: &str) -> Result<CheckpointInfo> {
+        self.conn
+            .query_row(
+                "SELECT id, session_id, message_id, summary, token_count, created_at
+                 FROM checkpoints WHERE id = ?1",
+                rusqlite::params![id],
+                |row| {
+                    Ok(CheckpointInfo {
+                        id: row.get(0)?,
+                        session_id: row.get(1)?,
+                        message_id: row.get(2)?,
+                        summary: row.get(3)?,
+                        token_count: row.get(4)?,
+                        created_at: row.get(5)?,
+                    })
+                },
+            )
+            .map_err(|e| anyhow::anyhow!("Checkpoint not found: {}", e))
+    }
+
+    /// Delete a checkpoint by ID.
+    pub fn delete_checkpoint(&self, id: &str) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM checkpoints WHERE id = ?1", rusqlite::params![id])?;
+        Ok(())
+    }
+
+    /// Delete all checkpoints for a session.
+    pub fn delete_session_checkpoints(&self, session_id: &str) -> Result<()> {
+        self.conn.execute(
+            "DELETE FROM checkpoints WHERE session_id = ?1",
+            rusqlite::params![session_id],
+        )?;
+        Ok(())
+    }
+
+    /// Rewind a session to a checkpoint — delete all messages after the checkpoint's message.
+    /// Returns the number of messages removed.
+    pub fn rewind_to_checkpoint(&self, checkpoint_id: &str) -> Result<usize> {
+        let cp = self.get_checkpoint(checkpoint_id)?;
+        // Find messages created after the checkpoint's message
+        let removed: usize = self.conn.query_row(
+            "SELECT COUNT(*) FROM messages
+             WHERE session_id = ?1
+             AND created_at > (SELECT created_at FROM messages WHERE id = ?2)",
+            rusqlite::params![cp.session_id, cp.message_id],
+            |row| row.get(0),
+        )?;
+        self.conn.execute(
+            "DELETE FROM messages
+             WHERE session_id = ?1
+             AND created_at > (SELECT created_at FROM messages WHERE id = ?2)",
+            rusqlite::params![cp.session_id, cp.message_id],
+        )?;
+        // Remove checkpoints created after this one too
+        self.conn.execute(
+            "DELETE FROM checkpoints
+             WHERE session_id = ?1
+             AND created_at > (SELECT created_at FROM checkpoints WHERE id = ?2)",
+            rusqlite::params![cp.session_id, checkpoint_id],
+        )?;
+        Ok(removed)
     }
 }
 

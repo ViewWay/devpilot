@@ -1,6 +1,7 @@
 use crate::AppState;
 use devpilot_store::{
-    MessageInfo, PingResponse, ProviderRecord, SessionInfo, SettingEntry, UsageRecord,
+    CheckpointInfo, MessageInfo, PingResponse, ProviderRecord, SessionInfo, SettingEntry,
+    UsageRecord,
 };
 use tauri::State;
 
@@ -193,4 +194,151 @@ pub fn get_provider_api_key(
 pub fn delete_provider(state: State<'_, AppState>, id: String) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.delete_provider(&id).map_err(|e| e.to_string())
+}
+
+// ── Checkpoints ────────────────────────────────────────
+
+/// Create a checkpoint for a session (snapshot current state for rewind).
+#[tauri::command(rename_all = "camelCase")]
+pub fn create_checkpoint(
+    state: State<'_, AppState>,
+    session_id: String,
+    message_id: String,
+    summary: String,
+    token_count: i64,
+) -> Result<CheckpointInfo, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.create_checkpoint(&session_id, &message_id, &summary, token_count)
+        .map_err(|e| e.to_string())
+}
+
+/// List all checkpoints for a session.
+#[tauri::command(rename_all = "camelCase")]
+pub fn list_checkpoints(
+    state: State<'_, AppState>,
+    session_id: String,
+) -> Result<Vec<CheckpointInfo>, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.list_checkpoints(&session_id)
+        .map_err(|e| e.to_string())
+}
+
+/// Rewind a session to a specific checkpoint.
+#[tauri::command]
+pub fn rewind_checkpoint(
+    state: State<'_, AppState>,
+    checkpoint_id: String,
+) -> Result<usize, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.rewind_to_checkpoint(&checkpoint_id)
+        .map_err(|e| e.to_string())
+}
+
+// ── Compact ────────────────────────────────────────────
+
+/// Compact (context-compress) a session's messages in the database.
+/// Returns the number of messages removed.
+#[tauri::command(rename_all = "camelCase")]
+pub fn compact_session(
+    state: State<'_, AppState>,
+    session_id: String,
+    keep_last: Option<usize>,
+) -> Result<CompactResult, String> {
+    use devpilot_core::compact::{CompactStrategy, compact_messages};
+    use devpilot_protocol::{ContentBlock, Message, MessageRole};
+
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+
+    // Load messages from DB
+    let msg_infos = db
+        .get_session_messages(&session_id)
+        .map_err(|e| e.to_string())?;
+
+    // Convert to protocol Messages
+    let mut messages: Vec<Message> = Vec::with_capacity(msg_infos.len());
+    for mi in &msg_infos {
+        let role = match mi.role.as_str() {
+            "user" => MessageRole::User,
+            "assistant" => MessageRole::Assistant,
+            "system" => MessageRole::System,
+            "tool" => MessageRole::Tool,
+            _ => continue,
+        };
+        let content = if let Some(ref tc_json) = mi.tool_calls {
+            if let Ok(blocks) =
+                serde_json::from_str::<Vec<devpilot_protocol::ContentBlock>>(tc_json)
+            {
+                blocks
+            } else {
+                vec![ContentBlock::Text {
+                    text: mi.content.clone(),
+                }]
+            }
+        } else {
+            vec![ContentBlock::Text {
+                text: mi.content.clone(),
+            }]
+        };
+        messages.push(Message {
+            role,
+            content,
+            name: None,
+            tool_call_id: mi.tool_call_id.clone(),
+        });
+    }
+
+    // Apply compact strategy
+    let strategy = CompactStrategy::Summarize {
+        keep_last: keep_last.unwrap_or(20),
+    };
+    let result = compact_messages(&mut messages, strategy);
+
+    // Rebuild the messages in DB: delete all, re-insert compacted
+    // First delete all messages for this session
+    db.delete_session_messages(&session_id)
+        .map_err(|e| e.to_string())?;
+
+    // Re-insert compacted messages
+    for msg in &messages {
+        let role_str = match msg.role {
+            MessageRole::User => "user",
+            MessageRole::Assistant => "assistant",
+            MessageRole::System => "system",
+            MessageRole::Tool => "tool",
+        };
+        let text = msg.text_content();
+        let tool_calls = msg
+            .content
+            .iter()
+            .filter_map(|b| match b {
+                ContentBlock::ToolUse { .. } => Some(true),
+                _ => None,
+            })
+            .next()
+            .is_some()
+            .then(|| serde_json::to_string(&msg.content).unwrap_or_default());
+
+        db.add_message(
+            &session_id,
+            role_str,
+            &text,
+            None as Option<&str>,
+            tool_calls.as_deref(),
+            None as Option<&str>,
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    Ok(CompactResult {
+        messages_removed: result.messages_removed,
+        summary_added: result.summary_added,
+    })
+}
+
+/// Result of a compact operation returned to the frontend.
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompactResult {
+    pub messages_removed: usize,
+    pub summary_added: bool,
 }

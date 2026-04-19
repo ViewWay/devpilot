@@ -47,6 +47,12 @@ pub fn run() {
             commands::upsert_provider,
             commands::get_provider_api_key,
             commands::delete_provider,
+            // Checkpoints
+            commands::create_checkpoint,
+            commands::list_checkpoints,
+            commands::rewind_checkpoint,
+            // Compact
+            commands::compact_session,
             // LLM
             commands::llm::send_message,
             commands::llm::send_message_stream,
