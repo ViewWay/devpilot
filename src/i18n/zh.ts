@@ -23,6 +23,10 @@ const zh: Record<string, string> = {
   reasoningEffort: "推理深度",
   reasoningShallow: "浅层 — 快速简洁",
   reasoningDeep: "深度 — 深入分析",
+  noDirSelected: "未选择目录",
+  workingDir: "工作目录",
+  systemPrompt: "系统提示词",
+  systemPromptPlaceholder: "输入自定义系统提示词，将附加到所有消息开头...",
 
   // --- Chat Input ---
   inputPlaceholder: "给 DevPilot 发消息...",
@@ -151,6 +155,7 @@ const zh: Record<string, string> = {
   high: "高",
   filterFiles: "筛选文件...",
   noMatchingFiles: "无匹配文件",
+  refresh: "刷新",
   commandPalettePlaceholder: "输入命令或搜索...",
   commandPaletteNoResults: "未找到结果",
   commandPaletteNewChat: "新建对话",

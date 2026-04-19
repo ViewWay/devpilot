@@ -545,6 +545,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
           role: m.role,
           content: [{ type: "text" as const, text: typeof m.content === "string" ? m.content : "" }],
         }));
+
+        // Inject system prompt if configured
+        const systemPrompt = useUIStore.getState().systemPrompt;
+        if (systemPrompt.trim()) {
+          messages.unshift({ role: "system", content: [{ type: "text" as const, text: systemPrompt.trim() }] });
+        }
+
         messages.push({ role: "user", content: [{ type: "text" as const, text: content }] });
 
         // Register listeners BEFORE invoking to avoid missing early events.
@@ -716,12 +723,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set({ _streamCleanup: cleanup });
 
         // NOW start streaming — listeners are already registered
+        const workingDir = useUIStore.getState().workingDir || undefined;
         await invoke("send_message_stream", {
           provider: providerConfig,
           chatRequest: { model, messages, stream: true },
           sessionId,
           userMessage: content,
-          workingDir: undefined,
+          workingDir,
         });
 
         return; // Tauri handled it

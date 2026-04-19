@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Terminal as TerminalIcon, Plus, X, Trash2 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { isTauriRuntime, invoke } from "../../lib/ipc";
+import { useUIStore } from "../../stores/uiStore";
 
 interface TerminalTab {
   id: string;
@@ -61,7 +63,45 @@ function writePrompt(term: import("@xterm/xterm").Terminal) {
 }
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-function processCommand(term: import("@xterm/xterm").Terminal, cmd: string) {
+async function processCommand(term: import("@xterm/xterm").Terminal, cmd: string) {
+  if (isTauriRuntime()) {
+    try {
+      const workingDir = useUIStore.getState().workingDir || undefined;
+      const result = await invoke<{
+        stdout: string;
+        stderr: string;
+        exitCode: number | null;
+        denied: boolean;
+        denialReason: string | null;
+        durationMs: number;
+      }>("sandbox_execute", {
+        request: { command: cmd, workingDir, policy: "default" },
+      });
+      if (result.denied) {
+        term.writeln(`\x1b[31mDenied: ${result.denialReason ?? "policy restriction"}\x1b[0m`);
+      } else {
+        if (result.stdout) {
+          for (const line of result.stdout.split("\n")) {
+            term.writeln(line);
+          }
+        }
+        if (result.stderr) {
+          for (const line of result.stderr.split("\n")) {
+            term.writeln(`\x1b[31m${line}\x1b[0m`);
+          }
+        }
+        if (result.exitCode !== 0 && result.exitCode !== null) {
+          term.writeln(`\x1b[33mexit code: ${result.exitCode}\x1b[0m`);
+        }
+      }
+    } catch (err) {
+      term.writeln(`\x1b[31mError: ${err instanceof Error ? err.message : String(err)}\x1b[0m`);
+    }
+    writePrompt(term);
+    return;
+  }
+
+  // Demo mode fallback
   if (cmd.startsWith("echo ")) {
     term.writeln(cmd.slice(5));
     writePrompt(term);
@@ -149,8 +189,17 @@ export function TerminalPanel() {
       term.open(termContainerRef.current);
       fit.fit();
 
-      term.writeln("\x1b[1;34m  DevPilot Terminal\x1b[0m \x1b[90m(v0.1.0 — demo mode)\x1b[0m");
-      term.writeln("\x1b[90m  Type 'help' for available commands.\x1b[0m");
+      if (isTauriRuntime()) {
+        const workDir = useUIStore.getState().workingDir;
+        term.writeln("\x1b[1;34m  DevPilot Terminal\x1b[0m \x1b[90m(sandbox mode)\x1b[0m");
+        if (workDir) {
+          term.writeln(`\x1b[90m  cwd: ${workDir}\x1b[0m`);
+        }
+        term.writeln("\x1b[90m  Commands run via sandbox_execute IPC.\x1b[0m");
+      } else {
+        term.writeln("\x1b[1;34m  DevPilot Terminal\x1b[0m \x1b[90m(v0.1.0 — demo mode)\x1b[0m");
+        term.writeln("\x1b[90m  Type 'help' for available commands.\x1b[0m");
+      }
       term.writeln("");
       writePrompt(term);
 
@@ -160,7 +209,10 @@ export function TerminalPanel() {
           term.writeln("");
           const cmd = currentLine.trim();
           currentLine = "";
-          if (cmd) {
+          if (cmd === "clear") {
+            term.clear();
+            writePrompt(term);
+          } else if (cmd) {
             processCommand(term, cmd);
           } else {
             writePrompt(term);

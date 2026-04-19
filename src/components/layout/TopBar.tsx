@@ -3,9 +3,10 @@ import { useI18n } from "../../i18n";
 import { useUIStore } from "../../stores/uiStore";
 import { useProviderStore } from "../../stores/providerStore";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Sun, Moon, Monitor, PanelLeftClose, PanelLeft, ChevronDown, Settings, FolderOpen, Terminal, Eye, SlidersHorizontal } from "lucide-react";
-import { useState, useRef, useEffect, useMemo } from "react";
+import { Sun, Moon, Monitor, PanelLeftClose, PanelLeft, ChevronDown, Settings, FolderOpen, Terminal, Eye, SlidersHorizontal, FolderCog } from "lucide-react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { cn } from "../../lib/utils";
+import { isTauriRuntime } from "../../lib/ipc";
 import type { ModelInfo } from "../../types";
 
 /** Provider name → tailwind color class for the model dot. */
@@ -209,6 +210,9 @@ export function TopBar() {
         ))}
       </div>
 
+      {/* Working Directory */}
+      <WorkingDirSelector />
+
       {/* Reasoning Effort Slider */}
       <div className="relative" ref={effortRef}>
         <button
@@ -318,5 +322,54 @@ export function TopBar() {
         </button>
       </div>
     </header>
+  );
+}
+
+/** Working directory selector — opens a native folder dialog in Tauri mode. */
+function WorkingDirSelector() {
+  const { t } = useI18n();
+  const workingDir = useUIStore((s) => s.workingDir);
+  const setWorkingDir = useUIStore((s) => s.setWorkingDir);
+
+  const handlePickFolder = useCallback(async () => {
+    if (!isTauriRuntime()) {
+      // Browser fallback — use a simple inline input instead of prompt
+      const path = window.prompt("Enter working directory path:", workingDir || "~"); // eslint-disable-line no-alert
+      if (path) {
+        setWorkingDir(path.trim());
+      }
+      return;
+    }
+
+    try {
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const selected = await open({ directory: true, multiple: false, title: "Select Working Directory" });
+      if (selected && typeof selected === "string") {
+        setWorkingDir(selected);
+      }
+    } catch {
+      // User cancelled or dialog not available — ignore
+    }
+  }, [workingDir, setWorkingDir]);
+
+  // Shorten display path
+  const displayDir = workingDir
+    ? workingDir.split("/").slice(-2).join("/")
+    : t("noDirSelected");
+
+  return (
+    <button
+      onClick={handlePickFolder}
+      className={cn(
+        "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors max-w-[180px]",
+        workingDir
+          ? "bg-accent text-foreground hover:bg-accent/80"
+          : "text-muted-foreground hover:bg-accent hover:text-foreground",
+      )}
+      title={workingDir || t("noDirSelected")}
+    >
+      <FolderCog size={13} className="shrink-0" />
+      <span className="truncate">{displayDir}</span>
+    </button>
   );
 }

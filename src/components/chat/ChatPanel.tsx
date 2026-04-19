@@ -10,7 +10,7 @@ import { FilesPanel } from "../panels/FilesPanel";
 import { TerminalPanel } from "../panels/TerminalPanel";
 import { PreviewPanel } from "../panels/PreviewPanel";
 import { RightPanelTabs } from "../panels/RightPanelTabs";
-import { Loader2, AlertCircle, History } from "lucide-react";
+import { Loader2, AlertCircle, History, ChevronDown, ChevronRight } from "lucide-react";
 import { useI18n } from "../../i18n";
 
 function ChatContent() {
@@ -47,7 +47,44 @@ function ChatContent() {
           />
         </div>
       )}
+      <SystemPromptEditor />
       <MessageInput />
+    </div>
+  );
+}
+
+/** Collapsible system prompt editor above the message input. */
+function SystemPromptEditor() {
+  const [open, setOpen] = useState(false);
+  const systemPrompt = useUIStore((s) => s.systemPrompt);
+  const setSystemPrompt = useUIStore((s) => s.setSystemPrompt);
+  const { t } = useI18n();
+
+  return (
+    <div className="border-t border-border">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center gap-1.5 px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      >
+        {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        <span className="font-medium">{t("systemPrompt")}</span>
+        {systemPrompt && !open && (
+          <span className="truncate text-muted-foreground/60 max-w-[200px]">
+            — {systemPrompt.slice(0, 50)}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="px-4 pb-2">
+          <textarea
+            value={systemPrompt}
+            onChange={(e) => setSystemPrompt(e.target.value)}
+            placeholder={t("systemPromptPlaceholder")}
+            rows={3}
+            className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-xs font-mono text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -23,6 +23,10 @@ const en: Record<string, string> = {
   reasoningEffort: "Reasoning Effort",
   reasoningShallow: "Shallow — fast, concise",
   reasoningDeep: "Deep — thorough analysis",
+  noDirSelected: "No directory",
+  workingDir: "Working Directory",
+  systemPrompt: "System Prompt",
+  systemPromptPlaceholder: "Enter a custom system prompt to prepend to all messages...",
 
   // --- Chat Input ---
   inputPlaceholder: "Message DevPilot...",
@@ -151,6 +155,7 @@ const en: Record<string, string> = {
   high: "High",
   filterFiles: "Filter files...",
   noMatchingFiles: "No matching files",
+  refresh: "Refresh",
   commandPalettePlaceholder: "Type a command or search...",
   commandPaletteNoResults: "No results found",
   commandPaletteNewChat: "New Chat",
