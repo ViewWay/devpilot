@@ -69,6 +69,7 @@ pub fn run() {
             commands::llm::send_message_stream,
             commands::llm::check_provider,
             commands::llm::list_provider_models,
+            commands::llm::diagnose_provider,
             // Tools
             commands::tools::list_tools,
             commands::tools::execute_tool,

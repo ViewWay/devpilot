@@ -410,6 +410,18 @@ pub async fn list_provider_models(config: ProviderConfig) -> Result<Vec<String>,
         .map_err(|e| e.display_message())
 }
 
+/// Run comprehensive diagnostics on a provider.
+///
+/// Checks configuration completeness, connectivity, authentication,
+/// model availability, and returns actionable suggestions for fixes.
+#[tauri::command]
+pub async fn diagnose_provider(
+    config: ProviderConfig,
+) -> Result<devpilot_llm::DiagnosticReport, String> {
+    let report = devpilot_llm::run_diagnostics(config).await;
+    Ok(report)
+}
+
 // ── Helpers ───────────────────────────────────────────
 
 /// Calculate the cost of a request based on usage and model pricing.
