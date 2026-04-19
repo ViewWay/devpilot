@@ -6,6 +6,7 @@ import { useUsageStore } from "../stores/usageStore";
 import { cn } from "../lib/utils";
 import { invoke, type BridgeInfoIPC } from "../lib/ipc";
 import { useMcpStore } from "../stores/mcpStore";
+import type { McpServerConfig } from "../types";
 import {
   Settings,
   Palette,
