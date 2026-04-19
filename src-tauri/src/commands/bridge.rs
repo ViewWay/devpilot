@@ -127,3 +127,42 @@ pub async fn bridge_disable(state: State<'_, AppState>, bridge_id: String) -> Re
         .await
         .map_err(|e| e.to_string())
 }
+
+// ── Bridge Persistence (SQLite) ───────────────────────
+
+use devpilot_store::BridgeChannelRecord;
+
+/// Persist a bridge channel configuration to database.
+#[tauri::command(rename_all = "camelCase")]
+pub fn bridge_save(state: State<'_, AppState>, channel: BridgeChannelRecord) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.upsert_bridge_channel(&channel)
+        .map_err(|e| e.to_string())
+}
+
+/// List all persisted bridge channels from database.
+#[tauri::command]
+pub fn bridge_list_saved(state: State<'_, AppState>) -> Result<Vec<BridgeChannelRecord>, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.list_bridge_channels().map_err(|e| e.to_string())
+}
+
+/// Delete a persisted bridge channel from database.
+#[tauri::command(rename_all = "camelCase")]
+pub fn bridge_delete_saved(state: State<'_, AppState>, bridge_id: String) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.delete_bridge_channel(&bridge_id)
+        .map_err(|e| e.to_string())
+}
+
+/// Update a persisted bridge channel's status.
+#[tauri::command(rename_all = "camelCase")]
+pub fn bridge_update_status(
+    state: State<'_, AppState>,
+    bridge_id: String,
+    status: String,
+) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.update_bridge_channel_status(&bridge_id, &status)
+        .map_err(|e| e.to_string())
+}

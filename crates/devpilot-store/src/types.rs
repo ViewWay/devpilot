@@ -116,3 +116,74 @@ pub struct McpServerRecord {
     pub enabled: bool,
     pub created_at: String,
 }
+
+// ── Phase 5: Bridge, Scheduler, Media types ─────────────
+
+/// Bridge channel record for persistent bridge configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BridgeChannelRecord {
+    pub id: String,
+    /// Platform type: telegram | feishu | discord | slack | webhook
+    pub channel_type: String,
+    /// JSON config (tokens, webhooks, etc.)
+    pub config: String,
+    /// JSON: channel_id → session_id mapping
+    pub session_bindings: Option<String>,
+    pub enabled: bool,
+    /// disconnected | connected | error
+    pub status: String,
+    pub created_at: String,
+}
+
+/// Scheduled task record for cron-based task scheduling.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScheduledTaskRecord {
+    pub id: String,
+    pub name: String,
+    /// Cron expression or interval in ms (e.g., "0 */6 * * *")
+    pub schedule: String,
+    /// AI prompt to execute when the task fires
+    pub prompt: String,
+    pub model: Option<String>,
+    pub provider: Option<String>,
+    pub enabled: bool,
+    pub last_run_at: Option<String>,
+    pub next_run_at: Option<String>,
+    pub created_at: String,
+}
+
+/// Task run record — execution history for scheduled tasks.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskRunRecord {
+    pub id: String,
+    pub task_id: String,
+    /// running | done | error
+    pub status: String,
+    /// AI response text (on success)
+    pub result: Option<String>,
+    /// Error message (on failure)
+    pub error: Option<String>,
+    pub started_at: String,
+    pub completed_at: Option<String>,
+}
+
+/// Media generation record for image generation history.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaGenerationRecord {
+    pub id: String,
+    pub prompt: String,
+    pub model: String,
+    /// openai | stability | generic
+    pub provider: String,
+    /// Local file path of the generated image
+    pub file_path: Option<String>,
+    /// pending | generating | done | error
+    pub status: String,
+    /// JSON array of tags
+    pub tags: Option<String>,
+    pub created_at: String,
+}

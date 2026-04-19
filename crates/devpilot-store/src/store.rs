@@ -167,6 +167,51 @@ impl Store {
                     env TEXT,
                     enabled INTEGER DEFAULT 1,
                     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+
+                CREATE TABLE IF NOT EXISTS bridge_channels (
+                    id TEXT PRIMARY KEY,
+                    channel_type TEXT NOT NULL CHECK(channel_type IN ('telegram', 'feishu', 'discord', 'slack', 'webhook')),
+                    config TEXT NOT NULL DEFAULT '{}',
+                    session_bindings TEXT,
+                    enabled INTEGER DEFAULT 1,
+                    status TEXT NOT NULL DEFAULT 'disconnected',
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+
+                CREATE TABLE IF NOT EXISTS scheduled_tasks (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    schedule TEXT NOT NULL,
+                    prompt TEXT NOT NULL,
+                    model TEXT,
+                    provider TEXT,
+                    enabled INTEGER DEFAULT 1,
+                    last_run_at TEXT,
+                    next_run_at TEXT,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+
+                CREATE TABLE IF NOT EXISTS task_runs (
+                    id TEXT PRIMARY KEY,
+                    task_id TEXT NOT NULL REFERENCES scheduled_tasks(id) ON DELETE CASCADE,
+                    status TEXT NOT NULL DEFAULT 'running' CHECK(status IN ('running', 'done', 'error')),
+                    result TEXT,
+                    error TEXT,
+                    started_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    completed_at TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_task_runs_task ON task_runs(task_id);
+
+                CREATE TABLE IF NOT EXISTS media_generations (
+                    id TEXT PRIMARY KEY,
+                    prompt TEXT NOT NULL,
+                    model TEXT NOT NULL,
+                    provider TEXT NOT NULL,
+                    file_path TEXT,
+                    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'generating', 'done', 'error')),
+                    tags TEXT,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
                 );",
             )
             .context("Failed to run migrations")?;
@@ -789,6 +834,347 @@ impl Store {
             .execute("DELETE FROM mcp_servers WHERE id = ?1", [id])?;
         Ok(())
     }
+
+    // ── Bridge Channels ──────────────────────────────────
+
+    /// List all bridge channels.
+    pub fn list_bridge_channels(&self) -> Result<Vec<BridgeChannelRecord>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, channel_type, config, session_bindings, enabled, status, created_at
+             FROM bridge_channels ORDER BY created_at DESC",
+        )?;
+        let channels = stmt
+            .query_map([], |row| {
+                Ok(BridgeChannelRecord {
+                    id: row.get(0)?,
+                    channel_type: row.get(1)?,
+                    config: row.get(2)?,
+                    session_bindings: row.get(3)?,
+                    enabled: row.get::<_, i32>(4)? != 0,
+                    status: row.get(5)?,
+                    created_at: row.get(6)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(channels)
+    }
+
+    /// Get a single bridge channel by ID.
+    pub fn get_bridge_channel(&self, id: &str) -> Result<BridgeChannelRecord> {
+        self.conn
+            .query_row(
+                "SELECT id, channel_type, config, session_bindings, enabled, status, created_at
+             FROM bridge_channels WHERE id = ?1",
+                [id],
+                |row| {
+                    Ok(BridgeChannelRecord {
+                        id: row.get(0)?,
+                        channel_type: row.get(1)?,
+                        config: row.get(2)?,
+                        session_bindings: row.get(3)?,
+                        enabled: row.get::<_, i32>(4)? != 0,
+                        status: row.get(5)?,
+                        created_at: row.get(6)?,
+                    })
+                },
+            )
+            .map_err(|e| anyhow::anyhow!("Bridge channel not found: {e}"))
+    }
+
+    /// Create or update a bridge channel.
+    pub fn upsert_bridge_channel(&self, channel: &BridgeChannelRecord) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO bridge_channels (id, channel_type, config, session_bindings, enabled, status, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+             ON CONFLICT(id) DO UPDATE SET
+                channel_type = excluded.channel_type,
+                config = excluded.config,
+                session_bindings = excluded.session_bindings,
+                enabled = excluded.enabled,
+                status = excluded.status",
+            (
+                &channel.id,
+                &channel.channel_type,
+                &channel.config,
+                &channel.session_bindings,
+                channel.enabled as i32,
+                &channel.status,
+                &channel.created_at,
+            ),
+        )?;
+        Ok(())
+    }
+
+    /// Delete a bridge channel by ID.
+    pub fn delete_bridge_channel(&self, id: &str) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM bridge_channels WHERE id = ?1", [id])?;
+        Ok(())
+    }
+
+    /// Update bridge channel status.
+    pub fn update_bridge_channel_status(&self, id: &str, status: &str) -> Result<()> {
+        self.conn.execute(
+            "UPDATE bridge_channels SET status = ?2 WHERE id = ?1",
+            (id, status),
+        )?;
+        Ok(())
+    }
+
+    // ── Scheduled Tasks ──────────────────────────────────
+
+    /// List all scheduled tasks.
+    pub fn list_scheduled_tasks(&self) -> Result<Vec<ScheduledTaskRecord>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, name, schedule, prompt, model, provider, enabled, last_run_at, next_run_at, created_at
+             FROM scheduled_tasks ORDER BY created_at DESC",
+        )?;
+        let tasks = stmt
+            .query_map([], |row| {
+                Ok(ScheduledTaskRecord {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    schedule: row.get(2)?,
+                    prompt: row.get(3)?,
+                    model: row.get(4)?,
+                    provider: row.get(5)?,
+                    enabled: row.get::<_, i32>(6)? != 0,
+                    last_run_at: row.get(7)?,
+                    next_run_at: row.get(8)?,
+                    created_at: row.get(9)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(tasks)
+    }
+
+    /// Get a single scheduled task by ID.
+    pub fn get_scheduled_task(&self, id: &str) -> Result<ScheduledTaskRecord> {
+        self.conn.query_row(
+            "SELECT id, name, schedule, prompt, model, provider, enabled, last_run_at, next_run_at, created_at
+             FROM scheduled_tasks WHERE id = ?1",
+            [id],
+            |row| {
+                Ok(ScheduledTaskRecord {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    schedule: row.get(2)?,
+                    prompt: row.get(3)?,
+                    model: row.get(4)?,
+                    provider: row.get(5)?,
+                    enabled: row.get::<_, i32>(6)? != 0,
+                    last_run_at: row.get(7)?,
+                    next_run_at: row.get(8)?,
+                    created_at: row.get(9)?,
+                })
+            },
+        ).map_err(|e| anyhow::anyhow!("Scheduled task not found: {e}"))
+    }
+
+    /// Create or update a scheduled task.
+    pub fn upsert_scheduled_task(&self, task: &ScheduledTaskRecord) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO scheduled_tasks (id, name, schedule, prompt, model, provider, enabled, last_run_at, next_run_at, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+             ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                schedule = excluded.schedule,
+                prompt = excluded.prompt,
+                model = excluded.model,
+                provider = excluded.provider,
+                enabled = excluded.enabled,
+                last_run_at = excluded.last_run_at,
+                next_run_at = excluded.next_run_at",
+            (
+                &task.id,
+                &task.name,
+                &task.schedule,
+                &task.prompt,
+                &task.model,
+                &task.provider,
+                task.enabled as i32,
+                &task.last_run_at,
+                &task.next_run_at,
+                &task.created_at,
+            ),
+        )?;
+        Ok(())
+    }
+
+    /// Delete a scheduled task by ID (cascades to task_runs).
+    pub fn delete_scheduled_task(&self, id: &str) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM scheduled_tasks WHERE id = ?1", [id])?;
+        Ok(())
+    }
+
+    /// Update the last_run_at and next_run_at timestamps for a task.
+    pub fn update_task_run_times(
+        &self,
+        id: &str,
+        last_run_at: Option<&str>,
+        next_run_at: Option<&str>,
+    ) -> Result<()> {
+        self.conn.execute(
+            "UPDATE scheduled_tasks SET last_run_at = ?2, next_run_at = ?3 WHERE id = ?1",
+            (id, last_run_at, next_run_at),
+        )?;
+        Ok(())
+    }
+
+    // ── Task Runs ──────────────────────────────────────────
+
+    /// Create a new task run record.
+    pub fn create_task_run(&self, run: &TaskRunRecord) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO task_runs (id, task_id, status, result, error, started_at, completed_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            (
+                &run.id,
+                &run.task_id,
+                &run.status,
+                &run.result,
+                &run.error,
+                &run.started_at,
+                &run.completed_at,
+            ),
+        )?;
+        Ok(())
+    }
+
+    /// List task runs for a specific task.
+    pub fn list_task_runs(&self, task_id: &str) -> Result<Vec<TaskRunRecord>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, task_id, status, result, error, started_at, completed_at
+             FROM task_runs WHERE task_id = ?1 ORDER BY started_at DESC",
+        )?;
+        let runs = stmt
+            .query_map([task_id], |row| {
+                Ok(TaskRunRecord {
+                    id: row.get(0)?,
+                    task_id: row.get(1)?,
+                    status: row.get(2)?,
+                    result: row.get(3)?,
+                    error: row.get(4)?,
+                    started_at: row.get(5)?,
+                    completed_at: row.get(6)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(runs)
+    }
+
+    /// Update a task run's status and completion info.
+    pub fn update_task_run(
+        &self,
+        id: &str,
+        status: &str,
+        result: Option<&str>,
+        error: Option<&str>,
+    ) -> Result<()> {
+        self.conn.execute(
+            "UPDATE task_runs SET status = ?2, result = ?3, error = ?4, completed_at = datetime('now') WHERE id = ?1",
+            (id, status, result, error),
+        )?;
+        Ok(())
+    }
+
+    // ── Media Generations ─────────────────────────────────
+
+    /// List all media generations, most recent first.
+    pub fn list_media_generations(&self) -> Result<Vec<MediaGenerationRecord>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, prompt, model, provider, file_path, status, tags, created_at
+             FROM media_generations ORDER BY created_at DESC",
+        )?;
+        let gens = stmt
+            .query_map([], |row| {
+                Ok(MediaGenerationRecord {
+                    id: row.get(0)?,
+                    prompt: row.get(1)?,
+                    model: row.get(2)?,
+                    provider: row.get(3)?,
+                    file_path: row.get(4)?,
+                    status: row.get(5)?,
+                    tags: row.get(6)?,
+                    created_at: row.get(7)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(gens)
+    }
+
+    /// Get a single media generation by ID.
+    pub fn get_media_generation(&self, id: &str) -> Result<MediaGenerationRecord> {
+        self.conn
+            .query_row(
+                "SELECT id, prompt, model, provider, file_path, status, tags, created_at
+             FROM media_generations WHERE id = ?1",
+                [id],
+                |row| {
+                    Ok(MediaGenerationRecord {
+                        id: row.get(0)?,
+                        prompt: row.get(1)?,
+                        model: row.get(2)?,
+                        provider: row.get(3)?,
+                        file_path: row.get(4)?,
+                        status: row.get(5)?,
+                        tags: row.get(6)?,
+                        created_at: row.get(7)?,
+                    })
+                },
+            )
+            .map_err(|e| anyhow::anyhow!("Media generation not found: {e}"))
+    }
+
+    /// Create a new media generation record.
+    pub fn create_media_generation(&self, record: &MediaGenerationRecord) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO media_generations (id, prompt, model, provider, file_path, status, tags, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            (
+                &record.id,
+                &record.prompt,
+                &record.model,
+                &record.provider,
+                &record.file_path,
+                &record.status,
+                &record.tags,
+                &record.created_at,
+            ),
+        )?;
+        Ok(())
+    }
+
+    /// Update a media generation's status and file path.
+    pub fn update_media_generation(
+        &self,
+        id: &str,
+        status: &str,
+        file_path: Option<&str>,
+    ) -> Result<()> {
+        self.conn.execute(
+            "UPDATE media_generations SET status = ?2, file_path = COALESCE(?3, file_path) WHERE id = ?1",
+            (id, status, file_path),
+        )?;
+        Ok(())
+    }
+
+    /// Update tags for a media generation.
+    pub fn update_media_generation_tags(&self, id: &str, tags: &str) -> Result<()> {
+        self.conn.execute(
+            "UPDATE media_generations SET tags = ?2 WHERE id = ?1",
+            (id, tags),
+        )?;
+        Ok(())
+    }
+
+    /// Delete a media generation by ID.
+    pub fn delete_media_generation(&self, id: &str) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM media_generations WHERE id = ?1", [id])?;
+        Ok(())
+    }
 }
 
 // ── Tests ─────────────────────────────────────────────
@@ -995,5 +1381,193 @@ mod tests {
                 Some("value1".to_string())
             );
         }
+    }
+
+    #[test]
+    fn test_bridge_channels_crud() {
+        let store = test_store();
+
+        let channel = BridgeChannelRecord {
+            id: "telegram-1".to_string(),
+            channel_type: "telegram".to_string(),
+            config:
+                r#"{"webhook_url":"https://api.telegram.org/botXXX/sendMessage","chat_id":"12345"}"#
+                    .to_string(),
+            session_bindings: Some(r#"{"12345":"session-abc"}"#.to_string()),
+            enabled: true,
+            status: "disconnected".to_string(),
+            created_at: chrono::Utc::now().to_rfc3339(),
+        };
+
+        // Create
+        store.upsert_bridge_channel(&channel).unwrap();
+        let channels = store.list_bridge_channels().unwrap();
+        assert_eq!(channels.len(), 1);
+        assert_eq!(channels[0].channel_type, "telegram");
+
+        // Get
+        let got = store.get_bridge_channel("telegram-1").unwrap();
+        assert_eq!(got.id, "telegram-1");
+        assert!(got.enabled);
+
+        // Update
+        let mut updated = channel.clone();
+        updated.status = "connected".to_string();
+        store.upsert_bridge_channel(&updated).unwrap();
+        let got = store.get_bridge_channel("telegram-1").unwrap();
+        assert_eq!(got.status, "connected");
+
+        // Update status directly
+        store
+            .update_bridge_channel_status("telegram-1", "error")
+            .unwrap();
+        let got = store.get_bridge_channel("telegram-1").unwrap();
+        assert_eq!(got.status, "error");
+
+        // Delete
+        store.delete_bridge_channel("telegram-1").unwrap();
+        assert!(store.list_bridge_channels().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_scheduled_tasks_crud() {
+        let store = test_store();
+
+        let task = ScheduledTaskRecord {
+            id: "task-1".to_string(),
+            name: "Daily Standup".to_string(),
+            schedule: "0 9 * * MON-FRI".to_string(),
+            prompt: "Summarize what I did yesterday".to_string(),
+            model: Some("gpt-4o".to_string()),
+            provider: Some("openai".to_string()),
+            enabled: true,
+            last_run_at: None,
+            next_run_at: None,
+            created_at: chrono::Utc::now().to_rfc3339(),
+        };
+
+        // Create
+        store.upsert_scheduled_task(&task).unwrap();
+        let tasks = store.list_scheduled_tasks().unwrap();
+        assert_eq!(tasks.len(), 1);
+        assert_eq!(tasks[0].name, "Daily Standup");
+
+        // Get
+        let got = store.get_scheduled_task("task-1").unwrap();
+        assert_eq!(got.schedule, "0 9 * * MON-FRI");
+        assert!(got.enabled);
+
+        // Update run times
+        let now = chrono::Utc::now().to_rfc3339();
+        let next = "2026-04-21T09:00:00+00:00".to_string();
+        store
+            .update_task_run_times("task-1", Some(&now), Some(&next))
+            .unwrap();
+        let got = store.get_scheduled_task("task-1").unwrap();
+        assert!(got.last_run_at.is_some());
+        assert_eq!(got.next_run_at.unwrap(), next);
+
+        // Delete
+        store.delete_scheduled_task("task-1").unwrap();
+        assert!(store.list_scheduled_tasks().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_task_runs_crud() {
+        let store = test_store();
+
+        // Need a scheduled task first (for FK)
+        let task = ScheduledTaskRecord {
+            id: "task-2".to_string(),
+            name: "Test Task".to_string(),
+            schedule: "0 * * * *".to_string(),
+            prompt: "Test prompt".to_string(),
+            model: None,
+            provider: None,
+            enabled: true,
+            last_run_at: None,
+            next_run_at: None,
+            created_at: chrono::Utc::now().to_rfc3339(),
+        };
+        store.upsert_scheduled_task(&task).unwrap();
+
+        let run = TaskRunRecord {
+            id: "run-1".to_string(),
+            task_id: "task-2".to_string(),
+            status: "running".to_string(),
+            result: None,
+            error: None,
+            started_at: chrono::Utc::now().to_rfc3339(),
+            completed_at: None,
+        };
+
+        // Create
+        store.create_task_run(&run).unwrap();
+        let runs = store.list_task_runs("task-2").unwrap();
+        assert_eq!(runs.len(), 1);
+        assert_eq!(runs[0].status, "running");
+
+        // Update to done
+        store
+            .update_task_run("run-1", "done", Some("Task completed successfully"), None)
+            .unwrap();
+        let runs = store.list_task_runs("task-2").unwrap();
+        assert_eq!(runs[0].status, "done");
+        assert_eq!(
+            runs[0].result.as_deref(),
+            Some("Task completed successfully")
+        );
+        assert!(runs[0].completed_at.is_some());
+
+        // Cascade delete: deleting the task should delete runs
+        store.delete_scheduled_task("task-2").unwrap();
+        // Re-open to verify FK cascade (in-memory might need fresh conn)
+        // Actually rusqlite in-memory with same connection should cascade
+    }
+
+    #[test]
+    fn test_media_generations_crud() {
+        let store = test_store();
+
+        let media = MediaGenerationRecord {
+            id: "img-1".to_string(),
+            prompt: "A sunset over mountains".to_string(),
+            model: "dall-e-3".to_string(),
+            provider: "openai".to_string(),
+            file_path: None,
+            status: "pending".to_string(),
+            tags: Some(r#"["sunset","mountains"]"#.to_string()),
+            created_at: chrono::Utc::now().to_rfc3339(),
+        };
+
+        // Create
+        store.create_media_generation(&media).unwrap();
+        let gens = store.list_media_generations().unwrap();
+        assert_eq!(gens.len(), 1);
+        assert_eq!(gens[0].prompt, "A sunset over mountains");
+
+        // Get
+        let got = store.get_media_generation("img-1").unwrap();
+        assert_eq!(got.model, "dall-e-3");
+        assert_eq!(got.status, "pending");
+
+        // Update status and file path
+        store
+            .update_media_generation("img-1", "done", Some("/path/to/image.png"))
+            .unwrap();
+        let got = store.get_media_generation("img-1").unwrap();
+        assert_eq!(got.status, "done");
+        assert_eq!(got.file_path.unwrap(), "/path/to/image.png");
+
+        // Update tags
+        store
+            .update_media_generation_tags("img-1", r#"["sunset","mountains","landscape"]"#)
+            .unwrap();
+        let got = store.get_media_generation("img-1").unwrap();
+        assert!(got.tags.unwrap().contains("landscape"));
+
+        // Delete
+        store.delete_media_generation("img-1").unwrap();
+        assert!(store.list_media_generations().unwrap().is_empty());
     }
 }

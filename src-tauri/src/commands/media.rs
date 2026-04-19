@@ -121,3 +121,66 @@ pub async fn media_providers(state: State<'_, AppState>) -> Result<Vec<String>, 
         .map(|p| format!("{p:?}").to_lowercase())
         .collect())
 }
+
+// ── Media Persistence (SQLite) ────────────────────────
+
+use devpilot_store::MediaGenerationRecord;
+
+/// Persist a media generation record to database.
+#[tauri::command(rename_all = "camelCase")]
+pub fn media_save(state: State<'_, AppState>, record: MediaGenerationRecord) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.create_media_generation(&record)
+        .map_err(|e| e.to_string())
+}
+
+/// List all persisted media generations from database.
+#[tauri::command]
+pub fn media_list_saved(state: State<'_, AppState>) -> Result<Vec<MediaGenerationRecord>, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.list_media_generations().map_err(|e| e.to_string())
+}
+
+/// Get a single media generation by ID.
+#[tauri::command(rename_all = "camelCase")]
+pub fn media_get(
+    state: State<'_, AppState>,
+    media_id: String,
+) -> Result<MediaGenerationRecord, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.get_media_generation(&media_id)
+        .map_err(|e| e.to_string())
+}
+
+/// Update media generation status and file path.
+#[tauri::command(rename_all = "camelCase")]
+pub fn media_update_status(
+    state: State<'_, AppState>,
+    media_id: String,
+    status: String,
+    file_path: Option<String>,
+) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.update_media_generation(&media_id, &status, file_path.as_deref())
+        .map_err(|e| e.to_string())
+}
+
+/// Update tags for a media generation.
+#[tauri::command(rename_all = "camelCase")]
+pub fn media_update_tags(
+    state: State<'_, AppState>,
+    media_id: String,
+    tags: String,
+) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.update_media_generation_tags(&media_id, &tags)
+        .map_err(|e| e.to_string())
+}
+
+/// Delete a media generation from database.
+#[tauri::command(rename_all = "camelCase")]
+pub fn media_delete(state: State<'_, AppState>, media_id: String) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.delete_media_generation(&media_id)
+        .map_err(|e| e.to_string())
+}

@@ -88,22 +88,19 @@ impl Tool for WebFetchTool {
             });
         }
 
-        let max_length = input["max_length"]
-            .as_u64()
-            .unwrap_or(10_000)
-            .min(50_000) as usize;
+        let max_length = input["max_length"].as_u64().unwrap_or(10_000).min(50_000) as usize;
 
         tracing::info!(session_id = %ctx.session_id, url = %url, "Fetching web content");
 
-        let response = self
-            .client
-            .get(url)
-            .send()
-            .await
-            .map_err(|e| ToolError::ExecutionFailed {
-                tool: "web_fetch".into(),
-                message: format!("HTTP request failed: {e}"),
-            })?;
+        let response =
+            self.client
+                .get(url)
+                .send()
+                .await
+                .map_err(|e| ToolError::ExecutionFailed {
+                    tool: "web_fetch".into(),
+                    message: format!("HTTP request failed: {e}"),
+                })?;
 
         let status = response.status();
         if !status.is_success() {
@@ -223,15 +220,24 @@ fn extract_text_from_html(html: &str) -> String {
                 // Add newlines for block elements
                 if matches!(
                     tn.as_str(),
-                    "p"
-                        | "div"
+                    "p" | "div"
                         | "br"
-                        | "h1" | "h2" | "h3" | "h4" | "h5" | "h6"
+                        | "h1"
+                        | "h2"
+                        | "h3"
+                        | "h4"
+                        | "h5"
+                        | "h6"
                         | "li"
                         | "tr"
                         | "/p"
                         | "/div"
-                        | "/h1" | "/h2" | "/h3" | "/h4" | "/h5" | "/h6"
+                        | "/h1"
+                        | "/h2"
+                        | "/h3"
+                        | "/h4"
+                        | "/h5"
+                        | "/h6"
                         | "/li"
                         | "/tr"
                 ) {

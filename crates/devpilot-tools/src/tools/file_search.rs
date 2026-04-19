@@ -96,10 +96,7 @@ impl Tool for FileSearchTool {
 
         let file_glob = input["file_glob"].as_str().map(|s| s.to_string());
 
-        let max_results = input["max_results"]
-            .as_u64()
-            .unwrap_or(50)
-            .min(200) as usize;
+        let max_results = input["max_results"].as_u64().unwrap_or(50).min(200) as usize;
 
         let query = SearchQuery {
             pattern: pattern.to_string(),
@@ -110,9 +107,10 @@ impl Tool for FileSearchTool {
         };
 
         let engine = SearchEngine::new();
-        let results = engine.search(query).await.map_err(|e| {
-            ToolError::Other(format!("Search failed: {e}"))
-        })?;
+        let results = engine
+            .search(query)
+            .await
+            .map_err(|e| ToolError::Other(format!("Search failed: {e}")))?;
 
         if results.is_empty() {
             return Ok(ToolOutput::ok(format!(
@@ -135,10 +133,7 @@ impl Tool for FileSearchTool {
                     output_parts.push(format!("  {}{}", m.path, score_str));
                 }
                 SearchMode::Content => {
-                    let line_str = m
-                        .line_number
-                        .map(|n| format!(":{n}"))
-                        .unwrap_or_default();
+                    let line_str = m.line_number.map(|n| format!(":{n}")).unwrap_or_default();
                     let text_str = m
                         .line_text
                         .as_ref()

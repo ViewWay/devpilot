@@ -153,3 +153,51 @@ pub async fn scheduler_resume_task(
         .await
         .map_err(|e| format!("Failed to resume task: {e}"))
 }
+
+// ── Scheduler Persistence (SQLite) ────────────────────
+
+use devpilot_store::{ScheduledTaskRecord, TaskRunRecord};
+
+/// Persist a scheduled task to database.
+#[tauri::command(rename_all = "camelCase")]
+pub fn scheduler_save_task(
+    state: State<'_, AppState>,
+    task: ScheduledTaskRecord,
+) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.upsert_scheduled_task(&task).map_err(|e| e.to_string())
+}
+
+/// List all persisted scheduled tasks from database.
+#[tauri::command]
+pub fn scheduler_list_saved(
+    state: State<'_, AppState>,
+) -> Result<Vec<ScheduledTaskRecord>, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.list_scheduled_tasks().map_err(|e| e.to_string())
+}
+
+/// Delete a persisted scheduled task from database.
+#[tauri::command(rename_all = "camelCase")]
+pub fn scheduler_delete_saved(state: State<'_, AppState>, task_id: String) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.delete_scheduled_task(&task_id)
+        .map_err(|e| e.to_string())
+}
+
+/// Save a task run record to database.
+#[tauri::command(rename_all = "camelCase")]
+pub fn scheduler_save_run(state: State<'_, AppState>, run: TaskRunRecord) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.create_task_run(&run).map_err(|e| e.to_string())
+}
+
+/// List task run history for a specific task.
+#[tauri::command]
+pub fn scheduler_list_runs(
+    state: State<'_, AppState>,
+    task_id: String,
+) -> Result<Vec<TaskRunRecord>, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.list_task_runs(&task_id).map_err(|e| e.to_string())
+}
