@@ -18,6 +18,7 @@ import {
   Pencil,
   Archive,
   Download,
+  Radio,
 } from "lucide-react";
 
 export function Sidebar() {
@@ -75,8 +76,11 @@ export function Sidebar() {
           <Plus size={16} />
         </button>
         <div className="mt-auto flex flex-col gap-1">
-          <button className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title={t("gallery")}>
+          <button onClick={() => navigate("/gallery")} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title={t("gallery")}>
             <Image size={16} />
+          </button>
+          <button onClick={() => navigate("/bridge")} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title={t("bridge")}>
+            <Radio size={16} />
           </button>
           <button onClick={() => navigate("/settings")} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title={t("settings")}>
             <Settings size={16} />
@@ -131,13 +135,16 @@ export function Sidebar() {
 
       {/* Bottom actions */}
       <div className="mt-auto flex items-center border-t border-border px-3 py-2 gap-1">
-        <button className="flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+        <button onClick={() => navigate("/scheduler")} className="flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
           <Clock size={13} />
           <span>{t("scheduler")}</span>
         </button>
-        <button className="flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+        <button onClick={() => navigate("/gallery")} className="flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
           <Image size={13} />
           <span>{t("gallery")}</span>
+        </button>
+        <button onClick={() => navigate("/bridge")} className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title={t("bridge")}>
+          <Radio size={13} />
         </button>
         <button onClick={() => navigate("/settings")} className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title={t("settings")}>
           <Settings size={13} />

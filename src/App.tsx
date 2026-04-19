@@ -4,6 +4,7 @@ import { ChatPanel } from "./components/chat/ChatPanel";
 import { SettingsPage } from "./app/SettingsPage";
 import { SchedulerPage } from "./app/SchedulerPage";
 import { GalleryPage } from "./app/GalleryPage";
+import { BridgePage } from "./app/BridgePage";
 import { useUIStore } from "./stores/uiStore";
 import type { ActiveView } from "./stores/uiStore";
 
@@ -18,6 +19,7 @@ function RouteSync() {
     "/settings": "settings",
     "/scheduler": "scheduler",
     "/gallery": "gallery",
+    "/bridge": "chat",
   };
   const view = pathToView[location.pathname] ?? "chat";
   setActiveView(view);
@@ -32,8 +34,9 @@ function AppRoutes() {
         <Route path="/" element={<ChatPanel />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/scheduler" element={<SchedulerPage />} />
-        <Route path="/gallery" element={<GalleryPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="/gallery" element={<GalleryPage />} />
+      <Route path="/bridge" element={<BridgePage />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
   );
