@@ -2,7 +2,7 @@
 
 ## 项目概况
 
-- **版本**: 0.3.0 (开发中)
+- **版本**: 0.4.0 (开发中)
 - **后端**: 12 Rust crates, 12,250+ 行, 202 tests, 全部通过
 - **前端**: 55+ TS/TSX 文件, ~10,200 行, 142 tests (11 files)
 - **IPC**: 51 个 Tauri 命令已注册 (28 个 #[tauri::command])
@@ -10,36 +10,43 @@
 
 ---
 
-## Phase 1: 核心可用性 (P0) ✅
+## Phase 1~3: 完成 ✅ (P0 核心可用 + P1 Provider管理 + P2 高级功能 + P3 打磨)
 
-- [x] **P0-1** 数据库持久化: store.open_default() 路径兼容 macOS dirs::data_dir()
-- [x] **P0-2** Agent Loop 集成: send_message_stream 调用 Agent::run(), EventBus→Tauri event bridge
-- [x] **P0-3** Tool Approval 前端 UI: ApprovalQueue 集成到 ChatPanel, resolveApproval + approveAll
-- [x] **P0-4** Tool Call 渲染: MessageList 支持 tool messages + ToolCallView + ToolCallList
-- [x] **P0-5** Tauri Capabilities: capabilities/default.json 添加 fs/shell/dialog 权限
+详见 git history
 
-## Phase 2: Provider 管理 (P1) ✅
+---
 
-- [x] **P1-1** Provider CRUD IPC: 持久化 providers 表 (list/get/upsert/delete + apiKey)
-- [x] **P1-2** API Key 加密: AES-256-GCM + 机器特定密钥派生
-- [x] **P1-3** CSP 更新: tauri.conf.json 添加 DeepSeek/Qwen/Ollama 等 15+ 域名
-- [x] **P1-4** Provider 水合: 启动时从 DB 加载 provider + 恢复加密 API key
+## Phase 4: 实用化 (P4) — 进行中
 
-## Phase 3: 高级功能 (P2) ✅
+### P4-A: 核心面板真实化 (Critical)
 
-- [x] **P2-1** 上下文压缩: compact_session IPC + compact_messages Summarize策略 + 前端集成
-- [x] **P2-2** Checkpoint / Rewind 后端: checkpoint 持久化 (SQLite) + CRUD + rewind_to_checkpoint + IPC命令
-- [x] **P2-3** MCP Client: stdio/sse transport, tool discovery, 动态工具注册
-- [x] **P2-4** 流式使用量追踪: stream_done 后持久化 usage 到 DB
+- [ ] **P4-1** TerminalPanel: 接入 sandbox_execute IPC, 实现 PTY 流式终端
+- [ ] **P4-2** FileTree: 接入 search_files IPC, 显示真实工作目录文件
+- [ ] **P4-3** PreviewPanel: 接入真实文件读取 + diff 显示
 
-## Phase 4: 打磨 (P3) — 进行中
+### P4-B: Agent 事件完整接入 (Critical)
 
-- [x] **P3-1** 前端测试补充: LLM 交互/流式/persistence 测试 (142 tests / 11 files)
-- [x] **P3-2** i18n 完善: 所有 UI 文本中英文覆盖 (SchedulerPage 已完成)
-- [x] **P3-3** 错误处理统一: toast + tracing (errors.ts + persistence.ts + SchedulerPage)
-- [x] **P3-4** E2E 测试: 10 个 Tauri 集成测试 (Session/Message/Settings/Provider/Checkpoint/FullFlow)
-- [x] **P3-5** Checkpoint 前端 UI: 历史记录面板 + rewind 操作 (commit 7d7d304)
-- [x] **P3-6** Chinese Provider 支持: GLM/Qwen/DeepSeek 类型+模型目录+工厂注册
+- [ ] **P4-4** useTauri: 监听所有 7 种 stream 事件 (chunk/done/error/tool-start/tool-result/approval/compacted)
+- [ ] **P4-5** chatStore: tool events → Message 对象的 toolCalls/toolResults 字段填充
+- [ ] **P4-6** MessageList: 完善多轮 tool call 可视化
+
+### P4-C: 开发者体验 (High)
+
+- [ ] **P4-7** 工作目录选择器: TopBar 或 session 属性, dialog 选目录
+- [ ] **P4-8** System Prompt 编辑器: 设置页 + ChatPanel 可折叠区域
+- [ ] **P4-9** 对话导出: JSON/Markdown 格式导出
+
+### P4-D: 设置完善 (Medium)
+
+- [ ] **P4-10** MCP Server 管理: SettingsPage 新增 MCP 标签页
+- [ ] **P4-11** 字体大小: uiStore + SettingsPage slider 联动
+- [ ] **P4-12** Sandbox 策略选择: SettingsPage 安全性标签页
+
+### P4-E: 清理 & 配置 (Low)
+
+- [ ] **P4-13** 删除 dead Header.tsx, 修复重复 useKeyboardShortcuts
+- [ ] **P4-14** tauri.conf.json: 版本号 + 标题栏 + 图标
+- [ ] **P4-15** i18n 修补: loading/mode keys
 
 ---
 
@@ -102,16 +109,8 @@
 
 ### 开发时间线
 
-- 2026-04-19 Session A: sandbox + search + scheduler (f2e3d15→aa2cdd6)
-- 2026-04-19 Session B: bridge + media + IPC (0aaf7d4→40fdf06)
-- 2026-04-19 Session C: router + streaming + model selector (40fdf06→2d0328f)
-- 2026-04-19 Session D: panels + i18n (2d0328f→6b8e263)
-- 2026-04-19 Session E: Hermes压缩优化 (6b8e263)
-- 2026-04-19 Session F: Agent Loop集成 P0-1~P0-4 (6b8e263→fe0f402)
-- 2026-04-19 Session G: Capabilities + Provider管理 P0-5 + P1 (cebd37c→1f49ee6)
-- 2026-04-19 Session H: Checkpoint + Context + Usage P2 (1f49ee6→852a0d5)
-- 2026-04-19 Session I: MCP Client P2-3 (852a0d5→36f82ef)
-- 2026-04-19 Session J: Checkpoint 前端 UI P3-5 (36f82ef→HEAD)
+- 2026-04-19 Session A~J: P0+P1+P2 核心功能 (参见 CHANGELOG)
 - 2026-04-19 Session K: P3-2 i18n + P3-3 错误处理 + P3-1 测试补充
-- 2026-04-19 Session L: P3-6 Chinese Provider (GLM/Qwen/DeepSeek) + P3-1 测试完善
-- 2026-04-19 Session M: P3-4 E2E 集成测试 (10 tests: Session/Message/Settings/Provider/Checkpoint/FullFlow)
+- 2026-04-19 Session L: P3-6 Chinese Provider + P3-1 测试完善
+- 2026-04-19 Session M: P3-4 E2E 集成测试 + 提交推送 (587aa31)
+- 2026-04-19 Session N: P4 规划 + 开始开发

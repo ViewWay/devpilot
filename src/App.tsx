@@ -5,7 +5,6 @@ import { SettingsPage } from "./app/SettingsPage";
 import { SchedulerPage } from "./app/SchedulerPage";
 import { GalleryPage } from "./app/GalleryPage";
 import { useUIStore } from "./stores/uiStore";
-import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import type { ActiveView } from "./stores/uiStore";
 
 /** Sync activeView with URL and handle navigation. */
@@ -27,8 +26,6 @@ function RouteSync() {
 }
 
 function AppRoutes() {
-  useKeyboardShortcuts();
-
   return (
     <Routes>
       <Route element={<AppShell />}>
