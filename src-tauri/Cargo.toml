@@ -16,6 +16,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 devpilot-protocol = { path = "../crates/devpilot-protocol" }
 devpilot-llm = { path = "../crates/devpilot-llm" }
+devpilot-store = { path = "../crates/devpilot-store" }
 tauri = { version = "2", features = [] }
 tauri-plugin-log = "2"
 tauri-plugin-shell = "2"
@@ -24,7 +25,6 @@ tauri-plugin-fs = "2"
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
-rusqlite = { version = "0.31", features = ["bundled"] }
 thiserror.workspace = true
 anyhow.workspace = true
 uuid.workspace = true

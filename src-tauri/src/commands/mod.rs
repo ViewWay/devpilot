@@ -1,12 +1,13 @@
-use crate::{AppState, MessageInfo, SessionInfo, SettingEntry, UsageRecord};
+use crate::AppState;
+use devpilot_store::{MessageInfo, PingResponse, SessionInfo, SettingEntry, UsageRecord};
 use tauri::State;
 
 pub mod llm;
 
 /// Health check / ping command.
 #[tauri::command]
-pub fn ping() -> crate::PingResponse {
-    crate::PingResponse {
+pub fn ping() -> PingResponse {
+    PingResponse {
         message: "DevPilot is running!".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         timestamp: chrono::Utc::now().to_rfc3339(),
@@ -19,53 +20,14 @@ pub fn ping() -> crate::PingResponse {
 #[tauri::command]
 pub fn list_sessions(state: State<'_, AppState>) -> Result<Vec<SessionInfo>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    let mut stmt = db
-        .conn
-        .prepare("SELECT id, title, model, provider, working_dir, mode, created_at, updated_at FROM sessions ORDER BY updated_at DESC")
-        .map_err(|e| e.to_string())?;
-
-    let sessions = stmt
-        .query_map([], |row| {
-            Ok(SessionInfo {
-                id: row.get(0)?,
-                title: row.get(1)?,
-                model: row.get(2)?,
-                provider: row.get(3)?,
-                working_dir: row.get(4)?,
-                mode: row.get(5)?,
-                created_at: row.get(6)?,
-                updated_at: row.get(7)?,
-            })
-        })
-        .map_err(|e| e.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
-
-    Ok(sessions)
+    db.list_sessions().map_err(|e| e.to_string())
 }
 
 /// Get a single session by ID.
 #[tauri::command]
 pub fn get_session(state: State<'_, AppState>, id: String) -> Result<SessionInfo, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.conn
-        .query_row(
-            "SELECT id, title, model, provider, working_dir, mode, created_at, updated_at FROM sessions WHERE id = ?1",
-            rusqlite::params![id],
-            |row| {
-                Ok(SessionInfo {
-                    id: row.get(0)?,
-                    title: row.get(1)?,
-                    model: row.get(2)?,
-                    provider: row.get(3)?,
-                    working_dir: row.get(4)?,
-                    mode: row.get(5)?,
-                    created_at: row.get(6)?,
-                    updated_at: row.get(7)?,
-                })
-            },
-        )
-        .map_err(|e| e.to_string())
+    db.get_session(&id).map_err(|e| e.to_string())
 }
 
 /// Create a new session.
@@ -76,39 +38,16 @@ pub fn create_session(
     model: String,
     provider: String,
 ) -> Result<SessionInfo, String> {
-    let id = uuid::Uuid::new_v4().to_string();
-    let now = chrono::Utc::now().to_rfc3339();
-
-    {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        db.conn
-            .execute(
-                "INSERT INTO sessions (id, title, model, provider, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
-                rusqlite::params![id, title, model, provider, now],
-            )
-            .map_err(|e| e.to_string())?;
-    }
-
-    Ok(SessionInfo {
-        id,
-        title,
-        model,
-        provider,
-        working_dir: None,
-        mode: "code".to_string(),
-        created_at: now.clone(),
-        updated_at: now,
-    })
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.create_session(&title, &model, &provider)
+        .map_err(|e| e.to_string())
 }
 
 /// Delete a session and all its messages (CASCADE).
 #[tauri::command]
 pub fn delete_session(state: State<'_, AppState>, id: String) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.conn
-        .execute("DELETE FROM sessions WHERE id = ?1", rusqlite::params![id])
-        .map_err(|e| e.to_string())?;
-    Ok(())
+    db.delete_session(&id).map_err(|e| e.to_string())
 }
 
 /// Update session title.
@@ -119,13 +58,8 @@ pub fn update_session_title(
     title: String,
 ) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.conn
-        .execute(
-            "UPDATE sessions SET title = ?2, updated_at = datetime('now') WHERE id = ?1",
-            rusqlite::params![id, title],
-        )
-        .map_err(|e| e.to_string())?;
-    Ok(())
+    db.update_session_title(&id, &title)
+        .map_err(|e| e.to_string())
 }
 
 // ── Messages ──────────────────────────────────────────
@@ -137,35 +71,8 @@ pub fn get_session_messages(
     session_id: String,
 ) -> Result<Vec<MessageInfo>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    let mut stmt = db
-        .conn
-        .prepare(
-            "SELECT id, session_id, role, content, model, tool_calls, tool_call_id, token_input, token_output, cost_usd, created_at \
-             FROM messages WHERE session_id = ?1 ORDER BY created_at ASC",
-        )
-        .map_err(|e| e.to_string())?;
-
-    let messages = stmt
-        .query_map(rusqlite::params![session_id], |row| {
-            Ok(MessageInfo {
-                id: row.get(0)?,
-                session_id: row.get(1)?,
-                role: row.get(2)?,
-                content: row.get(3)?,
-                model: row.get(4)?,
-                tool_calls: row.get(5)?,
-                tool_call_id: row.get(6)?,
-                token_input: row.get(7)?,
-                token_output: row.get(8)?,
-                cost_usd: row.get(9)?,
-                created_at: row.get(10)?,
-            })
-        })
-        .map_err(|e| e.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
-
-    Ok(messages)
+    db.get_session_messages(&session_id)
+        .map_err(|e| e.to_string())
 }
 
 /// Add a message to a session.
@@ -179,39 +86,16 @@ pub fn add_message(
     tool_calls: Option<String>,
     tool_call_id: Option<String>,
 ) -> Result<MessageInfo, String> {
-    let id = uuid::Uuid::new_v4().to_string();
-    let now = chrono::Utc::now().to_rfc3339();
-
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.conn
-        .execute(
-            "INSERT INTO messages (id, session_id, role, content, model, tool_calls, tool_call_id, created_at) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            rusqlite::params![id, session_id, role, content, model, tool_calls, tool_call_id, now],
-        )
-        .map_err(|e| e.to_string())?;
-
-    // Update session timestamp
-    db.conn
-        .execute(
-            "UPDATE sessions SET updated_at = ?2 WHERE id = ?1",
-            rusqlite::params![session_id, now],
-        )
-        .map_err(|e| e.to_string())?;
-
-    Ok(MessageInfo {
-        id,
-        session_id,
-        role,
-        content,
-        model,
-        tool_calls,
-        tool_call_id,
-        token_input: 0,
-        token_output: 0,
-        cost_usd: 0.0,
-        created_at: now,
-    })
+    db.add_message(
+        &session_id,
+        &role,
+        &content,
+        model.as_deref(),
+        tool_calls.as_deref(),
+        tool_call_id.as_deref(),
+    )
+    .map_err(|e| e.to_string())
 }
 
 // ── Settings ──────────────────────────────────────────
@@ -220,52 +104,21 @@ pub fn add_message(
 #[tauri::command]
 pub fn get_setting(state: State<'_, AppState>, key: String) -> Result<Option<String>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    let result = db
-        .conn
-        .query_row(
-            "SELECT value FROM settings WHERE key = ?1",
-            rusqlite::params![key],
-            |row| row.get::<_, String>(0),
-        )
-        .ok();
-
-    Ok(result)
+    db.get_setting(&key).map_err(|e| e.to_string())
 }
 
 /// Set a setting value (upsert).
 #[tauri::command]
 pub fn set_setting(state: State<'_, AppState>, key: String, value: String) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.conn
-        .execute(
-            "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
-            rusqlite::params![key, value],
-        )
-        .map_err(|e| e.to_string())?;
-    Ok(())
+    db.set_setting(&key, &value).map_err(|e| e.to_string())
 }
 
 /// List all settings.
 #[tauri::command]
 pub fn list_settings(state: State<'_, AppState>) -> Result<Vec<SettingEntry>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    let mut stmt = db
-        .conn
-        .prepare("SELECT key, value FROM settings ORDER BY key")
-        .map_err(|e| e.to_string())?;
-
-    let settings = stmt
-        .query_map([], |row| {
-            Ok(SettingEntry {
-                key: row.get(0)?,
-                value: row.get(1)?,
-            })
-        })
-        .map_err(|e| e.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
-
-    Ok(settings)
+    db.list_settings().map_err(|e| e.to_string())
 }
 
 // ── Usage ─────────────────────────────────────────────
@@ -277,62 +130,12 @@ pub fn get_session_usage(
     session_id: String,
 ) -> Result<Vec<UsageRecord>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    let mut stmt = db
-        .conn
-        .prepare(
-            "SELECT id, session_id, model, provider, token_input, token_output, cost_usd, created_at \
-             FROM usage WHERE session_id = ?1 ORDER BY created_at ASC",
-        )
-        .map_err(|e| e.to_string())?;
-
-    let records = stmt
-        .query_map(rusqlite::params![session_id], |row| {
-            Ok(UsageRecord {
-                id: row.get(0)?,
-                session_id: row.get(1)?,
-                model: row.get(2)?,
-                provider: row.get(3)?,
-                token_input: row.get(4)?,
-                token_output: row.get(5)?,
-                cost_usd: row.get(6)?,
-                created_at: row.get(7)?,
-            })
-        })
-        .map_err(|e| e.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
-
-    Ok(records)
+    db.get_session_usage(&session_id).map_err(|e| e.to_string())
 }
 
 /// Get all usage records.
 #[tauri::command]
 pub fn get_total_usage(state: State<'_, AppState>) -> Result<Vec<UsageRecord>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    let mut stmt = db
-        .conn
-        .prepare(
-            "SELECT id, session_id, model, provider, token_input, token_output, cost_usd, created_at \
-             FROM usage ORDER BY created_at DESC LIMIT 1000",
-        )
-        .map_err(|e| e.to_string())?;
-
-    let records = stmt
-        .query_map([], |row| {
-            Ok(UsageRecord {
-                id: row.get(0)?,
-                session_id: row.get(1)?,
-                model: row.get(2)?,
-                provider: row.get(3)?,
-                token_input: row.get(4)?,
-                token_output: row.get(5)?,
-                cost_usd: row.get(6)?,
-                created_at: row.get(7)?,
-            })
-        })
-        .map_err(|e| e.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
-
-    Ok(records)
+    db.get_total_usage().map_err(|e| e.to_string())
 }
