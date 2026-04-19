@@ -306,24 +306,24 @@ describe("persistence", () => {
       expect(result).not.toBeNull();
       expect(result).toHaveLength(1);
 
-      const session = result![0];
-      expect(session.id).toBe("s1");
-      expect(session.title).toBe("Chat 1");
-      expect(session.model).toBe("gpt-4");
-      expect(session.provider).toBe("openai");
-      expect(session.archived).toBe(false);
-      expect(session.createdAt).toBe("2025-01-01T00:00:00Z");
-      expect(session.updatedAt).toBe("2025-01-01T01:00:00Z");
+      const session = result![0]!;
+      expect(session!.id).toBe("s1");
+      expect(session!.title).toBe("Chat 1");
+      expect(session!.model).toBe("gpt-4");
+      expect(session!.provider).toBe("openai");
+      expect(session!.archived).toBe(false);
+      expect(session!.createdAt).toBe("2025-01-01T00:00:00Z");
+      expect(session!.updatedAt).toBe("2025-01-01T01:00:00Z");
 
-      expect(session.messages).toHaveLength(2);
-      expect(session.messages[0]).toEqual({
+      expect(session!.messages).toHaveLength(2);
+      expect(session!.messages[0]!).toEqual({
         id: "m1",
         role: "user",
         content: "hello",
         model: undefined,
         timestamp: "2025-01-01T00:01:00Z",
       });
-      expect(session.messages[1]).toEqual({
+      expect(session!.messages[1]!).toEqual({
         id: "m2",
         role: "assistant",
         content: "world",
@@ -361,8 +361,8 @@ describe("persistence", () => {
 
       const result = await hydrateSessions();
       expect(result).not.toBeNull();
-      expect(result![0].archived).toBe(true);
-      expect(result![0].messages).toEqual([]);
+      expect(result![0]!.archived).toBe(true);
+      expect(result![0]!.messages).toEqual([]);
     });
 
     it("treats missing archive setting as not archived", async () => {
@@ -394,7 +394,7 @@ describe("persistence", () => {
 
       const result = await hydrateSessions();
       expect(result).not.toBeNull();
-      expect(result![0].archived).toBe(false);
+      expect(result![0]!.archived).toBe(false);
     });
 
     it("returns null when list_sessions throws", async () => {

@@ -46,6 +46,15 @@ interface UIState {
   commandPaletteOpen: boolean;
   setCommandPaletteOpen: (open: boolean) => void;
   toggleCommandPalette: () => void;
+
+  workingDir: string;
+  setWorkingDir: (dir: string) => void;
+
+  systemPrompt: string;
+  setSystemPrompt: (prompt: string) => void;
+
+  previewFile: string;
+  setPreviewFile: (path: string) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -80,4 +89,13 @@ export const useUIStore = create<UIState>((set) => ({
   commandPaletteOpen: false,
   setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
   toggleCommandPalette: () => set((s) => ({ commandPaletteOpen: !s.commandPaletteOpen })),
+
+  workingDir: "",
+  setWorkingDir: (dir) => set({ workingDir: dir }),
+
+  systemPrompt: "",
+  setSystemPrompt: (prompt) => set({ systemPrompt: prompt }),
+
+  previewFile: "",
+  setPreviewFile: (path: string) => set({ previewFile: path }),
 }));

@@ -1,11 +1,13 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   ChevronRight, ChevronDown, File, Folder, FolderOpen,
   FileText, FileCode, FileJson, FileImage, FileCog,
-  Search,
+  Search, RefreshCw,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useI18n } from "../../i18n";
+import { isTauriRuntime, invoke } from "../../lib/ipc";
+import { useUIStore } from "../../stores/uiStore";
 
 export interface FileNode {
   name: string;
@@ -144,12 +146,113 @@ function TreeNode({ node, depth, defaultExpanded = false }: TreeNodeProps) {
   );
 }
 
+/** Parse `find` output into a tree structure. */
+function buildTreeFromFind(lines: string[], _rootPath: string): FileNode[] {
+  const root: FileNode[] = [];
+  const dirMap = new Map<string, FileNode>();
+
+  for (const line of lines) {
+    if (!line || line.startsWith(".")) {
+      continue;
+    }
+    const clean = line.startsWith("./") ? line.slice(2) : line;
+    if (!clean) {
+      continue;
+    }
+    const parts = clean.split("/");
+    const name = parts.pop()!;
+
+    // Ensure parent directories exist
+    let parentPath = "";
+    const parentParts = [...parts];
+    for (let i = 0; i < parentParts.length; i++) {
+      const dirName = parentParts[i]!;
+      const dirPath = parentParts.slice(0, i + 1).join("/");
+      const existingParent = dirMap.get(parentPath);
+      const children = existingParent ? existingParent.children! : root;
+
+      if (!dirMap.has(dirPath)) {
+        const dir: FileNode = { name: dirName, path: dirPath, type: "directory", children: [] };
+        dirMap.set(dirPath, dir);
+        children.push(dir);
+      }
+      parentPath = dirPath;
+    }
+
+    const file: FileNode = { name, path: clean, type: "file" };
+    const parent = dirMap.get(parentPath);
+    if (parent) {
+      parent.children!.push(file);
+    } else {
+      root.push(file);
+    }
+  }
+
+  // Sort: directories first, then alphabetical
+  const sortNodes = (nodes: FileNode[]) => {
+    nodes.sort((a, b) => {
+      if (a.type !== b.type) {
+        return a.type === "directory" ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name);
+    });
+    for (const n of nodes) {
+      if (n.children) {
+        sortNodes(n.children);
+      }
+    }
+  };
+  sortNodes(root);
+
+  return root;
+}
+
 export function FileTree() {
   const [filter, setFilter] = useState("");
+  const [tree, setTree] = useState<FileNode[]>(DEMO_TREE);
+  const [loading, setLoading] = useState(false);
   const { t } = useI18n();
+  const workingDir = useUIStore((s) => s.workingDir);
+
+  const fetchTree = useCallback(async () => {
+    if (!isTauriRuntime() || !workingDir) {
+      setTree(DEMO_TREE);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await invoke<{
+        stdout: string;
+        stderr: string;
+        exitCode: number | null;
+        denied: boolean;
+      }>("sandbox_execute", {
+        request: {
+          command: "find . -maxdepth 3 -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/target/*' -not -path '*/dist/*'",
+          workingDir,
+          policy: "permissive",
+        },
+      });
+
+      if (result.stdout) {
+        const lines = result.stdout.trim().split("\n").filter(Boolean);
+        setTree(buildTreeFromFind(lines, workingDir));
+      }
+    } catch {
+      // Fall back to demo tree
+      setTree(DEMO_TREE);
+    } finally {
+      setLoading(false);
+    }
+  }, [workingDir]);
+
+  useEffect(() => {
+    fetchTree();
+  }, [fetchTree]);
 
   const filteredTree = useMemo(() => {
-    if (!filter.trim()) {return DEMO_TREE;}
+    if (!filter.trim()) {return tree;}
 
     const lower = filter.toLowerCase();
     function matches(node: FileNode): boolean {
@@ -157,8 +260,8 @@ export function FileTree() {
       if (node.children) {return node.children.some(matches);}
       return false;
     }
-    return DEMO_TREE.filter(matches);
-  }, [filter]);
+    return tree.filter(matches);
+  }, [filter, tree]);
 
   return (
     <div className="flex h-full flex-col">
@@ -173,6 +276,14 @@ export function FileTree() {
             className="h-full flex-1 bg-transparent text-[11px] text-foreground outline-none placeholder:text-muted-foreground"
           />
         </div>
+        <button
+          onClick={fetchTree}
+          disabled={loading}
+          className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+          title={t("refresh")}
+        >
+          <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+        </button>
       </div>
       <div className="flex-1 overflow-y-auto py-1">
         {filteredTree.map((node) => (

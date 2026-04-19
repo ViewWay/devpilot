@@ -92,7 +92,8 @@ describe("chatStore streaming", () => {
     });
 
     it("sets isLoading and streamingMessageId", () => {
-      const _sessionId = useChatStore.getState().createSession("test-model", "test-provider");
+      const sessionId = useChatStore.getState().createSession("test-model", "test-provider");
+      void sessionId;
       useChatStore.getState().sendMessage("hello", "test-model");
 
       expect(useChatStore.getState().isLoading).toBe(true);
@@ -143,7 +144,8 @@ describe("chatStore streaming", () => {
     });
 
     it("mock stream completes and sets isLoading to false", () => {
-      const _sessionId = useChatStore.getState().createSession("test-model", "test-provider");
+      const sessionId = useChatStore.getState().createSession("test-model", "test-provider");
+      void sessionId;
       useChatStore.getState().sendMessage("hello", "test-model");
 
       // Advance timers enough for full mock streaming to complete
@@ -164,7 +166,8 @@ describe("chatStore streaming", () => {
 
   describe("abortStreaming", () => {
     it("clears loading state", () => {
-      const _sessionId = useChatStore.getState().createSession("test-model", "test-provider");
+      const sessionId = useChatStore.getState().createSession("test-model", "test-provider");
+      void sessionId;
       useChatStore.getState().sendMessage("hello", "test-model");
 
       expect(useChatStore.getState().isLoading).toBe(true);
