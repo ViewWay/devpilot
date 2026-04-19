@@ -14,7 +14,7 @@ mod tools;
 pub use error::{ToolError, ToolResult};
 pub use executor::{ApprovalRequest, ApprovalStatus, ToolExecutor};
 pub use registry::ToolRegistry;
-pub use tools::{ApplyPatchTool, FileReadTool, FileWriteTool, ShellExecTool};
+pub use tools::{ApplyPatchTool, FileReadTool, FileSearchTool, FileWriteTool, ShellExecTool, WebFetchTool};
 
 use async_trait::async_trait;
 use devpilot_protocol::ToolDefinition;

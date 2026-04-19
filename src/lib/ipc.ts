@@ -127,6 +127,32 @@ function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
             required: ["path", "old_string", "new_string"],
           },
         },
+        {
+          name: "file_search",
+          description: "Search files by name (fuzzy) or content (regex)",
+          inputSchema: {
+            type: "object",
+            properties: {
+              query: { type: "string", description: "Search query (glob pattern or regex)" },
+              mode: { type: "string", description: "Search mode: 'fuzzy' or 'content'" },
+              path: { type: "string", description: "Root directory to search in" },
+              max_results: { type: "number", description: "Max results (default 50)" },
+            },
+            required: ["query"],
+          },
+        },
+        {
+          name: "web_fetch",
+          description: "Fetch and extract text content from a web URL",
+          inputSchema: {
+            type: "object",
+            properties: {
+              url: { type: "string", description: "The URL to fetch" },
+              max_length: { type: "number", description: "Max characters to return (default 10000)" },
+            },
+            required: ["url"],
+          },
+        },
       ];
     case "execute_tool":
       return {

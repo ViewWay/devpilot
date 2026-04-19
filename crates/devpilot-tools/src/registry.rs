@@ -37,6 +37,8 @@ impl ToolRegistry {
         reg.register(Arc::new(crate::FileReadTool::new())).await;
         reg.register(Arc::new(crate::FileWriteTool::new())).await;
         reg.register(Arc::new(crate::ApplyPatchTool::new())).await;
+        reg.register(Arc::new(crate::FileSearchTool::new())).await;
+        reg.register(Arc::new(crate::WebFetchTool::new())).await;
         reg
     }
 
