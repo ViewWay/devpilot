@@ -4,7 +4,7 @@ import { useChatStore } from "../../stores/chatStore";
 import { useUIStore } from "../../stores/uiStore";
 import { Send, Paperclip, Globe, Sparkles, StopCircle, X, Image, FileText } from "lucide-react";
 import { cn } from "../../lib/utils";
-import type { Attachment } from "../../types";
+import type { Attachment, AttachmentIPC } from "../../types";
 
 const SLASH_COMMANDS = [
   { cmd: "/help", descKey: "slashHelp", icon: "❓" },
@@ -47,6 +47,44 @@ function generateId(): string {
 
 function isImageType(type: string): boolean {
   return type.startsWith("image/");
+}
+
+/** Encode attachments to base64 for IPC serialization. */
+async function encodeAttachments(attachments: Attachment[]): Promise<AttachmentIPC[]> {
+  const results: AttachmentIPC[] = [];
+  for (const att of attachments) {
+    // For images, the preview already has the base64 data URL
+    if (att.preview && isImageType(att.type)) {
+      results.push({
+        id: att.id,
+        name: att.name,
+        size: att.size,
+        type: att.type,
+        base64Data: att.preview,
+        preview: att.preview,
+      });
+    } else {
+      // Read file as data URL for non-image or non-preview attachments
+      try {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(att.file);
+        });
+        results.push({
+          id: att.id,
+          name: att.name,
+          size: att.size,
+          type: att.type,
+          base64Data: dataUrl,
+        });
+      } catch {
+        // Skip files that can't be read
+      }
+    }
+  }
+  return results;
 }
 
 export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
@@ -162,23 +200,26 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
     }
   }, [processFiles]);
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const trimmed = input.trim();
     if ((!trimmed && attachments.length === 0) || isLoading) {return;}
-    // For now, send text only; attachments will be passed to real LLM later
-    if (trimmed) {
+
+    // Encode image attachments to base64 for IPC
+    const ipcAttachments = await encodeAttachments(attachments);
+
+    if (trimmed || ipcAttachments.length > 0) {
       // If a specific sessionId is provided (e.g. in split view),
       // temporarily switch to that session for sending.
       if (sessionId) {
         const prev = useChatStore.getState().activeSessionId;
         setActiveSession(sessionId);
-        sendMessage(trimmed, selectedModel.name);
+        sendMessage(trimmed, selectedModel.name, ipcAttachments.length > 0 ? ipcAttachments : undefined);
         // Restore previous active session after a tick
         if (prev) {
           setTimeout(() => setActiveSession(prev), 0);
         }
       } else {
-        sendMessage(trimmed, selectedModel.name);
+        sendMessage(trimmed, selectedModel.name, ipcAttachments.length > 0 ? ipcAttachments : undefined);
       }
     }
     setInput("");

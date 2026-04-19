@@ -112,7 +112,7 @@ export function CommandPalette() {
       category: "command",
       action: () => { setActiveView("settings"); setOpen(false); },
     },
-  ], [t, selectedModel, theme, themeLabel, themeNext, themeIcon, mod,
+  ], [t, selectedModel, themeLabel, themeNext, themeIcon, mod,
     createSession, toggleSidebar, toggleRightPanel, setTheme, setActiveView, setOpen]);
 
   const sessionItems: PaletteItem[] = useMemo(() =>

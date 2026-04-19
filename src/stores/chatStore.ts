@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Session, Message, ApprovalRequest } from "../types";
+import type { Session, Message, ApprovalRequest, AttachmentIPC } from "../types";
 import { useUsageStore } from "./usageStore";
 import { useProviderStore } from "./providerStore";
 import { useUIStore } from "./uiStore";
@@ -347,7 +347,7 @@ interface ChatState {
   addMessage: (sessionId: string, msg: Omit<Message, "id" | "timestamp">) => string;
   updateMessageContent: (sessionId: string, messageId: string, content: string, streaming?: boolean) => void;
   searchSessions: (query: string) => Session[];
-  sendMessage: (content: string, model: string) => void;
+  sendMessage: (content: string, model: string, attachments?: AttachmentIPC[]) => void;
   clearMessages: (sessionId: string) => void;
   updateSessionTitle: (sessionId: string, title: string) => void;
   archiveSession: (id: string) => void;
@@ -379,6 +379,42 @@ function relativeTime(date: string): string {
   const hours = Math.floor(mins / 60);
   if (hours < 24) {return `${hours}h ago`;}
   return "Yesterday";
+}
+
+/** Build content blocks for the user message, including image attachments. */
+type UserContentBlock =
+  | { type: "text"; text: string }
+  | { type: "image"; source: { type: "base64"; mediaType: string; data: string } };
+
+function buildUserContentBlocks(
+  text: string,
+  attachments?: AttachmentIPC[],
+): UserContentBlock[] {
+  const blocks: UserContentBlock[] = [];
+
+  if (text) {
+    blocks.push({ type: "text", text });
+  }
+
+  if (attachments) {
+    for (const att of attachments) {
+      if (att.type.startsWith("image/") && att.base64Data) {
+        // Extract base64 data from data URL if needed
+        const raw = att.base64Data;
+        const base64Data = raw.includes(",") ? raw.slice(raw.indexOf(",") + 1) : raw;
+        blocks.push({
+          type: "image",
+          source: {
+            type: "base64",
+            mediaType: att.type,
+            data: base64Data,
+          },
+        });
+      }
+    }
+  }
+
+  return blocks;
 }
 
 export { relativeTime };
@@ -464,7 +500,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     return get().sessions.filter((s) => s.title.toLowerCase().includes(q));
   },
 
-  sendMessage: (content, model) => {
+  sendMessage: (content, model, attachments) => {
     const { activeSessionId, addMessage, updateMessageContent, createSession, updateSessionTitle } = get();
 
     // Auto-create session if none active
@@ -534,7 +570,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         };
 
         // Build messages history
-        const messages = session.messages.map((m) => ({
+        const messages: Array<{ role: string; content: UserContentBlock[] }> = session.messages.map((m) => ({
           role: m.role,
           content: [{ type: "text" as const, text: typeof m.content === "string" ? m.content : "" }],
         }));
@@ -544,7 +580,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const systemPrompt = buildSystemPrompt(customPrompt);
         messages.unshift({ role: "system", content: [{ type: "text" as const, text: systemPrompt }] });
 
-        messages.push({ role: "user", content: [{ type: "text" as const, text: content }] });
+        messages.push({ role: "user", content: buildUserContentBlocks(content, attachments) });
 
         // Register listeners BEFORE invoking to avoid missing early events.
         // Backend emits globally:

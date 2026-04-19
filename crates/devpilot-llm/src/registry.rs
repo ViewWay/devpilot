@@ -10,6 +10,7 @@ use std::sync::Arc;
 
 use crate::anthropic::AnthropicProvider;
 use crate::error::LlmError;
+use crate::google::GeminiProvider;
 use crate::ollama::OllamaProvider;
 use crate::openai::OpenAiProvider;
 use crate::provider::ModelProvider;
@@ -58,9 +59,9 @@ impl ProviderRegistry {
         self.register(ProviderType::Ollama, |config| {
             Box::new(OllamaProvider::new(config))
         });
-        // Google uses OpenAI-compatible API (Gemini endpoint)
+        // Google Gemini native API
         self.register(ProviderType::Google, |config| {
-            Box::new(OpenAiProvider::new(config))
+            Box::new(GeminiProvider::new(config))
         });
         // Chinese providers — all use OpenAI-compatible APIs
         self.register(ProviderType::GLM, |config| {

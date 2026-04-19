@@ -76,6 +76,19 @@ export interface Attachment {
   preview?: string; // data URL for images
 }
 
+/**
+ * Serializable version of Attachment for passing through IPC.
+ * The `file` reference is replaced with base64-encoded data.
+ */
+export interface AttachmentIPC {
+  id: string;
+  name: string;
+  size: number;
+  type: string; // MIME type
+  base64Data: string; // base64-encoded file content
+  preview?: string; // data URL for images
+}
+
 export interface CheckpointInfo {
   id: string;
   sessionId: string;
