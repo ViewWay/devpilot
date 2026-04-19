@@ -49,6 +49,25 @@ All notable changes to DevPilot will be documented in this file.
 - Frontend hydration restores encrypted API keys from backend
 - 4 unit tests (roundtrip, different ciphertexts, invalid inputs)
 
+### Added — Context Compaction (P2)
+
+- `compact_session` Tauri IPC command — uses `devpilot-core::compact::compact_messages` with Summarize strategy
+- Store: `delete_session_messages()` helper for compaction
+- Frontend: `/compact` slash command triggers real backend compaction, reloads messages, shows summary
+
+### Added — Checkpoint / Rewind (P2)
+
+- `CheckpointInfo` type with camelCase serde
+- `checkpoints` SQLite table (id, session_id, message_id, summary, token_count, created_at)
+- Store: checkpoint CRUD (create, list, get, delete, delete_session_checkpoints)
+- Store: `rewind_to_checkpoint()` — deletes messages after checkpoint + newer checkpoints
+- Tauri IPC: `create_checkpoint`, `list_checkpoints`, `rewind_checkpoint` commands (45 total)
+
+### Added — Streaming Usage Tracking (P2)
+
+- Usage persisted to DB after `stream_done` event
+- Daily aggregation via existing `Store::add_usage()` upsert
+
 ### Changed
 
 - `send_message_stream` now accepts `user_message` + `working_dir` params (agent loop inputs)

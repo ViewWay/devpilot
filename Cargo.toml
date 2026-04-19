@@ -11,6 +11,7 @@ members = [
     "crates/devpilot-protocol",
     "crates/devpilot-store",
     "crates/devpilot-tools",
+    "crates/devpilot-mcp",
     "src-tauri",
 ]
 

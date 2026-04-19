@@ -708,6 +708,84 @@ fn row_to_provider(row: &rusqlite::Row) -> rusqlite::Result<ProviderRecord> {
     })
 }
 
+// ── MCP Servers ────────────────────────────────────────
+
+impl Store {
+    /// List all MCP servers.
+    pub fn list_mcp_servers(&self) -> Result<Vec<McpServerRecord>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, name, transport, command, args, url, env, enabled, created_at
+             FROM mcp_servers ORDER BY created_at",
+        )?;
+        let servers = stmt
+            .query_map([], |row| {
+                Ok(McpServerRecord {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    transport: row.get(2)?,
+                    command: row.get(3)?,
+                    args: row.get(4)?,
+                    url: row.get(5)?,
+                    env: row.get(6)?,
+                    enabled: row.get::<_, i32>(7)? != 0,
+                    created_at: row.get(8)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(servers)
+    }
+
+    /// Get a single MCP server by ID.
+    pub fn get_mcp_server(&self, id: &str) -> Result<McpServerRecord> {
+        self.conn.query_row(
+            "SELECT id, name, transport, command, args, url, env, enabled, created_at
+             FROM mcp_servers WHERE id = ?1",
+            [id],
+            |row| {
+                Ok(McpServerRecord {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    transport: row.get(2)?,
+                    command: row.get(3)?,
+                    args: row.get(4)?,
+                    url: row.get(5)?,
+                    env: row.get(6)?,
+                    enabled: row.get::<_, i32>(7)? != 0,
+                    created_at: row.get(8)?,
+                })
+            },
+        ).map_err(|e| e.into())
+    }
+
+    /// Insert or update an MCP server configuration.
+    pub fn upsert_mcp_server(&self, server: &McpServerRecord) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO mcp_servers (id, name, transport, command, args, url, env, enabled)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+             ON CONFLICT(id) DO UPDATE SET
+               name = ?2, transport = ?3, command = ?4, args = ?5,
+               url = ?6, env = ?7, enabled = ?8",
+            (
+                &server.id,
+                &server.name,
+                &server.transport,
+                &server.command,
+                &server.args,
+                &server.url,
+                &server.env,
+                server.enabled as i32,
+            ),
+        )?;
+        Ok(())
+    }
+
+    /// Delete an MCP server by ID.
+    pub fn delete_mcp_server(&self, id: &str) -> Result<()> {
+        self.conn.execute("DELETE FROM mcp_servers WHERE id = ?1", [id])?;
+        Ok(())
+    }
+}
+
 // ── Tests ─────────────────────────────────────────────
 
 #[cfg(test)]

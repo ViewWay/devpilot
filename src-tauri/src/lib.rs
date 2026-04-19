@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use devpilot_bridge::BridgeManager;
 use devpilot_core::{Agent, AgentConfig, EventBus};
+use devpilot_mcp::McpManager;
 use devpilot_media::MediaManager;
 use devpilot_store::Store;
 use devpilot_tools::{ToolExecutor, ToolRegistry};
@@ -84,6 +85,13 @@ pub fn run() {
             // Media
             commands::media::media_generate,
             commands::media::media_providers,
+            // MCP
+            commands::mcp::list_mcp_servers,
+            commands::mcp::upsert_mcp_server,
+            commands::mcp::delete_mcp_server,
+            commands::mcp::mcp_connect_server,
+            commands::mcp::mcp_disconnect_server,
+            commands::mcp::mcp_list_connected,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -106,6 +114,8 @@ pub struct AppState {
     pub bridge_manager: Arc<AsyncMutex<BridgeManager>>,
     /// Media state — image generation.
     pub media_state: MediaState,
+    /// MCP manager — Model Context Protocol server connections.
+    pub mcp_manager: Arc<AsyncMutex<Option<McpManager>>>,
 }
 
 impl AppState {
@@ -148,6 +158,7 @@ impl AppState {
             media_state: MediaState {
                 manager: MediaManager::new(),
             },
+            mcp_manager: Arc::new(AsyncMutex::new(None)),
         })
     }
 }

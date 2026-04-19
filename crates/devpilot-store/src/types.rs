@@ -96,3 +96,23 @@ pub struct ProviderRecord {
     pub enabled: bool,
     pub created_at: String,
 }
+
+/// MCP server record for persistent MCP server configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpServerRecord {
+    pub id: String,
+    pub name: String,
+    /// "stdio" or "sse"
+    pub transport: String,
+    /// Command to run (for stdio transport).
+    pub command: Option<String>,
+    /// Arguments as JSON array string (for stdio transport).
+    pub args: Option<String>,
+    /// URL endpoint (for sse transport).
+    pub url: Option<String>,
+    /// Environment variables as JSON object string (for stdio transport).
+    pub env: Option<String>,
+    pub enabled: bool,
+    pub created_at: String,
+}

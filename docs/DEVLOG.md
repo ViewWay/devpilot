@@ -388,37 +388,18 @@ All quality gates passing: `cargo fmt`, `cargo clippy -D warnings`, `cargo test 
 
 ## Session G — 2026-04-19 (P0 Complete + P1 Provider Management)
 
-**Goal:** Complete P0 remaining tasks (Tool Approval UI, Capabilities) and implement P1 Provider Management.
+**Goal:** Complete P0 remaining tasks and implement P1 Provider Management.
 
 ### What was done
 
-1. **Committed Agent Loop Integration** (from previous session)
-   - EventBus→Tauri bridge, streaming tool events, ApprovalQueue, ToolCallView
-   - IPC signature fix, chatStore event listeners
-
-2. **P0-5: Tauri Capabilities**
+1. **P0-5: Tauri Capabilities**
    - `capabilities/default.json`: added shell, dialog, fs permissions
    - CSP connect-src: 15+ provider domains including localhost for Ollama
 
-3. **P1-1: Provider CRUD IPC**
-   - Added 4 Tauri commands: `list_providers`, `get_provider`, `upsert_provider`, `delete_provider`
-   - `ProviderRecordIPC` type in frontend
-   - `providerStore` mutations persist to SQLite via IPC
-
-4. **P1-2: API Key Encryption**
-   - New `devpilot-store/crypto` module: AES-256-GCM with machine-specific key
-   - `Store::upsert_provider_with_key()` — encrypts before storage
-   - `Store::get_provider_api_key()` — decrypts on read
-   - `get_provider_api_key` Tauri command (42 total)
-   - Frontend hydration restores API keys from encrypted backend
-
-5. **P1-3: CSP Update**
-   - Added DeepSeek, Qwen, Moonshot, MiniMax, Volcengine, OpenRouter, LiteLLM, localhost
-
-6. **P1-4: Provider Hydration**
-   - `providerStore.hydrateFromBackend()` on app startup
-   - Merges persisted providers with defaults
-   - API keys restored from encrypted storage
+2. **P1-1: Provider CRUD IPC** — 4 Tauri commands (list/get/upsert/delete)
+3. **P1-2: API Key Encryption** — `devpilot-store/crypto`: AES-256-GCM, machine-specific key
+4. **P1-3: CSP Update** — 15+ provider domains
+5. **P1-4: Provider Hydration** — `providerStore.hydrateFromBackend()` on startup
 
 ### Stats
 
@@ -428,4 +409,54 @@ All quality gates passing: `cargo fmt`, `cargo clippy -D warnings`, `cargo test 
 | Tests    | 155     | 159     |
 | Commits  | 6b8e263 | 1f49ee6 |
 
-All quality gates passing: `cargo fmt`, `cargo clippy -D warnings`, `cargo test --workspace`, `tsc --noEmit`.
+All quality gates passing.
+
+---
+
+## Session H — 2026-04-19 (P2 Checkpoint + Context + Usage)
+
+**Goal:** Implement P2 advanced features — context compaction, checkpoint/rewind, streaming usage.
+
+### P2-1: Context Compaction
+
+- `compact_session` Tauri IPC command in `commands/mod.rs`
+- Uses `devpilot-core::compact::compact_messages` with Summarize strategy
+- Store: `delete_session_messages()` helper for compaction
+- Frontend: `/compact` slash command → real backend call
+  - Reloads messages from DB after compaction
+  - Shows messages removed count and summary status
+
+### P2-2: Checkpoint / Rewind
+
+- Store: `CheckpointInfo` type with camelCase serde
+- Store: `checkpoints` table migration (id, session_id, message_id, summary, token_count, created_at)
+- Store: checkpoint CRUD methods (create, list, get, delete, delete_session_checkpoints)
+- Store: `rewind_to_checkpoint()` — deletes messages + newer checkpoints
+- Tauri IPC: `create_checkpoint`, `list_checkpoints`, `rewind_checkpoint` commands
+- Registered in `lib.rs` invoke_handler (45 total)
+
+### P2-4: Streaming Usage Tracking
+
+- Persist usage to DB after `stream_done` event in `llm.rs`
+- Uses existing `Store::add_usage()` upsert with daily aggregation
+
+### Modified Files
+
+| 文件                                 | 变更                                         |
+| ------------------------------------ | -------------------------------------------- |
+| `crates/devpilot-store/src/store.rs` | +122 行: Checkpoint CRUD + compaction helper |
+| `crates/devpilot-store/src/types.rs` | +12 行: CheckpointInfo 类型                  |
+| `src-tauri/src/commands/llm.rs`      | +22 行: stream_done 持久化 usage             |
+| `src-tauri/src/commands/mod.rs`      | +150 行: compact + checkpoint IPC commands   |
+| `src-tauri/src/lib.rs`               | +6 行: 注册新命令                            |
+| `src/stores/chatStore.ts`            | +76 行: /compact 前端逻辑                    |
+
+### Stats
+
+| Metric   | Before  | After   |
+| -------- | ------- | ------- |
+| IPC Cmds | 42      | 45      |
+| Rust LOC | ~11,848 | ~12,350 |
+| Commit   | 1f49ee6 | 852a0d5 |
+
+All quality gates passing: `cargo build`, `cargo test --workspace`, `tsc --noEmit`.

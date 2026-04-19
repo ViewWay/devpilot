@@ -769,6 +769,7 @@ dependencies = [
  "devpilot-bridge",
  "devpilot-core",
  "devpilot-llm",
+ "devpilot-mcp",
  "devpilot-media",
  "devpilot-protocol",
  "devpilot-sandbox",
@@ -832,6 +833,25 @@ dependencies = [
  "async-trait",
  "devpilot-protocol",
  "eventsource-stream",
+ "futures",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "devpilot-mcp"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "devpilot-protocol",
+ "devpilot-tools",
  "futures",
  "reqwest 0.12.28",
  "serde",

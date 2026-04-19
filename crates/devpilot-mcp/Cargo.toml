@@ -1,0 +1,25 @@
+[package]
+name = "devpilot-mcp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "MCP (Model Context Protocol) client — stdio/SSE transport, dynamic tool discovery"
+
+[dependencies]
+devpilot-tools = { path = "../devpilot-tools" }
+devpilot-protocol = { path = "../devpilot-protocol" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+async-trait = "0.1"
+tracing = "0.1"
+reqwest = { version = "0.12", features = ["json", "stream"] }
+futures = "0.3"
+
+[dev-dependencies]
+tokio = { workspace = true }

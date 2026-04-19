@@ -24,6 +24,7 @@ devpilot-search = { path = "../crates/devpilot-search" }
 devpilot-scheduler = { path = "../crates/devpilot-scheduler" }
 devpilot-bridge = { path = "../crates/devpilot-bridge" }
 devpilot-media = { path = "../crates/devpilot-media" }
+devpilot-mcp = { path = "../crates/devpilot-mcp" }
 tauri = { version = "2", features = [] }
 tauri-plugin-log = "2"
 tauri-plugin-shell = "2"
