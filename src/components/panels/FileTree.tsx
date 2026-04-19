@@ -111,14 +111,31 @@ function TreeNode({ node, depth, defaultExpanded = false }: TreeNodeProps) {
   const [expanded, setExpanded] = useState(defaultExpanded || depth < 1);
   const isDir = node.type === "directory";
   const gitColor = getGitColor(node.gitStatus);
+  const setPreviewFile = useUIStore((s) => s.setPreviewFile);
+  const setRightPanel = useUIStore((s) => s.setRightPanel);
+  const workingDir = useUIStore((s) => s.workingDir);
+
+  const handleClick = () => {
+    if (isDir) {
+      setExpanded(!expanded);
+    } else {
+      // Build absolute path if workingDir is set and path is relative
+      const fullPath = workingDir && !node.path.startsWith("/")
+        ? `${workingDir.replace(/\/+$/, "")}/${node.path}`
+        : node.path;
+      setPreviewFile(fullPath);
+      setRightPanel("preview");
+    }
+  };
 
   return (
     <div>
       <button
-        onClick={() => isDir && setExpanded(!expanded)}
+        onClick={handleClick}
         className={cn(
           "flex w-full items-center gap-1.5 rounded-sm px-1 py-[3px] text-[12px] transition-colors hover:bg-accent",
           depth === 0 && "font-medium",
+          !isDir && "cursor-pointer",
         )}
         style={{ paddingLeft: `${depth * 12 + 4}px` }}
       >
