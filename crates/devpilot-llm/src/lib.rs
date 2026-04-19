@@ -13,6 +13,7 @@ pub mod ollama;
 pub mod openai;
 pub mod provider;
 pub mod registry;
+pub mod retry;
 pub mod types;
 
 pub use anthropic::{AnthropicProvider, create_anthropic_provider};
@@ -26,6 +27,7 @@ pub use ollama::OllamaProvider;
 pub use openai::{OpenAiProvider, create_openai_provider};
 pub use provider::ModelProvider;
 pub use registry::{ProviderRegistry, create_provider};
+pub use retry::{RetryConfig, retry_chat, retry_operation};
 pub use types::{
     CostEstimate, ModelPricing, TokenCountConfig, estimate_chat_tokens, estimate_tokens,
 };
