@@ -1,19 +1,19 @@
-//! Shared types for Tauri IPC serialization.
-//!
-//! These types are shared between the Tauri commands layer and the store.
+//! Shared types exported for Tauri IPC serialization.
 
 use serde::{Deserialize, Serialize};
 
-/// Ping response.
-#[derive(Serialize, Deserialize)]
+/// Response for the health-check / ping command.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PingResponse {
     pub message: String,
     pub version: String,
     pub timestamp: String,
 }
 
-/// Session info.
-#[derive(Serialize, Deserialize, Clone, Debug)]
+/// Session metadata returned by the store.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SessionInfo {
     pub id: String,
     pub title: String,
@@ -21,79 +21,66 @@ pub struct SessionInfo {
     pub provider: String,
     pub working_dir: Option<String>,
     pub mode: String,
+    pub reasoning_effort: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+    pub archived_at: Option<String>,
+    pub message_count: i64,
 }
 
-/// Message info.
-#[derive(Serialize, Deserialize, Clone, Debug)]
+/// Message record returned by the store.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MessageInfo {
     pub id: String,
     pub session_id: String,
     pub role: String,
     pub content: String,
     pub model: Option<String>,
-    pub tool_calls: Option<String>,
-    pub tool_call_id: Option<String>,
     pub token_input: i64,
     pub token_output: i64,
+    pub token_cache_read: i64,
+    pub token_cache_write: i64,
     pub cost_usd: f64,
+    pub tool_calls: Option<String>,
+    pub tool_call_id: Option<String>,
     pub created_at: String,
 }
 
-/// Settings key-value pair.
-#[derive(Serialize, Deserialize, Clone, Debug)]
+/// A key-value setting entry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SettingEntry {
     pub key: String,
     pub value: String,
 }
 
-/// Usage record.
-#[derive(Serialize, Deserialize, Clone, Debug)]
+/// Usage record for token/cost tracking.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UsageRecord {
-    pub id: String,
-    pub session_id: String,
-    pub model: String,
+    pub id: i64,
+    pub date: String,
     pub provider: String,
+    pub model: String,
     pub token_input: i64,
     pub token_output: i64,
+    pub token_cache_read: i64,
+    pub token_cache_write: i64,
     pub cost_usd: f64,
-    pub created_at: String,
+    pub request_count: i64,
 }
 
-/// Provider info stored in database.
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ProviderInfo {
+/// Provider record for persistent provider configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderRecord {
     pub id: String,
     pub name: String,
     pub provider_type: String,
     pub base_url: String,
-    pub api_key_encrypted: Option<String>,
-    pub models: Option<String>, // JSON array of model info
+    pub api_key_set: bool,
+    pub models: Option<String>,
     pub enabled: bool,
-}
-
-/// MCP server config stored in database.
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct McpServerInfo {
-    pub id: String,
-    pub name: String,
-    pub transport: String, // "stdio" or "sse"
-    pub command: Option<String>,
-    pub args: Option<String>,
-    pub url: Option<String>,
-    pub env: Option<String>, // JSON object
-    pub enabled: bool,
-    pub created_at: String,
-}
-
-/// Checkpoint info for conversation compaction.
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct CheckpointInfo {
-    pub id: String,
-    pub session_id: String,
-    pub message_id: String,
-    pub summary: String,
-    pub token_count: i64,
     pub created_at: String,
 }

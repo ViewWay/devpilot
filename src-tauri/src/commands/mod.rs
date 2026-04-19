@@ -124,16 +124,6 @@ pub fn list_settings(state: State<'_, AppState>) -> Result<Vec<SettingEntry>, St
 
 // ── Usage ─────────────────────────────────────────────
 
-/// Get usage records for a session.
-#[tauri::command(rename_all = "camelCase")]
-pub fn get_session_usage(
-    state: State<'_, AppState>,
-    session_id: String,
-) -> Result<Vec<UsageRecord>, String> {
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.get_session_usage(&session_id).map_err(|e| e.to_string())
-}
-
 /// Get all usage records.
 #[tauri::command]
 pub fn get_total_usage(state: State<'_, AppState>) -> Result<Vec<UsageRecord>, String> {

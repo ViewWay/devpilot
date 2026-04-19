@@ -32,7 +32,6 @@ pub fn run() {
             commands::set_setting,
             commands::list_settings,
             // Usage
-            commands::get_session_usage,
             commands::get_total_usage,
             // LLM
             commands::llm::send_message,

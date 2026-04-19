@@ -1,0 +1,20 @@
+[package]
+name = "devpilot-bridge"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "IM bridge — send notifications to Telegram, Feishu, Discord, Slack, etc."
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["sync", "rt", "macros", "time"] }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true, features = ["v4", "serde"] }
+chrono = { workspace = true }
+reqwest = { version = "0.12", features = ["json"] }
+async-trait = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

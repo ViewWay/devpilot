@@ -1,12 +1,14 @@
 //! devpilot-store: SQLite persistence layer for DevPilot.
 //!
 //! Provides:
-//! - `Database` — persistent SQLite connection with migrations
-//! - `Store` — high-level CRUD operations for sessions, messages, settings, usage
+//! - `Store` — persistent SQLite connection with migrations
+//! - High-level CRUD operations for sessions, messages, settings, usage
 //! - Shared types for Tauri IPC serialization
 
-pub mod store;
-pub mod types;
+mod error;
+mod store;
+mod types;
 
+pub use error::StoreError;
 pub use store::Store;
 pub use types::*;

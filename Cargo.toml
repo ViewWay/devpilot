@@ -5,6 +5,8 @@ members = [
     "crates/devpilot-sandbox",
     "crates/devpilot-search",
     "crates/devpilot-scheduler",
+    "crates/devpilot-bridge",
+    "crates/devpilot-media",
     "crates/devpilot-llm",
     "crates/devpilot-protocol",
     "crates/devpilot-store",

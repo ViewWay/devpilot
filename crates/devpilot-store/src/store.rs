@@ -94,8 +94,10 @@ impl Store {
                     provider TEXT NOT NULL DEFAULT '',
                     working_dir TEXT,
                     mode TEXT NOT NULL DEFAULT 'code',
+                    reasoning_effort TEXT,
                     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+                    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    archived_at TEXT
                 );
 
                 CREATE TABLE IF NOT EXISTS messages (
@@ -108,6 +110,8 @@ impl Store {
                     tool_call_id TEXT,
                     token_input INTEGER DEFAULT 0,
                     token_output INTEGER DEFAULT 0,
+                    token_cache_read INTEGER DEFAULT 0,
+                    token_cache_write INTEGER DEFAULT 0,
                     cost_usd REAL DEFAULT 0.0,
                     created_at TEXT NOT NULL DEFAULT (datetime('now'))
                 );
@@ -120,7 +124,8 @@ impl Store {
                     base_url TEXT NOT NULL,
                     api_key_encrypted TEXT,
                     models TEXT,
-                    enabled INTEGER DEFAULT 1
+                    enabled INTEGER DEFAULT 1,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
                 );
 
                 CREATE TABLE IF NOT EXISTS settings (
@@ -129,16 +134,18 @@ impl Store {
                 );
 
                 CREATE TABLE IF NOT EXISTS usage (
-                    id TEXT PRIMARY KEY,
-                    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-                    model TEXT NOT NULL,
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    date TEXT NOT NULL,
                     provider TEXT NOT NULL,
+                    model TEXT NOT NULL,
                     token_input INTEGER DEFAULT 0,
                     token_output INTEGER DEFAULT 0,
+                    token_cache_read INTEGER DEFAULT 0,
+                    token_cache_write INTEGER DEFAULT 0,
                     cost_usd REAL DEFAULT 0.0,
-                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                    request_count INTEGER DEFAULT 1
                 );
-                CREATE INDEX IF NOT EXISTS idx_usage_session ON usage(session_id);
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_usage_date_model ON usage(date, provider, model);
 
                 CREATE TABLE IF NOT EXISTS checkpoints (
                     id TEXT PRIMARY KEY,
@@ -177,8 +184,10 @@ impl Store {
     /// List all sessions, ordered by most recently updated.
     pub fn list_sessions(&self) -> Result<Vec<SessionInfo>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, title, model, provider, working_dir, mode, created_at, updated_at
-             FROM sessions ORDER BY updated_at DESC",
+            "SELECT s.id, s.title, s.model, s.provider, s.working_dir, s.mode,
+                    s.reasoning_effort, s.created_at, s.updated_at, s.archived_at,
+                    (SELECT COUNT(*) FROM messages m WHERE m.session_id = s.id) AS message_count
+             FROM sessions s ORDER BY s.updated_at DESC",
         )?;
         let sessions = stmt
             .query_map([], row_to_session)?
@@ -190,8 +199,10 @@ impl Store {
     pub fn get_session(&self, id: &str) -> Result<SessionInfo> {
         self.conn
             .query_row(
-                "SELECT id, title, model, provider, working_dir, mode, created_at, updated_at
-             FROM sessions WHERE id = ?1",
+                "SELECT s.id, s.title, s.model, s.provider, s.working_dir, s.mode,
+                        s.reasoning_effort, s.created_at, s.updated_at, s.archived_at,
+                        (SELECT COUNT(*) FROM messages m WHERE m.session_id = s.id) AS message_count
+                 FROM sessions s WHERE s.id = ?1",
                 rusqlite::params![id],
                 row_to_session,
             )
@@ -214,8 +225,11 @@ impl Store {
             provider: provider.to_string(),
             working_dir: None,
             mode: "code".to_string(),
+            reasoning_effort: None,
             created_at: now.clone(),
             updated_at: now,
+            archived_at: None,
+            message_count: 0,
         })
     }
 
@@ -240,8 +254,8 @@ impl Store {
     /// Get all messages for a session, ordered chronologically.
     pub fn get_session_messages(&self, session_id: &str) -> Result<Vec<MessageInfo>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, session_id, role, content, model, tool_calls, tool_call_id,
-                    token_input, token_output, cost_usd, created_at
+            "SELECT id, session_id, role, content, model, token_input, token_output,
+                    token_cache_read, token_cache_write, cost_usd, tool_calls, tool_call_id, created_at
              FROM messages WHERE session_id = ?1 ORDER BY created_at ASC",
         )?;
         let messages = stmt
@@ -278,11 +292,13 @@ impl Store {
             role: role.to_string(),
             content: content.to_string(),
             model: model.map(String::from),
-            tool_calls: tool_calls.map(String::from),
-            tool_call_id: tool_call_id.map(String::from),
             token_input: 0,
             token_output: 0,
+            token_cache_read: 0,
+            token_cache_write: 0,
             cost_usd: 0.0,
+            tool_calls: tool_calls.map(String::from),
+            tool_call_id: tool_call_id.map(String::from),
             created_at: now,
         })
     }
@@ -344,42 +360,36 @@ impl Store {
 
     // ── Usage ─────────────────────────────────────────
 
-    /// Record a usage entry.
+    /// Record a usage entry (upserts by date + provider + model).
     pub fn add_usage(
         &self,
-        session_id: &str,
+        _session_id: &str,
         model: &str,
         provider: &str,
         token_input: i64,
         token_output: i64,
         cost_usd: f64,
     ) -> Result<()> {
-        let id = uuid::Uuid::new_v4().to_string();
+        let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
         self.conn.execute(
-            "INSERT INTO usage (id, session_id, model, provider, token_input, token_output, cost_usd)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            rusqlite::params![id, session_id, model, provider, token_input, token_output, cost_usd],
+            "INSERT INTO usage (date, provider, model, token_input, token_output, cost_usd, request_count)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1)
+             ON CONFLICT(date, provider, model) DO UPDATE SET
+                token_input = token_input + excluded.token_input,
+                token_output = token_output + excluded.token_output,
+                cost_usd = cost_usd + excluded.cost_usd,
+                request_count = request_count + 1",
+            rusqlite::params![today, provider, model, token_input, token_output, cost_usd],
         )?;
         Ok(())
-    }
-
-    /// Get usage records for a session.
-    pub fn get_session_usage(&self, session_id: &str) -> Result<Vec<UsageRecord>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, session_id, model, provider, token_input, token_output, cost_usd, created_at
-             FROM usage WHERE session_id = ?1 ORDER BY created_at ASC",
-        )?;
-        let records = stmt
-            .query_map(rusqlite::params![session_id], row_to_usage)?
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(records)
     }
 
     /// Get all usage records (last 1000).
     pub fn get_total_usage(&self) -> Result<Vec<UsageRecord>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, session_id, model, provider, token_input, token_output, cost_usd, created_at
-             FROM usage ORDER BY created_at DESC LIMIT 1000",
+            "SELECT id, date, provider, model, token_input, token_output,
+                    token_cache_read, token_cache_write, cost_usd, request_count
+             FROM usage ORDER BY date DESC LIMIT 1000",
         )?;
         let records = stmt
             .query_map([], row_to_usage)?
@@ -387,12 +397,20 @@ impl Store {
         Ok(records)
     }
 
+    /// Get usage records for a session (returns all usage; per-session breakdown not yet implemented).
+    pub fn get_session_usage(&self, session_id: &str) -> Result<Vec<UsageRecord>> {
+        // Usage is tracked globally by date+provider+model, not per-session.
+        // A per-session breakdown would require a messages → usage join.
+        let _ = session_id;
+        self.get_total_usage()
+    }
+
     // ── Providers ─────────────────────────────────────
 
     /// List all providers.
-    pub fn list_providers(&self) -> Result<Vec<ProviderInfo>> {
+    pub fn list_providers(&self) -> Result<Vec<ProviderRecord>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, name, type, base_url, api_key_encrypted, models, enabled
+            "SELECT id, name, type, base_url, api_key_encrypted, models, enabled, created_at
              FROM providers ORDER BY name",
         )?;
         let providers = stmt
@@ -402,10 +420,10 @@ impl Store {
     }
 
     /// Get a provider by ID.
-    pub fn get_provider(&self, id: &str) -> Result<ProviderInfo> {
+    pub fn get_provider(&self, id: &str) -> Result<ProviderRecord> {
         self.conn
             .query_row(
-                "SELECT id, name, type, base_url, api_key_encrypted, models, enabled
+                "SELECT id, name, type, base_url, api_key_encrypted, models, enabled, created_at
              FROM providers WHERE id = ?1",
                 rusqlite::params![id],
                 row_to_provider,
@@ -414,18 +432,19 @@ impl Store {
     }
 
     /// Add or update a provider.
-    pub fn upsert_provider(&self, provider: &ProviderInfo) -> Result<()> {
+    pub fn upsert_provider(&self, provider: &ProviderRecord) -> Result<()> {
         self.conn.execute(
-            "INSERT OR REPLACE INTO providers (id, name, type, base_url, api_key_encrypted, models, enabled)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            "INSERT OR REPLACE INTO providers (id, name, type, base_url, api_key_encrypted, models, enabled, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             rusqlite::params![
                 provider.id,
                 provider.name,
                 provider.provider_type,
                 provider.base_url,
-                provider.api_key_encrypted,
+                if provider.api_key_set { Some("set") } else { None },
                 provider.models,
                 provider.enabled as i32,
+                provider.created_at,
             ],
         )?;
         Ok(())
@@ -449,8 +468,11 @@ fn row_to_session(row: &rusqlite::Row) -> rusqlite::Result<SessionInfo> {
         provider: row.get(3)?,
         working_dir: row.get(4)?,
         mode: row.get(5)?,
-        created_at: row.get(6)?,
-        updated_at: row.get(7)?,
+        reasoning_effort: row.get(6)?,
+        created_at: row.get(7)?,
+        updated_at: row.get(8)?,
+        archived_at: row.get(9)?,
+        message_count: row.get(10)?,
     })
 }
 
@@ -461,37 +483,43 @@ fn row_to_message(row: &rusqlite::Row) -> rusqlite::Result<MessageInfo> {
         role: row.get(2)?,
         content: row.get(3)?,
         model: row.get(4)?,
-        tool_calls: row.get(5)?,
-        tool_call_id: row.get(6)?,
-        token_input: row.get(7)?,
-        token_output: row.get(8)?,
+        token_input: row.get(5)?,
+        token_output: row.get(6)?,
+        token_cache_read: row.get(7)?,
+        token_cache_write: row.get(8)?,
         cost_usd: row.get(9)?,
-        created_at: row.get(10)?,
+        tool_calls: row.get(10)?,
+        tool_call_id: row.get(11)?,
+        created_at: row.get(12)?,
     })
 }
 
 fn row_to_usage(row: &rusqlite::Row) -> rusqlite::Result<UsageRecord> {
     Ok(UsageRecord {
         id: row.get(0)?,
-        session_id: row.get(1)?,
-        model: row.get(2)?,
-        provider: row.get(3)?,
+        date: row.get(1)?,
+        provider: row.get(2)?,
+        model: row.get(3)?,
         token_input: row.get(4)?,
         token_output: row.get(5)?,
-        cost_usd: row.get(6)?,
-        created_at: row.get(7)?,
+        token_cache_read: row.get(6)?,
+        token_cache_write: row.get(7)?,
+        cost_usd: row.get(8)?,
+        request_count: row.get(9)?,
     })
 }
 
-fn row_to_provider(row: &rusqlite::Row) -> rusqlite::Result<ProviderInfo> {
-    Ok(ProviderInfo {
+fn row_to_provider(row: &rusqlite::Row) -> rusqlite::Result<ProviderRecord> {
+    let api_key_set: Option<String> = row.get(4)?;
+    Ok(ProviderRecord {
         id: row.get(0)?,
         name: row.get(1)?,
         provider_type: row.get(2)?,
         base_url: row.get(3)?,
-        api_key_encrypted: row.get(4)?,
+        api_key_set: api_key_set.is_some(),
         models: row.get(5)?,
         enabled: row.get::<_, i32>(6)? != 0,
+        created_at: row.get(7)?,
     })
 }
 
@@ -515,6 +543,9 @@ mod tests {
             .unwrap();
         assert_eq!(session.title, "Test Chat");
         assert_eq!(session.model, "gpt-4o");
+        assert!(session.reasoning_effort.is_none());
+        assert!(session.archived_at.is_none());
+        assert_eq!(session.message_count, 0);
 
         // List
         let sessions = store.list_sessions().unwrap();
@@ -547,6 +578,8 @@ mod tests {
             .add_message(&session.id, "user", "Hello", None, None, None)
             .unwrap();
         assert_eq!(msg1.role, "user");
+        assert_eq!(msg1.token_cache_read, 0);
+        assert_eq!(msg1.token_cache_write, 0);
 
         // Add assistant message
         let msg2 = store
@@ -564,6 +597,10 @@ mod tests {
         // List messages
         let msgs = store.get_session_messages(&session.id).unwrap();
         assert_eq!(msgs.len(), 2);
+
+        // Check message_count on session
+        let got = store.get_session(&session.id).unwrap();
+        assert_eq!(got.message_count, 2);
 
         // Update usage
         store
@@ -620,25 +657,26 @@ mod tests {
             .add_usage(&session.id, "gpt-4o", "openai", 500, 250, 0.045)
             .unwrap();
 
-        let usage = store.get_session_usage(&session.id).unwrap();
-        assert_eq!(usage.len(), 2);
-
         let total = store.get_total_usage().unwrap();
-        assert_eq!(total.len(), 2);
+        assert_eq!(total.len(), 1); // same day + model + provider aggregated
+        assert_eq!(total[0].token_input, 1500);
+        assert_eq!(total[0].token_output, 750);
+        assert_eq!(total[0].request_count, 2);
     }
 
     #[test]
     fn test_provider_crud() {
         let store = test_store();
 
-        let provider = ProviderInfo {
+        let provider = ProviderRecord {
             id: "openai-main".to_string(),
             name: "OpenAI".to_string(),
             provider_type: "openai".to_string(),
             base_url: "https://api.openai.com/v1".to_string(),
-            api_key_encrypted: None,
+            api_key_set: false,
             models: Some(r#"[]"#.to_string()),
             enabled: true,
+            created_at: chrono::Utc::now().to_rfc3339(),
         };
 
         store.upsert_provider(&provider).unwrap();
@@ -647,13 +685,16 @@ mod tests {
 
         let got = store.get_provider("openai-main").unwrap();
         assert_eq!(got.name, "OpenAI");
+        assert!(!got.api_key_set);
 
         // Update
         let mut updated = provider.clone();
         updated.name = "OpenAI Pro".to_string();
+        updated.api_key_set = true;
         store.upsert_provider(&updated).unwrap();
         let got = store.get_provider("openai-main").unwrap();
         assert_eq!(got.name, "OpenAI Pro");
+        assert!(got.api_key_set);
 
         // Delete
         store.delete_provider("openai-main").unwrap();
