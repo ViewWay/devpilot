@@ -3,9 +3,9 @@
 ## 项目概况
 
 - **版本**: 0.3.0 (开发中)
-- **后端**: 12 Rust crates, 163 tests, 全部通过
-- **前端**: 49+ TS/TSX 文件, ~9,500 行
-- **IPC**: 51 个 Tauri 命令已注册
+- **后端**: 12 Rust crates, 12,250+ 行, 202 tests, 全部通过
+- **前端**: 55+ TS/TSX 文件, ~10,200 行, 142 tests (11 files)
+- **IPC**: 51 个 Tauri 命令已注册 (28 个 #[tauri::command])
 - **编译**: cargo build OK, cargo clippy OK, tsc OK
 
 ---
@@ -34,11 +34,12 @@
 
 ## Phase 4: 打磨 (P3) — 进行中
 
-- [ ] **P3-1** 前端测试补充: LLM 交互/流式/persistence 测试 (部分完成: 100 tests / 9 files)
+- [x] **P3-1** 前端测试补充: LLM 交互/流式/persistence 测试 (142 tests / 11 files)
 - [x] **P3-2** i18n 完善: 所有 UI 文本中英文覆盖 (SchedulerPage 已完成)
 - [x] **P3-3** 错误处理统一: toast + tracing (errors.ts + persistence.ts + SchedulerPage)
-- [ ] **P3-4** E2E 测试: Tauri 集成测试
+- [x] **P3-4** E2E 测试: 10 个 Tauri 集成测试 (Session/Message/Settings/Provider/Checkpoint/FullFlow)
 - [x] **P3-5** Checkpoint 前端 UI: 历史记录面板 + rewind 操作 (commit 7d7d304)
+- [x] **P3-6** Chinese Provider 支持: GLM/Qwen/DeepSeek 类型+模型目录+工厂注册
 
 ---
 
@@ -46,8 +47,8 @@
 
 ### Rust Crates (12)
 
-- [x] devpilot-protocol (470行, 34 tests) — 共享类型
-- [x] devpilot-llm (2,785行, 2 tests) — 多Provider LLM客户端
+- [x] devpilot-protocol (494行, 36 tests) — 共享类型 (含 GLM/Qwen/DeepSeek ProviderType)
+- [x] devpilot-llm (2,910行, 48 tests) — 多Provider LLM客户端 (含 chinese.rs 模型目录)
 - [x] devpilot-store (1,400行, 10 tests) — SQLite持久化 + AES加密 + Checkpoint + MCP Servers
 - [x] devpilot-tools (1,835行, 28 tests) — 工具注册+4内置工具
 - [x] devpilot-core (1,311行, 16 tests) — Agent引擎+Session+EventBus+ContextCompactor
@@ -56,9 +57,9 @@
 - [x] devpilot-scheduler (562行, 12 tests) — Cron调度器
 - [x] devpilot-bridge (799行, 6 tests) — IM通知桥接
 - [x] devpilot-media (544行, 8 tests) — 图像生成
-- [x] devpilot-mcp (~730行, 4 tests) — MCP客户端 (stdio/SSE transport + tool discovery)
+- [x] devpilot-mcp (~730行, 32 tests) — MCP客户端 (stdio/SSE transport + tool discovery)
 
-### Tauri IPC (51命令)
+### Tauri IPC (51命令, 28 个 #[tauri::command])
 
 - [x] Session CRUD (5)
 - [x] Message CRUD (3)
@@ -76,7 +77,7 @@
 - [x] Context compaction (1)
 - [x] MCP CRUD+connect/disconnect/list (6)
 
-### 前端 (55+文件, ~10,000行)
+### 前端 (55+文件, ~10,200行, 142 tests)
 
 - [x] ChatPanel + MessageList + MessageInput + CodeBlock + ToolCallView
 - [x] ApprovalOverlay → ApprovalQueue (工具审批 UI)
@@ -89,6 +90,15 @@
 - [x] Provider 持久化 + 加密 API key 水合
 - [x] 上下文压缩 /compact 命令
 - [x] Checkpoint 前端面板 + rewind (P3-5)
+- [x] 统一错误处理 (errors.ts + reportError)
+
+### 测试覆盖
+
+- 后端: 202 Rust tests (12 crates + 10 E2E, 全部通过)
+- 前端: 142 tests (11 files, 全部通过)
+  - components: MessageInput.test.tsx, Sidebar.test.tsx
+  - stores: chatStore, providerStore, usageStore, uiStore, schedulerStore, checkpointStore, streaming
+  - lib: errors.test.ts, persistence.test.ts
 
 ### 开发时间线
 
@@ -103,3 +113,5 @@
 - 2026-04-19 Session I: MCP Client P2-3 (852a0d5→36f82ef)
 - 2026-04-19 Session J: Checkpoint 前端 UI P3-5 (36f82ef→HEAD)
 - 2026-04-19 Session K: P3-2 i18n + P3-3 错误处理 + P3-1 测试补充
+- 2026-04-19 Session L: P3-6 Chinese Provider (GLM/Qwen/DeepSeek) + P3-1 测试完善
+- 2026-04-19 Session M: P3-4 E2E 集成测试 (10 tests: Session/Message/Settings/Provider/Checkpoint/FullFlow)

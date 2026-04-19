@@ -25,9 +25,9 @@ function mapProviderType(providerId: string): string {
   if (providerId.includes("openrouter")) { return "openrouter"; }
   if (providerId.includes("ollama")) { return "ollama"; }
   if (providerId.includes("google")) { return "google"; }
-  if (providerId.includes("qwen")) { return "openai"; }    // Qwen uses OpenAI-compatible API
-  if (providerId.includes("deepseek")) { return "openai"; } // DeepSeek uses OpenAI-compatible API
-  if (providerId.includes("zhipu")) { return "openai"; }    // 智谱 uses OpenAI-compatible API
+  if (providerId.includes("qwen")) { return "qwen"; }
+  if (providerId.includes("deepseek")) { return "deepseek"; }
+  if (providerId.includes("zhipu") || providerId.includes("glm")) { return "glm"; }
   if (providerId.includes("openai")) { return "openai"; }
   return "custom";
 }

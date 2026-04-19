@@ -283,6 +283,12 @@ pub enum ProviderType {
     OpenRouter,
     Google,
     Ollama,
+    /// 智谱 GLM (智谱清言)
+    GLM,
+    /// 通义千问 Qwen (阿里云)
+    Qwen,
+    /// DeepSeek (深度求索)
+    DeepSeek,
     Custom,
 }
 
@@ -294,6 +300,9 @@ impl std::fmt::Display for ProviderType {
             Self::OpenRouter => write!(f, "openrouter"),
             Self::Google => write!(f, "google"),
             Self::Ollama => write!(f, "ollama"),
+            Self::GLM => write!(f, "glm"),
+            Self::Qwen => write!(f, "qwen"),
+            Self::DeepSeek => write!(f, "deepseek"),
             Self::Custom => write!(f, "custom"),
         }
     }
@@ -466,5 +475,24 @@ mod tests {
     fn provider_type_display() {
         assert_eq!(ProviderType::Anthropic.to_string(), "anthropic");
         assert_eq!(ProviderType::Ollama.to_string(), "ollama");
+        assert_eq!(ProviderType::GLM.to_string(), "glm");
+        assert_eq!(ProviderType::Qwen.to_string(), "qwen");
+        assert_eq!(ProviderType::DeepSeek.to_string(), "deepseek");
+    }
+
+    #[test]
+    fn provider_type_serde_roundtrip() {
+        for pt in [
+            ProviderType::Anthropic,
+            ProviderType::OpenAI,
+            ProviderType::GLM,
+            ProviderType::Qwen,
+            ProviderType::DeepSeek,
+            ProviderType::Ollama,
+        ] {
+            let json = serde_json::to_string(&pt).unwrap();
+            let parsed: ProviderType = serde_json::from_str(&json).unwrap();
+            assert_eq!(pt, parsed);
+        }
     }
 }

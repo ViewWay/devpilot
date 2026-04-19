@@ -62,6 +62,16 @@ impl ProviderRegistry {
         self.register(ProviderType::Google, |config| {
             Box::new(OpenAiProvider::new(config))
         });
+        // Chinese providers — all use OpenAI-compatible APIs
+        self.register(ProviderType::GLM, |config| {
+            Box::new(OpenAiProvider::new(config))
+        });
+        self.register(ProviderType::Qwen, |config| {
+            Box::new(OpenAiProvider::new(config))
+        });
+        self.register(ProviderType::DeepSeek, |config| {
+            Box::new(OpenAiProvider::new(config))
+        });
     }
 
     /// Register a factory function for a provider type.
@@ -169,6 +179,10 @@ mod tests {
         assert!(registry.has_provider(&ProviderType::Anthropic));
         assert!(registry.has_provider(&ProviderType::Ollama));
         assert!(registry.has_provider(&ProviderType::Google));
+        // Chinese providers
+        assert!(registry.has_provider(&ProviderType::GLM));
+        assert!(registry.has_provider(&ProviderType::Qwen));
+        assert!(registry.has_provider(&ProviderType::DeepSeek));
     }
 
     #[test]
@@ -218,6 +232,33 @@ mod tests {
         assert!(types.contains(&ProviderType::OpenAI));
         assert!(types.contains(&ProviderType::Anthropic));
         assert!(types.contains(&ProviderType::Ollama));
-        assert!(types.len() >= 5);
+        assert!(types.contains(&ProviderType::GLM));
+        assert!(types.contains(&ProviderType::Qwen));
+        assert!(types.contains(&ProviderType::DeepSeek));
+        assert!(types.len() >= 8);
+    }
+
+    #[test]
+    fn create_glm_provider() {
+        let registry = ProviderRegistry::with_defaults();
+        let config = test_config(ProviderType::GLM);
+        let provider = registry.create(config).unwrap();
+        assert_eq!(provider.name(), "glm Test");
+    }
+
+    #[test]
+    fn create_qwen_provider() {
+        let registry = ProviderRegistry::with_defaults();
+        let config = test_config(ProviderType::Qwen);
+        let provider = registry.create(config).unwrap();
+        assert_eq!(provider.name(), "qwen Test");
+    }
+
+    #[test]
+    fn create_deepseek_provider() {
+        let registry = ProviderRegistry::with_defaults();
+        let config = test_config(ProviderType::DeepSeek);
+        let provider = registry.create(config).unwrap();
+        assert_eq!(provider.name(), "deepseek Test");
     }
 }

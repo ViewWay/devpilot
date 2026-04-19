@@ -600,3 +600,41 @@ New test files:
 | Files          | 52            | 55            |
 
 **QA:** `tsc --noEmit` zero errors, `vitest run` 100/100 pass, `cargo build` + `cargo clippy` clean
+
+---
+
+## Session L — 2026-04-19 (文档更新 + P3-1 前端测试)
+
+**Goal:** 更新项目文档，补充 P3-1 前端测试（persistence + streaming）。
+
+### P3-1: 前端测试补充
+
+1. `src/__tests__/lib/persistence.test.ts` — 26 tests (save/load/delete session, save/load messages, settings CRUD, provider hydration)
+2. `src/__tests__/stores/streaming.test.ts` — 16 tests (mock streaming path: chunk accumulation, abort, tool events, error handling, done event)
+
+**Frontend tests: 142 across 11 files, all passing**
+
+---
+
+## Session M — 2026-04-19 (P3-4 E2E 集成测试)
+
+**Goal:** 完成 P3-4 E2E 集成测试，使用 `Store::open_in_memory()` 测试完整 IPC 数据路径。
+
+### P3-4: E2E 集成测试 ✅
+
+**文件:** `src-tauri/tests/e2e_test.rs` — 10 tests
+
+1. `test_session_crud_lifecycle` — create → get → list → update title → delete
+2. `test_message_crud_lifecycle` — add user/assistant → list → update content
+3. `test_settings_crud` — set → get → list → upsert → missing key
+4. `test_provider_lifecycle_with_encryption` — upsert with key → list → decrypt → delete
+5. `test_checkpoint_create_list_rewind` — 4 msgs → checkpoint → rewind → verify cleanup
+6. `test_multi_session_isolation` — 2 sessions, messages isolated, delete cascade
+7. `test_full_chat_flow` — session → messages → checkpoint → continue → rewind → update title
+8. `test_multiple_providers` — 2 providers, mixed API key state
+9. `test_settings_unicode_and_long_values` — Unicode keys/values, long JSON config
+10. `test_session_with_working_dir_and_mode` — default mode "code", tool-use/tool-result messages
+
+**关键发现:** `create_session` 默认 mode 是 `"code"` 而非 `"agent"`
+
+**Total tests:** 202 Rust (192 crate + 10 E2E) + 142 frontend = **344 tests, all passing**

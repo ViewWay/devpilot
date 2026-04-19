@@ -5,6 +5,7 @@
 //! common `Provider` trait.
 
 pub mod anthropic;
+pub mod chinese;
 pub mod error;
 pub mod ollama;
 pub mod openai;
@@ -13,6 +14,7 @@ pub mod registry;
 pub mod types;
 
 pub use anthropic::{AnthropicProvider, create_anthropic_provider};
+pub use chinese::{deepseek_config, glm_config, qwen_config};
 pub use error::LlmError;
 pub use ollama::OllamaProvider;
 pub use openai::{OpenAiProvider, create_openai_provider};

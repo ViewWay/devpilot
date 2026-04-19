@@ -4,6 +4,19 @@ All notable changes to DevPilot will be documented in this file.
 
 ## [0.3.0] — 2026-04-19 (In Progress)
 
+### Added — Chinese Provider Support (P3-6)
+
+- `ProviderType` enum: added `GLM`, `Qwen`, `DeepSeek` variants (serde-compatible)
+- `devpilot-llm/chinese.rs`: model catalogs for 3 Chinese providers (16 models total)
+  - GLM: glm-4-plus, glm-4-flash (free), glm-4-air, glm-4-long, glm-4v
+  - Qwen: qwen-max, qwen-plus, qwen-turbo, qwen-long, qwen-vl-max, qwq-32b
+  - DeepSeek: deepseek-chat (V3), deepseek-reasoner (R1), deepseek-coder
+- Preset config factories: `glm_config()`, `qwen_config()`, `deepseek_config()`
+- Provider registry: all Chinese providers registered (OpenAI-compatible API)
+- Frontend `mapProviderType`: maps Chinese provider IDs to correct type strings
+- 15 new Rust tests (protocol serde, chinese models, registry creation)
+- 42 new frontend tests (persistence + streaming stores)
+
 ### Added — Frontend Integration
 
 - Router system: react-router-dom with /chat /scheduler /gallery /settings routes
@@ -101,10 +114,41 @@ All notable changes to DevPilot will be documented in this file.
 - Tests: `errors.test.ts` (8 tests), `schedulerStore.test.ts` (6 tests), `checkpointStore.test.ts` (7 tests)
 - Frontend test count: 100 tests across 9 files, all passing
 
+### Added — P3-4 E2E Integration Tests
+
+- `src-tauri/tests/e2e_test.rs` — 10 end-to-end tests exercising Store→SQLite via `Store::open_in_memory()`
+  - Session CRUD lifecycle (create/read/list/update/delete)
+  - Message CRUD lifecycle (add/list/update content)
+  - Settings CRUD (get/set/list/upsert/unicode/long JSON)
+  - Provider lifecycle with encrypted API key roundtrip
+  - Checkpoint create/list/rewind with message cleanup
+  - Multi-session isolation verification
+  - Full chat flow simulation (session → messages → checkpoint → rewind → update title)
+  - Multiple providers with mixed API key state
+  - Session with tool-use and tool-result messages
+- `src-tauri/Cargo.toml`: added `[dev-dependencies] chrono`
+- Total Rust tests: 202 (192 crate tests + 10 E2E)
+
+### Stats (as of HEAD)
+
+| Metric         | Value                          |
+| -------------- | ------------------------------ |
+| Rust crates    | 12 crates, 12,116 LOC          |
+| Rust tests     | 202 tests, all passing         |
+| Frontend       | 55+ files, ~10,007 LOC         |
+| Frontend tests | 142 tests (11 files), all pass |
+| IPC commands   | 51 registered (28 #[command])  |
+| i18n keys      | 249 (EN + CN)                  |
+
 ### Fixed
 
 - Unused `mut` and variable warnings in scheduler tests
 - Unused `ResourceLimits` import in sandbox tests
+- **IPC resolve_tool_approval mismatch** — frontend sent `{ callId, approved }` but backend expected `{ request: { requestId, approved } }`. Corrected both ipc.ts and chatStore.ts.
+- **Stream race condition** — early stream events missed because listeners registered after `invoke()`. Moved listener setup before the invoke call.
+- **Sidebar navigation** — settings/scheduler/gallery buttons had no navigation handlers. Wired to `useNavigate()`.
+- **Model disappear** — switching providers could leave invalid model selected. Auto-select first available model.
+- **Unused imports** — multiple clippy warnings from stale imports after refactoring.
 
 ### Changed
 
@@ -114,14 +158,6 @@ All notable changes to DevPilot will be documented in this file.
 - SettingsPage: expanded ProviderCard with full model CRUD form
 - Sidebar settings button: now uses `navigate('/settings')` instead of `setActiveView`
 - Removed DemoApproval overlay from production chat rendering
-
-### Fixed
-
-- **IPC resolve_tool_approval mismatch** — frontend sent `{ callId, approved }` but backend expected `{ request: { requestId, approved } }`. Corrected both ipc.ts and chatStore.ts.
-- **Stream race condition** — early stream events missed because listeners registered after `invoke()`. Moved listener setup before the invoke call.
-- **Sidebar navigation** — settings/scheduler/gallery buttons had no navigation handlers. Wired to `useNavigate()`.
-- **Model disappear** — switching providers could leave invalid model selected. Auto-select first available model.
-- **Unused imports** — multiple clippy warnings from stale imports after refactoring.
 
 ---
 
