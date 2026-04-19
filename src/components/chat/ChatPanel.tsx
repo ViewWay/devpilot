@@ -3,9 +3,11 @@ import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { ApprovalQueue } from "./ApprovalOverlay";
 import { CheckpointPanel } from "./CheckpointPanel";
+import { SessionPanelView } from "./SessionPanelView";
 import { useChatStore } from "../../stores/chatStore";
 import { useUIStore } from "../../stores/uiStore";
 import { SplitView } from "../layout/SplitView";
+import { DualSessionSplitView } from "../layout/DualSessionSplitView";
 import { FilesPanel } from "../panels/FilesPanel";
 import { TerminalPanel } from "../panels/TerminalPanel";
 import { PreviewPanel } from "../panels/PreviewPanel";
@@ -105,6 +107,9 @@ function RightContent() {
 
 export function ChatPanel() {
   const rightPanel = useUIStore((s) => s.rightPanel);
+  const splitViewActive = useUIStore((s) => s.splitViewActive);
+  const secondarySessionId = useUIStore((s) => s.secondarySessionId);
+  const closeSplitView = useUIStore((s) => s.closeSplitView);
   const [checkpointOpen, setCheckpointOpen] = useState(false);
 
   const chatContent = (
@@ -125,6 +130,34 @@ export function ChatPanel() {
       <CheckpointPanel open={checkpointOpen} onClose={() => setCheckpointOpen(false)} />
     </div>
   );
+
+  // When split view is active, render dual session layout
+  if (splitViewActive && secondarySessionId) {
+    const primaryPanel = <SessionPanelView />;
+    const secondaryPanel = (
+      <SessionPanelView
+        sessionId={secondarySessionId}
+        isSecondary
+        onClose={closeSplitView}
+      />
+    );
+
+    // If right panel is also open, nest split views
+    if (rightPanel !== "none") {
+      return (
+        <SplitView
+          left={
+            <DualSessionSplitView primary={primaryPanel} secondary={secondaryPanel} />
+          }
+          right={<RightContent />}
+        />
+      );
+    }
+
+    return (
+      <DualSessionSplitView primary={primaryPanel} secondary={secondaryPanel} />
+    );
+  }
 
   if (rightPanel === "none") {
     return chatContent;

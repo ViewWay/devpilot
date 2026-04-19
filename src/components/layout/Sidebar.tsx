@@ -205,7 +205,27 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
 
   // Close mobile sidebar on session select
   const handleSelectSession = (id: string) => {
-    setActiveSession(id);
+    const { splitViewActive, secondarySessionId, setSecondarySession } = useUIStore.getState();
+    if (splitViewActive) {
+      // In split view: if clicking the session that's already active, do nothing.
+      // If clicking the secondary session, swap it to primary.
+      // Otherwise, set the clicked session as secondary.
+      if (id === activeSessionId) {
+        // Already primary — do nothing
+      } else if (id === secondarySessionId) {
+        // It's the secondary — swap primary and secondary
+        setActiveSession(id);
+        if (secondarySessionId && activeSessionId) {
+          // The old primary becomes secondary
+          setSecondarySession(activeSessionId);
+        }
+      } else {
+        // New session — set as secondary
+        setSecondarySession(id);
+      }
+    } else {
+      setActiveSession(id);
+    }
     if (window.innerWidth < 768) {
       useUIStore.getState().setSidebarOpen(false);
     }
@@ -244,6 +264,8 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
   }, [filtered]);
 
   const archivedSessions = sessions.filter((s) => s.archived);
+  const splitViewActive = useUIStore((s) => s.splitViewActive);
+  const secondarySessionId = useUIStore((s) => s.secondarySessionId);
 
   return (
     <div className="flex-1 overflow-y-auto px-2 py-1">
@@ -260,6 +282,7 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
             </div>
             {group.sessions.map((session) => {
               const isActive = session.id === activeSessionId;
+              const isSecondary = splitViewActive && session.id === secondarySessionId;
               return (
                 <div
                   key={session.id}
@@ -267,7 +290,9 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
                     "group flex items-center gap-2 rounded-lg px-2 py-1.5 cursor-pointer transition-colors",
                     isActive
                       ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                      : isSecondary
+                        ? "bg-primary/10 text-foreground border border-primary/30"
+                        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
                   )}
                   onClick={() => handleSelectSession(session.id)}
                   onContextMenu={(e) => {

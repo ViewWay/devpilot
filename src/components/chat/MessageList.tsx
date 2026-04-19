@@ -11,8 +11,12 @@ import { toast } from "../../stores/toastStore";
 import type { Message } from "../../types";
 import { useI18n } from "../../i18n";
 
-export function MessageList() {
-  const session = useChatStore((s) => s.activeSession());
+export function MessageList({ sessionId }: { sessionId?: string } = {}) {
+  const session = useChatStore((s) =>
+    sessionId
+      ? s.sessions.find((sess) => sess.id === sessionId)
+      : s.activeSession(),
+  );
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom on new messages

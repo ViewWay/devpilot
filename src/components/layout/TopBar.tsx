@@ -3,7 +3,7 @@ import { useI18n } from "../../i18n";
 import { useUIStore } from "../../stores/uiStore";
 import { useProviderStore } from "../../stores/providerStore";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Sun, Moon, Monitor, PanelLeftClose, PanelLeft, ChevronDown, Settings, FolderOpen, Terminal, Eye, SlidersHorizontal, FolderCog } from "lucide-react";
+import { Sun, Moon, Monitor, PanelLeftClose, PanelLeft, ChevronDown, Settings, FolderOpen, Terminal, Eye, SlidersHorizontal, FolderCog, Columns2 } from "lucide-react";
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { cn } from "../../lib/utils";
 import { isTauriRuntime } from "../../lib/ipc";
@@ -59,6 +59,8 @@ export function TopBar() {
   const toggleRightPanel = useUIStore((s) => s.toggleRightPanel);
   const reasoningEffort = useUIStore((s) => s.reasoningEffort);
   const setReasoningEffort = useUIStore((s) => s.setReasoningEffort);
+  const splitViewActive = useUIStore((s) => s.splitViewActive);
+  const toggleSplitView = useUIStore((s) => s.toggleSplitView);
 
   // Subscribe to provider store
   const providers = useProviderStore((s) => s.providers);
@@ -253,6 +255,18 @@ export function TopBar() {
         <>
           <div className="h-4 w-px bg-border" />
           <div className="flex items-center gap-0.5">
+            <button
+              onClick={() => toggleSplitView()}
+              className={cn(
+                "flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-accent",
+                splitViewActive
+                  ? "bg-accent text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              title={t("splitView")}
+            >
+              <Columns2 size={14} />
+            </button>
             <button
               onClick={() => toggleRightPanel("files")}
               className={cn(

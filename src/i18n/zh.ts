@@ -326,6 +326,11 @@ const zh: Record<string, string> = {
   searchMemoriesPlaceholder: "搜索人设文件和每日记忆...",
   noSearchResults: "未找到结果",
   personaNoWorkspace: "请打开工作目录以管理人设文件",
+
+  // --- Split View ---
+  splitView: "分屏视图",
+  splitViewDesc: "并排查看两个聊天会话",
+  noSessionSelected: "未选择会话",
 };
 
 export default zh;

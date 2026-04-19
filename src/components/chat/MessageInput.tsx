@@ -49,7 +49,7 @@ function isImageType(type: string): boolean {
   return type.startsWith("image/");
 }
 
-export function MessageInput() {
+export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
   const { t } = useI18n();
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -64,6 +64,7 @@ export function MessageInput() {
   const isStreaming = !!streamingMessageId;
   const selectedModel = useUIStore((s) => s.selectedModel);
   const sendMessage = useChatStore((s) => s.sendMessage);
+  const setActiveSession = useChatStore((s) => s.setActiveSession);
 
   // Filter commands based on input
   const filteredCommands = input.startsWith("/") && !input.includes(" ")
@@ -162,14 +163,26 @@ export function MessageInput() {
     if ((!trimmed && attachments.length === 0) || isLoading) {return;}
     // For now, send text only; attachments will be passed to real LLM later
     if (trimmed) {
-      sendMessage(trimmed, selectedModel.name);
+      // If a specific sessionId is provided (e.g. in split view),
+      // temporarily switch to that session for sending.
+      if (sessionId) {
+        const prev = useChatStore.getState().activeSessionId;
+        setActiveSession(sessionId);
+        sendMessage(trimmed, selectedModel.name);
+        // Restore previous active session after a tick
+        if (prev) {
+          setTimeout(() => setActiveSession(prev), 0);
+        }
+      } else {
+        sendMessage(trimmed, selectedModel.name);
+      }
     }
     setInput("");
     setAttachments([]);
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
-  }, [input, isLoading, sendMessage, selectedModel.name, attachments]);
+  }, [input, isLoading, sendMessage, selectedModel.name, attachments, sessionId, setActiveSession]);
 
   const handleStop = useCallback(() => {
     useChatStore.getState().abortStreaming();

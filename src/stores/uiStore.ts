@@ -61,9 +61,28 @@ interface UIState {
 
   sandboxPolicy: "default" | "permissive" | "strict";
   setSandboxPolicy: (policy: "default" | "permissive" | "strict") => void;
+
+  // Split View (dual session)
+  splitViewActive: boolean;
+  secondarySessionId: string | null;
+  splitViewSize: number; // percentage 20-80, default 50
+  toggleSplitView: (sessionId?: string) => void;
+  closeSplitView: () => void;
+  setSecondarySession: (sessionId: string) => void;
+  setSplitViewSize: (size: number) => void;
 }
 
-export const useUIStore = create<UIState>((set) => ({
+/** Lazy reference to chatStore — avoids circular dependency at module level. */
+let _getChatState: (() => { sessions: Array<{ id: string; archived?: boolean }>; activeSessionId: string | null }) | null = null;
+
+/** Called once from chatStore to register the accessor. */
+export function registerChatStoreAccessor(
+  getter: () => { sessions: Array<{ id: string; archived?: boolean }>; activeSessionId: string | null },
+) {
+  _getChatState = getter;
+}
+
+export const useUIStore = create<UIState>((set, get) => ({
   sidebarOpen: true,
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
@@ -110,4 +129,26 @@ export const useUIStore = create<UIState>((set) => ({
 
   sandboxPolicy: "default",
   setSandboxPolicy: (policy) => set({ sandboxPolicy: policy }),
+
+  splitViewActive: false,
+  secondarySessionId: null,
+  splitViewSize: 50,
+  toggleSplitView: (sessionId) => {
+    const s = get();
+    if (s.splitViewActive) {
+      set({ splitViewActive: false, secondarySessionId: null });
+      return;
+    }
+    // Pick a secondary session: use provided id, or auto-pick the first non-active session
+    let secondaryId = sessionId ?? null;
+    if (!secondaryId && _getChatState) {
+      const chatState = _getChatState();
+      secondaryId =
+        chatState.sessions.find((sess) => sess.id !== chatState.activeSessionId && !sess.archived)?.id ?? null;
+    }
+    set({ splitViewActive: true, secondarySessionId: secondaryId });
+  },
+  closeSplitView: () => set({ splitViewActive: false, secondarySessionId: null }),
+  setSecondarySession: (sessionId) => set({ secondarySessionId: sessionId }),
+  setSplitViewSize: (size) => set({ splitViewSize: Math.max(20, Math.min(80, size)) }),
 }));

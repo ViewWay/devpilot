@@ -326,6 +326,11 @@ const en: Record<string, string> = {
   searchMemoriesPlaceholder: "Search across persona files and daily memories...",
   noSearchResults: "No results found",
   personaNoWorkspace: "Open a workspace directory to manage persona files",
+
+  // --- Split View ---
+  splitView: "Split View",
+  splitViewDesc: "View two chat sessions side-by-side",
+  noSessionSelected: "No session selected",
 };
 
 export default en;
