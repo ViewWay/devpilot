@@ -20,8 +20,8 @@
 
 ### P4-A: 核心面板真实化 (Critical)
 
-- [ ] **P4-1** TerminalPanel: 接入 sandbox_execute IPC, 实现 PTY 流式终端
-- [ ] **P4-2** FileTree: 接入 search_files IPC, 显示真实工作目录文件
+- [x] **P4-1** TerminalPanel: 接入 sandbox_execute IPC, 彩色 stdout/stderr + exit code (556d11c)
+- [x] **P4-2** FileTree: 接入 search_files IPC, 真实目录文件树 + 展开/折叠 (83ef696)
 - [ ] **P4-3** PreviewPanel: 接入真实文件读取 + diff 显示
 
 ### P4-B: Agent 事件完整接入 (Critical)
@@ -32,8 +32,8 @@
 
 ### P4-C: 开发者体验 (High)
 
-- [ ] **P4-7** 工作目录选择器: TopBar 或 session 属性, dialog 选目录
-- [ ] **P4-8** System Prompt 编辑器: 设置页 + ChatPanel 可折叠区域
+- [x] **P4-7** 工作目录选择器: TopBar Tauri dialog 原生目录选择器 (556d11c)
+- [x] **P4-8** System Prompt 编辑器: ChatPanel 可折叠区域 (556d11c)
 - [ ] **P4-9** 对话导出: JSON/Markdown 格式导出
 
 ### P4-D: 设置完善 (Medium)
@@ -44,7 +44,7 @@
 
 ### P4-E: 清理 & 配置 (Low)
 
-- [ ] **P4-13** 删除 dead Header.tsx, 修复重复 useKeyboardShortcuts
+- [x] **P4-13** 删除 dead Header.tsx, useTauri.ts, 重复快捷键 (2c6d966)
 - [ ] **P4-14** tauri.conf.json: 版本号 + 标题栏 + 图标
 - [ ] **P4-15** i18n 修补: loading/mode keys
 

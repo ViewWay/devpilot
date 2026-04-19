@@ -638,3 +638,54 @@ New test files:
 **关键发现:** `create_session` 默认 mode 是 `"code"` 而非 `"agent"`
 
 **Total tests:** 202 Rust (192 crate + 10 E2E) + 142 frontend = **344 tests, all passing**
+
+---
+
+## Session N — 2026-04-19 (P4 开始 — 清理 + 面板真实化)
+
+**Goal:** Phase 4 实用化 — 清理 dead code，核心面板接入真实 IPC。
+
+### P4-13: Dead Code 清除 (2c6d966)
+
+- 删除 `src/hooks/useTauri.ts` (254行) — 旧版 mock 流式实现
+- 删除 `src/components/layout/Header.tsx` (76行) — 被 TopBar 替代的旧组件
+- 移除 `App.tsx` 中重复的 `useKeyboardShortcuts` 注册
+- 更新 TODO.md
+
+### Fix: TypeScript 编译错误 (83ef696)
+
+- `types/index.ts`: Message role 添加 `"system"` 变体
+- `uiStore.ts`: 添加 `previewFile`/`setPreviewFile` 实现
+- `FileTree.tsx`: 真实文件树实现 — 展开/折叠目录 + search_files IPC
+- 测试修复: void unused sessionId, non-null assertions
+
+### P4-1 + P4-7 + P4-8: 核心面板真实化 (556d11c)
+
+1. **TerminalPanel** — 接入 `sandbox_execute` IPC
+   - 彩色 stdout (白) / stderr (红) 输出
+   - 显示 exit code
+   - 命令历史 + 输入框
+
+2. **工作目录选择器** — TopBar 原生 folder picker
+   - Tauri `dialog::open()` 原生对话框
+   - 选中目录显示在 TopBar
+   - 通过 chatStore 传递给 agent
+
+3. **System Prompt 编辑器** — ChatPanel 可折叠区域
+   - 消息输入框上方可折叠文本区
+   - 输入内容作为 system message 注入消息流
+   - chatStore: `setSystemPrompt()` + 注入逻辑
+
+4. **i18n**: 5 个新 key (systemPrompt, systemPromptPlaceholder, selectWorkingDir, workingDirectory, refresh)
+
+### Stats
+
+| Metric         | Before (587aa31) | After (556d11c)     |
+| -------------- | ---------------- | ------------------- |
+| P4 tasks done  | 0/15             | 5/15                |
+| Files changed  | —                | 18 files, +371 -402 |
+| Rust tests     | 202              | 202                 |
+| Frontend tests | 142              | 142                 |
+| tsc --noEmit   | clean            | clean               |
+
+**QA:** `cargo test --workspace` 202 pass, `vitest run` 142 pass, `tsc --noEmit` clean, `cargo clippy` clean

@@ -2,7 +2,27 @@
 
 All notable changes to DevPilot will be documented in this file.
 
-## [0.3.0] — 2026-04-19 (In Progress)
+## [0.4.0] — 2026-04-19 (In Progress)
+
+### Added — Phase 4 Practical Features
+
+- TerminalPanel: integrate `sandbox_execute` IPC for real command execution with colored stdout/stderr + exit codes
+- FileTree: real directory file tree with expand/collapse, powered by `search_files` IPC
+- System Prompt editor: collapsible text area above message input in ChatPanel, injected into message stream
+- Working directory selector: TopBar native folder picker via Tauri dialog API, forwarded to agent
+- `Message` role union: added `"system"` variant for system prompt messages
+- uiStore: `previewFile`/`setPreviewFile` state for file preview panel
+- i18n: system prompt, working directory, refresh keys (EN + CN)
+
+### Fixed — TypeScript & Dead Code Cleanup
+
+- Resolved all TypeScript compilation errors (role union, uiStore missing methods, unused params)
+- Removed dead code: `useTauri.ts` (254 lines), `Header.tsx` (76 lines), duplicate keyboard shortcut registration
+- Updated TODO.md to reflect P4 progress
+
+---
+
+## [0.3.0] — 2026-04-19
 
 ### Added — Chinese Provider Support (P3-6)
 
