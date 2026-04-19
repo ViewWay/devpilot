@@ -441,6 +441,9 @@ impl Store {
     }
 
     /// Add or update a provider.
+    ///
+    /// If `api_key` is provided in the provider record, it will be encrypted
+    /// before storage. Use `upsert_provider_with_key` for the high-level API.
     pub fn upsert_provider(&self, provider: &ProviderRecord) -> Result<()> {
         self.conn.execute(
             "INSERT OR REPLACE INTO providers (id, name, type, base_url, api_key_encrypted, models, enabled, created_at)
@@ -457,6 +460,57 @@ impl Store {
             ],
         )?;
         Ok(())
+    }
+
+    /// Add or update a provider with an API key (encrypted at rest).
+    pub fn upsert_provider_with_key(
+        &self,
+        provider: &ProviderRecord,
+        api_key: Option<&str>,
+    ) -> Result<()> {
+        let encrypted = match api_key {
+            Some(key) if !key.is_empty() => {
+                Some(crate::crypto::encrypt(key).context("Failed to encrypt API key")?)
+            }
+            _ => None,
+        };
+        self.conn.execute(
+            "INSERT OR REPLACE INTO providers (id, name, type, base_url, api_key_encrypted, models, enabled, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            rusqlite::params![
+                provider.id,
+                provider.name,
+                provider.provider_type,
+                provider.base_url,
+                encrypted,
+                provider.models,
+                provider.enabled as i32,
+                provider.created_at,
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Get the decrypted API key for a provider.
+    pub fn get_provider_api_key(&self, id: &str) -> Result<Option<String>> {
+        let result: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT api_key_encrypted FROM providers WHERE id = ?1",
+                rusqlite::params![id],
+                |row| row.get(0),
+            )
+            .ok()
+            .flatten();
+
+        match result {
+            Some(encrypted) => {
+                let decrypted =
+                    crate::crypto::decrypt(&encrypted).context("Failed to decrypt API key")?;
+                Ok(Some(decrypted))
+            }
+            None => Ok(None),
+        }
     }
 
     /// Delete a provider.

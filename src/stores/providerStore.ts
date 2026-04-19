@@ -182,7 +182,10 @@ async function persistProvider(provider: Provider): Promise<void> {
       enabled: provider.enabled,
       createdAt: new Date().toISOString(),
     };
-    await invoke("upsert_provider", { provider: record });
+    await invoke("upsert_provider", {
+      provider: record,
+      apiKey: provider.apiKey || undefined,
+    });
   } catch {
     // Silently fail — persistence is best-effort
   }
@@ -208,26 +211,36 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
       const records = await invoke<ProviderRecordIPC[]>("list_providers");
       if (records.length > 0) {
         // Merge persisted records with defaults — persisted takes priority
-        const persisted: Provider[] = records.map((r) => ({
-          id: r.id,
-          name: r.name,
-          baseUrl: r.baseUrl,
-          apiKey: "", // API keys are never sent back from backend
-          enabled: r.enabled,
-          models: r.models ? JSON.parse(r.models).map((m: Record<string, unknown>) => ({
-            id: m.id as string,
-            name: m.name as string,
-            maxTokens: (m.maxInputTokens as number) || 128000,
-            supportsStreaming: (m.supportsStreaming as boolean) ?? true,
-            supportsVision: (m.supportsVision as boolean) ?? false,
-            inputPrice: m.inputPricePerMillion as number | undefined,
-            outputPrice: m.outputPricePerMillion as number | undefined,
-          })) : [],
-        }));
-        // Merge: start with defaults, overlay persisted (keeping API keys empty)
+        const persisted: Provider[] = [];
+        for (const r of records) {
+          // Restore API key from encrypted storage
+          let apiKey = "";
+          try {
+            const key = await invoke<string | null>("get_provider_api_key", { id: r.id });
+            apiKey = key ?? "";
+          } catch { /* ignore */ }
+
+          persisted.push({
+            id: r.id,
+            name: r.name,
+            baseUrl: r.baseUrl,
+            apiKey,
+            enabled: r.enabled,
+            models: r.models ? JSON.parse(r.models).map((m: Record<string, unknown>) => ({
+              id: m.id as string,
+              name: m.name as string,
+              maxTokens: (m.maxInputTokens as number) || 128000,
+              supportsStreaming: (m.supportsStreaming as boolean) ?? true,
+              supportsVision: (m.supportsVision as boolean) ?? false,
+              inputPrice: m.inputPricePerMillion as number | undefined,
+              outputPrice: m.outputPricePerMillion as number | undefined,
+            })) : [],
+          });
+        }
+        // Merge: start with defaults, overlay persisted (keeping restored API keys)
         const merged = DEFAULT_PROVIDERS.map((d) => {
           const found = persisted.find((p) => p.id === d.id);
-          return found ? { ...d, ...found, apiKey: d.apiKey } : d;
+          return found ? { ...d, ...found } : d;
         });
         // Add any persisted providers not in defaults
         for (const p of persisted) {

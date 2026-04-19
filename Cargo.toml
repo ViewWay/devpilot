@@ -35,3 +35,6 @@ async-trait = "0.1"
 eventsource-stream = "0.2"
 rusqlite = { version = "0.31", features = ["bundled"] }
 dirs = "6"
+aes-gcm = "0.10"
+base64 = "0.22"
+sha2 = "0.10"

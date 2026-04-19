@@ -45,6 +45,7 @@ pub fn run() {
             commands::list_providers,
             commands::get_provider,
             commands::upsert_provider,
+            commands::get_provider_api_key,
             commands::delete_provider,
             // LLM
             commands::llm::send_message,

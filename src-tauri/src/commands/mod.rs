@@ -166,11 +166,26 @@ pub fn get_provider(state: State<'_, AppState>, id: String) -> Result<ProviderRe
     db.get_provider(&id).map_err(|e| e.to_string())
 }
 
-/// Create or update a provider configuration.
+/// Create or update a provider configuration with optional API key.
 #[tauri::command(rename_all = "camelCase")]
-pub fn upsert_provider(state: State<'_, AppState>, provider: ProviderRecord) -> Result<(), String> {
+pub fn upsert_provider(
+    state: State<'_, AppState>,
+    provider: ProviderRecord,
+    api_key: Option<String>,
+) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.upsert_provider(&provider).map_err(|e| e.to_string())
+    db.upsert_provider_with_key(&provider, api_key.as_deref())
+        .map_err(|e| e.to_string())
+}
+
+/// Get the decrypted API key for a provider.
+#[tauri::command(rename_all = "camelCase")]
+pub fn get_provider_api_key(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<Option<String>, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.get_provider_api_key(&id).map_err(|e| e.to_string())
 }
 
 /// Delete a provider by ID.

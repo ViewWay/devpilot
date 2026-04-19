@@ -242,7 +242,8 @@ export interface IPCCommands {
   // Providers (persistent)
   list_providers: void;
   get_provider: { id: string };
-  upsert_provider: { provider: ProviderRecordIPC };
+  upsert_provider: { provider: ProviderRecordIPC; apiKey?: string };
+  get_provider_api_key: { id: string };
   delete_provider: { id: string };
 
   // Tools
