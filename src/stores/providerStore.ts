@@ -303,7 +303,12 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
     }));
   },
 
-  getEnabledProviders: () => get().providers.filter((p) => p.enabled && p.apiKey),
+  getEnabledProviders: () => get().providers.filter((p) => {
+    if (!p.enabled) { return false; }
+    // Local providers (Ollama, etc.) don't need API keys
+    const isLocal = p.baseUrl.includes("localhost") || p.baseUrl.includes("127.0.0.1");
+    return isLocal || !!p.apiKey;
+  }),
 
   getProviderById: (id) => get().providers.find((p) => p.id === id),
 }));

@@ -717,7 +717,8 @@ function handleSlashCommand(
 | \`/clear\` | Clear current conversation |
 | \`/model <name>\` | Switch active model |
 | \`/compact\` | Compact conversation history |
-| \`/cost\` | Show estimated cost (mock) |
+| \`/cost\` | Show estimated usage and cost |
+| \`/doctor\` | Run system health check |
 
 ### Tips
 - **Enter** to send, **Shift+Enter** for new line
@@ -787,7 +788,7 @@ function handleSlashCommand(
           .join("\n");
         get().addMessage(sessionId, {
           role: "assistant",
-          content: `### Usage Summary\n\n| Provider | Tokens | Est. Cost |\n|----------|--------|----------|\n${providerRows}\n\n**Total:** ${summary.totalInputTokens + summary.totalOutputTokens.toLocaleString()} tokens, $${summary.totalCost.toFixed(4)}`,
+          content: `### Usage Summary\n\n| Provider | Tokens | Est. Cost |\n|----------|--------|----------|\n${providerRows}\n\n**Total:** ${(summary.totalInputTokens + summary.totalOutputTokens).toLocaleString()} tokens, $${summary.totalCost.toFixed(4)}`,
           model,
         });
       }
