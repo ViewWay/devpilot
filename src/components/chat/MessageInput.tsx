@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useI18n } from "../../i18n";
 import { useChatStore } from "../../stores/chatStore";
 import { useUIStore } from "../../stores/uiStore";
@@ -58,6 +58,7 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [announceText, setAnnounceText] = useState("");
   const hasContent = input.trim().length > 0 || attachments.length > 0;
   const isLoading = useChatStore((s) => s.isLoading);
   const streamingMessageId = useChatStore((s) => s.streamingMessageId);
@@ -67,14 +68,17 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
   const setActiveSession = useChatStore((s) => s.setActiveSession);
 
   // Filter commands based on input
-  const filteredCommands = input.startsWith("/") && !input.includes(" ")
-    ? SLASH_COMMANDS.filter((c) => c.cmd.startsWith(input.trim()))
-    : [];
+  const filteredCommands = useMemo(() =>
+    input.startsWith("/") && !input.includes(" ")
+      ? SLASH_COMMANDS.filter((c) => c.cmd.startsWith(input.trim()))
+      : [],
+    [input],
+  );
 
   useEffect(() => {
     setShowCommands(filteredCommands.length > 0);
     setSelectedIndex(0);
-  }, [filteredCommands.length, input]);
+  }, [filteredCommands.length]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -182,7 +186,10 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
-  }, [input, isLoading, sendMessage, selectedModel.name, attachments, sessionId, setActiveSession]);
+    // Announce to screen readers
+    setAnnounceText(t("a11y.messageSent"));
+    setTimeout(() => setAnnounceText(""), 1000);
+  }, [input, isLoading, sendMessage, selectedModel.name, attachments, sessionId, setActiveSession, t]);
 
   const handleStop = useCallback(() => {
     useChatStore.getState().abortStreaming();
@@ -227,9 +234,12 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
   return (
     <div className="shrink-0 border-t border-border bg-background px-4 pb-4 pt-3">
       <div className="mx-auto max-w-3xl relative">
+        {/* Screen reader live region for announcements */}
+        <div className="sr-only" aria-live="polite" aria-atomic="true">{announceText}</div>
+
         {/* Slash command autocomplete menu */}
         {showCommands && (
-          <div className="absolute bottom-full left-0 right-0 mb-1 rounded-lg border border-border bg-popover shadow-lg overflow-hidden z-50">
+          <div className="absolute bottom-full left-0 right-0 mb-1 rounded-lg border border-border bg-popover shadow-lg overflow-hidden z-50" role="listbox" aria-label={t("slashHelp")}>
             {filteredCommands.map((cmd, idx) => (
               <button
                 key={cmd.cmd}
@@ -241,6 +251,8 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
                   "flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors",
                   idx === selectedIndex ? "bg-accent text-accent-foreground" : "text-popover-foreground hover:bg-accent/50",
                 )}
+                role="option"
+                aria-selected={idx === selectedIndex}
               >
                 <span className="text-base">{cmd.icon}</span>
                 <span className="font-mono text-xs font-medium w-16">{cmd.cmd}</span>
@@ -287,6 +299,7 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
                   <button
                     onClick={() => removeAttachment(att.id)}
                     className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/20 hover:text-destructive group-hover:opacity-100"
+                    aria-label={`${t("a11y.removeAttachment")} ${att.name}`}
                   >
                     <X size={10} />
                   </button>
@@ -307,6 +320,7 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
               onClick={() => fileInputRef.current?.click()}
               title={t("attachFile")}
               className="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              aria-label={t("attachFile")}
             >
               <Paperclip size={15} />
             </button>
@@ -328,12 +342,14 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
               rows={1}
               className="max-h-32 min-h-[28px] flex-1 resize-none bg-transparent py-1 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground outline-none"
               onKeyDown={handleKeyDown}
+              aria-label={t("a11y.messageInput")}
             />
 
             {/* Web search */}
             <button
               title={t("webSearch")}
               className="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              aria-label={t("a11y.webSearch")}
             >
               <Globe size={15} />
             </button>
@@ -344,6 +360,7 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
                 onClick={handleStop}
                 title={t("stopGeneration")}
                 className="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-destructive/90 text-white transition-colors hover:bg-destructive"
+                aria-label={t("a11y.stopGeneration")}
               >
                 <StopCircle size={14} />
               </button>
@@ -357,6 +374,7 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
                     : "bg-muted text-muted-foreground",
                 )}
                 disabled={!hasContent}
+                aria-label={t("a11y.sendMessage")}
               >
                 <Send size={14} />
               </button>

@@ -23,6 +23,8 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(state)
         .invoke_handler(tauri::generate_handler![
             commands::ping,
@@ -57,6 +59,11 @@ pub fn run() {
             // Data Import / Export
             commands::export_sessions,
             commands::import_sessions,
+            // Full Data Backup / Restore
+            commands::data::export_data,
+            commands::data::import_data,
+            commands::data::export_to_file,
+            commands::data::import_from_file,
             // LLM
             commands::llm::send_message,
             commands::llm::send_message_stream,
@@ -116,6 +123,13 @@ pub fn run() {
             commands::memory::list_daily_memories_cmd,
             commands::memory::search_memories_cmd,
             commands::memory::create_daily_memory_cmd,
+            // Skills
+            commands::skills::list_skills,
+            commands::skills::get_skill,
+            commands::skills::install_skill,
+            commands::skills::uninstall_skill,
+            commands::skills::toggle_skill,
+            commands::skills::search_skills,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

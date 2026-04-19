@@ -105,6 +105,7 @@ impl Agent {
     ) -> CoreResult<()> {
         let mut total_usage = Usage::default();
         let mut turn_count: u32 = 0;
+        let session_mode = session.config.mode;
 
         loop {
             // Check max turns
@@ -130,8 +131,15 @@ impl Agent {
                 }
             }
 
-            // Get tool definitions for the request
-            let tool_defs = {
+            // Get tool definitions for the request.
+            //
+            // *Code* mode: include tool definitions so the LLM can call them.
+            // *Plan* mode: include tool definitions so the LLM can *plan* with
+            //   them, but we will not execute any calls.
+            // *Ask*  mode: skip tool definitions entirely (pure Q&A).
+            let tool_defs = if session_mode == devpilot_protocol::SessionMode::Ask {
+                vec![]
+            } else {
                 let executor = self.tool_executor.lock().await;
                 executor.registry().definitions().await
             };
@@ -177,7 +185,14 @@ impl Agent {
                 break;
             }
 
-            // Execute tool calls
+            // In Plan mode, include tools in definitions but don't execute them.
+            // Break out of the loop so the LLM's planned tool calls are shown
+            // but never actually run.
+            if session_mode == devpilot_protocol::SessionMode::Plan {
+                break;
+            }
+
+            // Execute tool calls (Code mode only)
             let tool_results = self
                 .execute_tool_calls(
                     tool_calls,
@@ -558,5 +573,208 @@ mod tests {
             result.unwrap_err(),
             CoreError::InvalidState { .. }
         ));
+    }
+
+    // ── Mode enforcement tests ──────────────────────────
+    //
+    // These tests verify that the agent respects session mode
+    // when deciding whether to include and execute tools.
+
+    /// A mock provider that returns a tool-use response.
+    struct ToolCallMockProvider {
+        config: ProviderConfig,
+    }
+
+    impl ToolCallMockProvider {
+        fn new() -> Self {
+            Self {
+                config: ProviderConfig {
+                    id: "mock".into(),
+                    name: "Mock".into(),
+                    provider_type: devpilot_protocol::ProviderType::Custom,
+                    base_url: "http://localhost".into(),
+                    api_key: None,
+                    models: vec![],
+                    enabled: true,
+                },
+            }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl ModelProvider for ToolCallMockProvider {
+        fn config(&self) -> &ProviderConfig {
+            &self.config
+        }
+
+        async fn chat(&self, _request: ChatRequest) -> Result<ChatResponse, LlmError> {
+            Ok(ChatResponse {
+                id: "resp-tool".into(),
+                message: Message {
+                    role: MessageRole::Assistant,
+                    content: vec![
+                        ContentBlock::Text {
+                            text: "I'll read the file.".into(),
+                        },
+                        ContentBlock::ToolUse {
+                            id: "tu-1".into(),
+                            name: "read_file".into(),
+                            input: serde_json::json!({"path": "/tmp/test.txt"}),
+                        },
+                    ],
+                    name: None,
+                    tool_call_id: None,
+                },
+                model: "mock-model".into(),
+                usage: Usage::default(),
+                finish_reason: FinishReason::ToolUse,
+            })
+        }
+
+        async fn chat_stream(
+            &self,
+            _request: ChatRequest,
+            session_id: String,
+        ) -> Result<StreamResult, LlmError> {
+            let sid1 = session_id.clone();
+            let sid2 = session_id;
+            let stream = futures::stream::once(async move {
+                Ok(StreamEvent::Chunk {
+                    session_id: sid1,
+                    delta: Some("I'll read the file.".into()),
+                    role: Some(MessageRole::Assistant),
+                    tool_use: Some(devpilot_protocol::ToolUseDelta {
+                        id: Some("tu-1".into()),
+                        name: Some("read_file".into()),
+                        input_json: Some("{\"path\":\"/tmp/test.txt\"}".into()),
+                    }),
+                })
+            })
+            .chain(futures::stream::once(async move {
+                Ok(StreamEvent::Done {
+                    session_id: sid2,
+                    usage: Usage {
+                        input_tokens: 10,
+                        output_tokens: 20,
+                        cache_read_tokens: None,
+                        cache_write_tokens: None,
+                    },
+                    finish_reason: FinishReason::ToolUse,
+                })
+            }))
+            .boxed();
+            Ok(stream)
+        }
+
+        async fn probe(&self) -> Result<(), LlmError> {
+            Ok(())
+        }
+
+        async fn list_models(&self) -> Result<Vec<String>, LlmError> {
+            Ok(vec!["mock-model".into()])
+        }
+    }
+
+    #[tokio::test]
+    async fn ask_mode_no_tools_in_request() {
+        let session = Session::new(crate::session::SessionConfig {
+            id: Some("ask-test".into()),
+            model: "mock-model".into(),
+            provider_type: devpilot_protocol::ProviderType::Custom,
+            mode: devpilot_protocol::SessionMode::Ask,
+            reasoning_effort: devpilot_protocol::ReasoningEffort::Medium,
+            working_dir: None,
+            system_prompt: None,
+            temperature: None,
+        });
+        // build_chat_request with Ask mode should always return tools: None
+        let req = session.build_chat_request(vec![devpilot_protocol::ToolDefinition {
+            name: "read_file".into(),
+            description: "Read a file".into(),
+            input_schema: serde_json::json!({"type": "object"}),
+        }]);
+        assert!(
+            req.tools.is_none(),
+            "Ask mode should strip tools from the request"
+        );
+    }
+
+    #[tokio::test]
+    async fn plan_mode_tools_included_but_not_executed() {
+        let (agent, _bus) = make_agent();
+        let provider = ToolCallMockProvider::new();
+
+        let mut session = Session::new(crate::session::SessionConfig {
+            id: Some("plan-test".into()),
+            model: "mock-model".into(),
+            provider_type: devpilot_protocol::ProviderType::Custom,
+            mode: devpilot_protocol::SessionMode::Plan,
+            reasoning_effort: devpilot_protocol::ReasoningEffort::Medium,
+            working_dir: None,
+            system_prompt: None,
+            temperature: None,
+        });
+
+        let result = agent
+            .run(&mut session, &provider, "Read /tmp/test.txt".into())
+            .await;
+        assert!(result.is_ok());
+
+        // In Plan mode, the agent should have the user message and the
+        // assistant response (with tool_use block), but NO tool-result
+        // message because execution was skipped.
+        let has_tool_result = session.messages.iter().any(|m| {
+            m.content
+                .iter()
+                .any(|b| matches!(b, ContentBlock::ToolResult { .. }))
+        });
+        assert!(
+            !has_tool_result,
+            "Plan mode should not produce tool-result messages"
+        );
+
+        // Verify the assistant message contains a ToolUse (the plan)
+        let has_tool_use = session.messages.iter().any(|m| {
+            m.content
+                .iter()
+                .any(|b| matches!(b, ContentBlock::ToolUse { .. }))
+        });
+        assert!(
+            has_tool_use,
+            "Plan mode should keep the LLM's tool-use plan in the response"
+        );
+    }
+
+    #[tokio::test]
+    async fn code_mode_tools_included_in_request() {
+        let mut session = Session::new(crate::session::SessionConfig {
+            id: Some("code-test".into()),
+            model: "mock-model".into(),
+            provider_type: devpilot_protocol::ProviderType::Custom,
+            mode: devpilot_protocol::SessionMode::Code,
+            reasoning_effort: devpilot_protocol::ReasoningEffort::Medium,
+            working_dir: None,
+            system_prompt: None,
+            temperature: None,
+        });
+        let tool_def = devpilot_protocol::ToolDefinition {
+            name: "read_file".into(),
+            description: "Read a file".into(),
+            input_schema: serde_json::json!({"type": "object"}),
+        };
+        let req = session.build_chat_request(vec![tool_def.clone()]);
+        assert!(
+            req.tools.is_some(),
+            "Code mode should include tools in the request"
+        );
+        assert_eq!(req.tools.unwrap().len(), 1);
+
+        // Plan mode should also include tools
+        session.config.mode = devpilot_protocol::SessionMode::Plan;
+        let req = session.build_chat_request(vec![tool_def]);
+        assert!(
+            req.tools.is_some(),
+            "Plan mode should include tools in the request"
+        );
     }
 }

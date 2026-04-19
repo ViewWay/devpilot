@@ -60,11 +60,15 @@ export function Sidebar() {
 
   if (collapsed) {
     return (
-      <div className="flex h-full flex-col items-center border-r border-border bg-sidebar py-3 px-1.5 gap-2">
+      <nav
+        className="flex h-full flex-col items-center border-r border-border bg-sidebar py-3 px-1.5 gap-2"
+        aria-label={t("a11y.sidebarNav")}
+      >
         <button
           onClick={toggleSidebar}
           className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           title={t("recentChats")}
+          aria-label={t("a11y.expandSidebar")}
         >
           <PanelLeft size={16} />
         </button>
@@ -72,29 +76,31 @@ export function Sidebar() {
           onClick={() => createSession(selectedModel.name, selectedModel.provider)}
           className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           title={t("newChat")}
+          aria-label={t("a11y.newSession")}
         >
           <Plus size={16} />
         </button>
         <div className="mt-auto flex flex-col gap-1">
-          <button onClick={() => navigate("/gallery")} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title={t("gallery")}>
+          <button onClick={() => navigate("/gallery")} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title={t("gallery")} aria-label={t("gallery")}>
             <Image size={16} />
           </button>
-          <button onClick={() => navigate("/bridge")} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title={t("bridge")}>
+          <button onClick={() => navigate("/bridge")} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title={t("bridge")} aria-label={t("bridge")}>
             <Radio size={16} />
           </button>
-          <button onClick={() => navigate("/settings")} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title={t("settings")}>
+          <button onClick={() => navigate("/settings")} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title={t("settings")} aria-label={t("settings")}>
             <Settings size={16} />
           </button>
         </div>
-      </div>
+      </nav>
     );
   }
 
   return (
-    <div
+    <nav
       ref={sidebarRef}
       className="relative flex h-full flex-col border-r border-border bg-sidebar transition-all duration-200 ease-in-out animate-in slide-in-from-left md:animate-none"
       style={{ width: `${width}px` }}
+      aria-label={t("a11y.sidebarNav")}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-3">
@@ -104,6 +110,7 @@ export function Sidebar() {
             onClick={() => createSession(selectedModel.name, selectedModel.provider)}
             className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             title={t("newChat")}
+            aria-label={t("a11y.newSession")}
           >
             <Plus size={15} />
           </button>
@@ -111,6 +118,7 @@ export function Sidebar() {
             onClick={toggleSidebar}
             className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             title={t("scToggleSidebar")}
+            aria-label={t("a11y.collapseSidebar")}
           >
             <PanelLeftClose size={15} />
           </button>
@@ -126,6 +134,7 @@ export function Sidebar() {
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t("searchChats")}
             className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none"
+            aria-label={t("a11y.searchChatsLabel")}
           />
         </div>
       </div>
@@ -155,8 +164,11 @@ export function Sidebar() {
       <div
         onMouseDown={handleMouseDown}
         className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/20 active:bg-primary/40 transition-colors hidden md:block"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize sidebar"
       />
-    </div>
+    </nav>
   );
 }
 
@@ -261,14 +273,14 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
     }
 
     return groups.filter((g) => g.sessions.length > 0);
-  }, [filtered]);
+  }, [filtered, t]);
 
   const archivedSessions = sessions.filter((s) => s.archived);
   const splitViewActive = useUIStore((s) => s.splitViewActive);
   const secondarySessionId = useUIStore((s) => s.secondarySessionId);
 
   return (
-    <div className="flex-1 overflow-y-auto px-2 py-1">
+    <div className="flex-1 overflow-y-auto px-2 py-1" role="list" aria-label={t("a11y.sidebarNav")}>
       {groups.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
           <MessageSquare size={24} className="mb-2 opacity-40" />
@@ -286,6 +298,7 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
               return (
                 <div
                   key={session.id}
+                  role="listitem"
                   className={cn(
                     "group flex items-center gap-2 rounded-lg px-2 py-1.5 cursor-pointer transition-colors",
                     isActive
@@ -295,6 +308,15 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
                         : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
                   )}
                   onClick={() => handleSelectSession(session.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleSelectSession(session.id);
+                    }
+                  }}
+                  tabIndex={0}
+                  aria-current={isActive ? "page" : undefined}
+                  aria-label={`${session.title}, ${relativeTime(session.updatedAt)}${isActive ? ` (${t("a11y.activeSession")})` : ""}`}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     setMenuOpenId(menuOpenId === session.id ? null : session.id);
@@ -314,6 +336,7 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
                         }}
                         onClick={(e) => e.stopPropagation()}
                         className="w-full rounded bg-background px-1 py-0 text-xs outline-none ring-1 ring-primary"
+                        aria-label={t("rename")}
                       />
                     ) : (
                       <div className="truncate text-xs font-medium">{session.title}</div>
@@ -327,6 +350,7 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
                         setMenuOpenId(menuOpenId === session.id ? null : session.id);
                       }}
                       className="flex h-5 w-5 shrink-0 items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-accent"
+                      aria-label={t("a11y.sessionMenu")}
                     >
                       <MoreHorizontal size={12} />
                     </button>
@@ -410,8 +434,17 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
           {archivedSessions.map((session) => (
             <div
               key={session.id}
+              role="listitem"
               className="group flex items-center gap-2 rounded-lg px-2 py-1.5 cursor-pointer transition-colors opacity-60 hover:opacity-100 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
               onClick={() => handleSelectSession(session.id)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleSelectSession(session.id);
+                }
+              }}
+              tabIndex={0}
+              aria-label={`${session.title}, ${relativeTime(session.updatedAt)}`}
             >
               <Archive size={13} className="shrink-0 opacity-60" />
               <div className="min-w-0 flex-1">
@@ -430,6 +463,7 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
                 }}
                 className="flex h-5 w-5 shrink-0 items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-accent"
                 title={t("unarchive")}
+                aria-label={t("a11y.unarchiveSession")}
               >
                 <MessageSquare size={12} />
               </button>

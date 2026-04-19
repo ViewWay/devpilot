@@ -3,9 +3,9 @@
 ## 项目概况
 
 - **版本**: 0.4.0 (开发中)
-- **后端**: 13 Rust crates, 13,100+ 行, 281 tests, 全部通过
-- **前端**: 65+ TS/TSX 文件, ~12,000 行, 142 tests (11 files)
-- **IPC**: 56 个 Tauri 命令已注册 (33 个 #[tauri::command])
+- **后端**: 12 Rust crates, 17,200+ 行, 293 tests, 全部通过
+- **前端**: 70+ TS/TSX 文件, ~15,400 行, 142 tests (11 files)
+- **IPC**: 86 个 Tauri 命令已注册 (40+ 个 #[tauri::command])
 - **编译**: cargo build OK, cargo clippy OK, tsc OK
 
 ---
@@ -133,11 +133,59 @@
 
 ### 测试覆盖
 
-- 后端: 281 Rust tests (13 crates + 10 E2E, 全部通过)
+- 后端: 293 Rust tests (12 crates, 全部通过)
 - 前端: 142 tests (11 files, 全部通过)
   - components: MessageInput.test.tsx, Sidebar.test.tsx
   - stores: chatStore, providerStore, usageStore, uiStore, schedulerStore, checkpointStore, streaming
   - lib: errors.test.ts, persistence.test.ts
+
+---
+
+## Phase 7: Polish & Release Prep — 完成 ✅
+
+### P7-A: Interaction Modes (Critical)
+
+- [x] **P7-1** Wire Code/Plan/Ask modes through full stack: frontend (TopBar selector) → IPC (StreamMessageRequest.mode) → backend (SessionConfig.mode) → agent (enforce mode: Ask=no tools, Plan=tools but no execution, Code=full agent)
+- [x] Add ReasoningEffort::from_number() converter (0-100 → Low/Medium/High)
+- [x] 5 new mode-enforcement tests in devpilot-core
+
+### P7-B: Skills System (High)
+
+- [x] **P7-2** SkillLoader in devpilot-tools: SKILL.md parser with YAML frontmatter + .state sidecar for enabled flag
+- [x] SkillInfo type in devpilot-protocol
+- [x] 6 Tauri commands: list/get/install/uninstall/toggle/search skills
+- [x] build_skill_context() for system prompt injection
+- [x] 9 unit tests for skill loading, parsing, install, search
+
+### P7-C: Data Management (High)
+
+- [x] **P7-3** Full export/import: ExportData JSON with sessions, messages, providers, settings, usage
+- [x] ImportStrategy (Overwrite/Merge/SkipExisting) with conflict resolution
+- [x] 4 Tauri commands: export_data, import_data, export_to_file, import_from_file
+- [x] DataTab in SettingsPage with export/import UI + strategy selector
+- [x] 3 export/import tests in devpilot-store
+
+### P7-D: Accessibility (Medium)
+
+- [x] **P7-4** Skip-to-main-content link in AppShell
+- [x] TopBar: role="toolbar", aria-labels on all buttons, aria-pressed/aria-expanded, radiogroup for mode selector
+- [x] Sidebar: role="navigation", role="list/listitem", aria-current="page", keyboard nav (Enter/Space)
+- [x] MessageInput: aria-live for "Message sent" announcement, aria-labels, role="listbox" for autocomplete
+- [x] MessageList: role="log" with aria-live="polite", role="article" on messages
+- [x] CodeBlock: role="region", aria-labels on copy/toggle buttons
+- [x] ToolCallView: aria-expanded, role="region"
+- [x] 53 a11y i18n keys (EN + ZH)
+
+### P7-E: Auto-Update (Medium)
+
+- [x] **P7-5** tauri-plugin-updater + tauri-plugin-process configured
+- [x] UpdateChecker component: auto-check, download progress, install & restart
+- [x] Graceful handling of unconfigured pubkey (no crashes)
+- [x] 12 update-related i18n keys (EN + ZH)
+
+### P7-F: Metadata
+
+- [x] **P7-6** TODO.md updated with P7 completion status
 
 ### 开发时间线
 
@@ -147,3 +195,4 @@
 - 2026-04-19 Session M: P3-4 E2E 集成测试 + 提交推送 (587aa31)
 - 2026-04-19 Session N: P4 规划 + 开始开发
 - 2026-04-20 Session O: P5+P6 开发 — devpilot-memory crate, persona UI, split view, sandbox renderer, keyboard shortcuts
+- 2026-04-20 Session P: P7 开发 — interaction modes, skills system, data export/import, accessibility, auto-update

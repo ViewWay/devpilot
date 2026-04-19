@@ -40,6 +40,12 @@
   "plugins": {
     "shell": {
       "open": true
+    },
+    "updater": {
+      "pubkey": "",
+      "endpoints": [
+        "https://github.com/ViewWay/devpilot/releases/latest/download/latest.json"
+      ]
     }
   }
 }

@@ -104,7 +104,7 @@ export function CodeBlock({ code, lang, className }: CodeBlockProps) {
   };
 
   return (
-    <div className={cn("my-3 overflow-hidden rounded-lg border border-border", className)}>
+    <div className={cn("my-3 overflow-hidden rounded-lg border border-border", className)} role="region" aria-label={t("a11y.codeBlockRegion")}>
       <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-1.5">
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -113,6 +113,8 @@ export function CodeBlock({ code, lang, className }: CodeBlockProps) {
           <button
             onClick={() => setShowLineNumbers((v) => !v)}
             className="text-[10px] text-muted-foreground hover:text-foreground"
+            aria-label={t("a11y.toggleLineNumbers")}
+            aria-pressed={showLineNumbers}
           >
             {t("lineNumbers")}
           </button>
@@ -120,6 +122,7 @@ export function CodeBlock({ code, lang, className }: CodeBlockProps) {
         <button
           onClick={handleCopy}
           className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
+          aria-label={t("a11y.copyCode")}
         >
           {copied ? <Check size={11} /> : <Copy size={11} />}
           {copied ? t("copied") : t("copy")}

@@ -50,6 +50,12 @@ pub struct StreamMessageRequest {
     pub user_message: String,
     /// Optional working directory for tool execution.
     pub working_dir: Option<String>,
+    /// Interaction mode: "code", "plan", or "ask".
+    #[serde(default)]
+    pub mode: Option<String>,
+    /// Reasoning effort (0-100).
+    #[serde(default)]
+    pub reasoning_effort: Option<u8>,
 }
 
 /// Result of a streaming send_message_stream call (emitted at the end).
@@ -130,13 +136,27 @@ pub async fn send_message_stream(
         session_id
     );
 
+    // Parse mode from string (default: Code)
+    let mode = match request.mode.as_deref() {
+        Some("plan") => devpilot_protocol::SessionMode::Plan,
+        Some("ask") => devpilot_protocol::SessionMode::Ask,
+        Some("code") | None => devpilot_protocol::SessionMode::Code,
+        _ => devpilot_protocol::SessionMode::Code,
+    };
+
+    // Parse reasoning effort from number (default: Medium)
+    let reasoning_effort = request
+        .reasoning_effort
+        .map(devpilot_protocol::ReasoningEffort::from_number)
+        .unwrap_or_default();
+
     // Build session config from request
     let session_config = SessionConfig {
         id: Some(session_id.clone()),
         model: model_id.clone(),
         provider_type: request.provider.provider_type,
-        mode: devpilot_protocol::SessionMode::Code,
-        reasoning_effort: devpilot_protocol::ReasoningEffort::Medium,
+        mode,
+        reasoning_effort,
         working_dir: request.working_dir.clone(),
         system_prompt: request.chat_request.system.clone(),
         temperature: request.chat_request.temperature,

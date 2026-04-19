@@ -13,6 +13,7 @@ import type { Message } from "../../types";
 import { useI18n } from "../../i18n";
 
 export function MessageList({ sessionId }: { sessionId?: string } = {}) {
+  const { t } = useI18n();
   const session = useChatStore((s) =>
     sessionId
       ? s.sessions.find((sess) => sess.id === sessionId)
@@ -21,11 +22,14 @@ export function MessageList({ sessionId }: { sessionId?: string } = {}) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom on new messages
+  const messageCount = session?.messages.length ?? 0;
+  const lastMessageContent = session?.messages[messageCount - 1]?.content;
+
   useEffect(() => {
     if (bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [session?.messages.length, session?.messages[session.messages.length - 1]?.content]);
+  }, [messageCount, lastMessageContent]);
 
   if (!session || session.messages.length === 0) {
     return <EmptyState />;
@@ -42,7 +46,7 @@ export function MessageList({ sessionId }: { sessionId?: string } = {}) {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 overflow-y-auto" role="log" aria-live="polite" aria-label={t("a11y.messageLog")}>
       <div className="mx-auto max-w-3xl px-4 py-6">
         <div className="space-y-6">
           {session.messages.map((msg) => (
@@ -96,6 +100,7 @@ function SuggestionCard({ icon, title, description }: { icon: React.ReactNode; t
 
 function MessageActions({ content, onRegenerate }: { content: string; onRegenerate?: () => void }) {
   const [copied, setCopied] = useState(false);
+  const { t } = useI18n();
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(content);
@@ -105,11 +110,12 @@ function MessageActions({ content, onRegenerate }: { content: string; onRegenera
   };
 
   return (
-    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" role="group" aria-label={t("a11y.messageActions")}>
       <button
         onClick={handleCopy}
         className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
         title="Copy"
+        aria-label={t("a11y.copyMessage")}
       >
         {copied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
       </button>
@@ -118,6 +124,7 @@ function MessageActions({ content, onRegenerate }: { content: string; onRegenera
           onClick={onRegenerate}
           className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
           title="Regenerate"
+          aria-label={t("a11y.regenerateMessage")}
         >
           <RefreshCw size={12} />
         </button>
@@ -127,13 +134,14 @@ function MessageActions({ content, onRegenerate }: { content: string; onRegenera
 }
 
 function MessageBubble({ message, isLastAssistant }: { message: Message; isLastAssistant?: boolean }) {
+  const { t } = useI18n();
   const isUser = message.role === "user";
   const isTool = message.role === "tool";
   const fontSize = useUIStore((s) => s.fontSize);
 
   if (isUser) {
     return (
-      <div className="group flex justify-end">
+      <div className="group flex justify-end" role="article" aria-label={t("a11y.userMessage")}>
         <div className="max-w-[75%] rounded-2xl rounded-br-sm bg-user-bubble px-4 py-2.5 leading-relaxed text-user-bubble-foreground" style={{ fontSize }}>
           {message.content}
           <div className="flex items-center justify-between mt-1">
@@ -147,7 +155,7 @@ function MessageBubble({ message, isLastAssistant }: { message: Message; isLastA
 
   if (isTool) {
     return (
-      <div className="flex items-start gap-2.5">
+      <div className="flex items-start gap-2.5" role="article" aria-label={t("a11y.toolMessage")}>
         <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted">
           <Wrench size={12} className="text-muted-foreground" />
         </div>
@@ -164,7 +172,7 @@ function MessageBubble({ message, isLastAssistant }: { message: Message; isLastA
   }
 
   return (
-    <div className="group flex items-start gap-2.5">
+    <div className="group flex items-start gap-2.5" role="article" aria-label={t("a11y.assistantMessage")}>
       <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary">
         <Bot size={12} className="text-primary-foreground" />
       </div>

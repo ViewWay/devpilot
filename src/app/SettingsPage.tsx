@@ -30,11 +30,14 @@ import {
   Wrench,
   Shield,
   BookOpen,
+  Database,
+  Download,
+  Upload,
 } from "lucide-react";
 import { PersonaMemoryTab } from "../components/PersonaMemoryTab";
 import { useShortcutStore, SHORTCUT_DEFINITIONS, type ShortcutAction } from "../stores/shortcutStore";
 
-type TabId = "providers" | "appearance" | "shortcuts" | "usage" | "bridge" | "mcp" | "security" | "persona";
+type TabId = "providers" | "appearance" | "shortcuts" | "usage" | "bridge" | "mcp" | "security" | "persona" | "data";
 
 const TABS: { id: TabId; icon: typeof Settings; labelKey: string }[] = [
   { id: "providers", icon: Plug, labelKey: "providers" },
@@ -45,6 +48,7 @@ const TABS: { id: TabId; icon: typeof Settings; labelKey: string }[] = [
   { id: "mcp" as const, icon: Wrench, labelKey: "mcpServers" },
   { id: "security" as const, icon: Shield, labelKey: "security" },
   { id: "persona" as const, icon: BookOpen, labelKey: "personaAndMemory" },
+  { id: "data" as const, icon: Database, labelKey: "dataManagement" },
 ];
 
 export function SettingsPage() {
@@ -89,6 +93,7 @@ export function SettingsPage() {
         {activeTab === "mcp" && <McpTab />}
         {activeTab === "security" && <SecurityTab />}
         {activeTab === "persona" && <PersonaMemoryTabWrapper />}
+        {activeTab === "data" && <DataTab />}
       </div>
     </div>
   );
@@ -1607,5 +1612,256 @@ function PersonaMemoryTabWrapper() {
       workspaceDir={workingDir || dataDir}
       dataDir={dataDir || workingDir}
     />
+  );
+}
+
+// --- Data Management Tab ---
+
+type ImportStrategyType = "overwrite" | "merge" | "skipExisting";
+
+interface ImportResultData {
+  sessionsImported: number;
+  messagesImported: number;
+  providersImported: number;
+  settingsImported: number;
+  usageImported: number;
+  skipped: number;
+  errors: string[];
+}
+
+function DataTab() {
+  const { t } = useI18n();
+  const [strategy, setStrategy] = useState<ImportStrategyType>("skipExisting");
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [importResult, setImportResult] = useState<ImportResultData | null>(null);
+
+  const handleExport = async () => {
+    setExporting(true);
+    setMessage(null);
+    setImportResult(null);
+    try {
+      // Use Tauri dialog to pick save location
+      const isTauriRuntime = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+      let filePath: string | null = null;
+
+      if (isTauriRuntime) {
+        const dialog: Record<string, unknown> = await import("@tauri-apps/plugin-dialog") as Record<string, unknown>;
+        filePath = await (dialog.save as (opts: Record<string, unknown>) => Promise<string | null>)({
+          defaultPath: `devpilot-backup-${new Date().toISOString().slice(0, 10)}.json`,
+          filters: [{ name: "JSON", extensions: ["json"] }],
+        });
+      }
+
+      if (!filePath) {
+        // User cancelled or not in Tauri — export as JSON download
+        const json = await invoke<string>("export_data");
+        const blob = new Blob([json], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `devpilot-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setMessage({ type: "success", text: t("exportSuccess") });
+      } else {
+        await invoke("export_to_file", { path: filePath });
+        setMessage({ type: "success", text: t("exportSuccess") });
+      }
+    } catch (e: unknown) {
+      setMessage({ type: "error", text: String(e) });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleImport = async () => {
+    setImporting(true);
+    setMessage(null);
+    setImportResult(null);
+    try {
+      const isTauriRuntime = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+      let filePath: string | null = null;
+
+      if (isTauriRuntime) {
+        const dialog: Record<string, unknown> = await import("@tauri-apps/plugin-dialog") as Record<string, unknown>;
+        filePath = await (dialog.open as (opts: Record<string, unknown>) => Promise<string | null>)({
+          filters: [{ name: "JSON", extensions: ["json"] }],
+          multiple: false,
+        });
+      }
+
+      if (!filePath) {
+        // Fallback: file input
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = ".json";
+        input.onchange = async () => {
+          const file = input.files?.[0];
+          if (!file) { setImporting(false); return; }
+          const text = await file.text();
+          const result = await invoke<ImportResultData>("import_data", {
+            jsonData: text,
+            strategy,
+          });
+          setImportResult(result);
+          setMessage({ type: "success", text: t("importSuccess") });
+          setImporting(false);
+        };
+        input.click();
+        return; // async callback handles cleanup
+      }
+
+      const result = await invoke<ImportResultData>("import_from_file", {
+        path: filePath,
+        strategy,
+      });
+      setImportResult(result);
+      setMessage({ type: "success", text: t("importSuccess") });
+    } catch (e: unknown) {
+      setMessage({ type: "error", text: String(e) });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const strategies: { value: ImportStrategyType; label: string; desc: string }[] = [
+    { value: "overwrite", label: t("strategyOverwrite"), desc: t("strategyOverwriteDesc") },
+    { value: "merge", label: t("strategyMerge"), desc: t("strategyMergeDesc") },
+    { value: "skipExisting", label: t("strategySkipExisting"), desc: t("strategySkipExistingDesc") },
+  ];
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-6">
+      <div>
+        <h2 className="text-base font-semibold text-foreground">{t("dataManagement")}</h2>
+        <p className="mt-1 text-xs text-muted-foreground">{t("dataManagementDesc")}</p>
+      </div>
+
+      {/* Warning */}
+      <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+        <AlertCircle size={14} className="mt-0.5 shrink-0 text-amber-500" />
+        <span className="text-xs text-amber-600 dark:text-amber-400">{t("dataWarning")}</span>
+      </div>
+
+      {/* Export Section */}
+      <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Download size={16} className="text-primary" />
+          <span className="text-sm font-medium text-foreground">{t("exportAllData")}</span>
+        </div>
+        <p className="text-xs text-muted-foreground">{t("exportAllDataDesc")}</p>
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-xs text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+        >
+          {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+          {exporting ? t("exporting") : t("exportAllData")}
+        </button>
+      </div>
+
+      {/* Import Section */}
+      <div className="rounded-lg border border-border bg-card p-4 space-y-4">
+        <div className="flex items-center gap-2">
+          <Upload size={16} className="text-primary" />
+          <span className="text-sm font-medium text-foreground">{t("importData")}</span>
+        </div>
+        <p className="text-xs text-muted-foreground">{t("importDataDesc")}</p>
+
+        {/* Strategy Selector */}
+        <div className="space-y-2">
+          <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            {t("importStrategy")}
+          </label>
+          <div className="grid grid-cols-3 gap-2">
+            {strategies.map((s) => (
+              <button
+                key={s.value}
+                onClick={() => setStrategy(s.value)}
+                className={cn(
+                  "flex flex-col items-center gap-1 rounded-md border px-3 py-2 text-xs transition-colors",
+                  strategy === s.value
+                    ? "border-primary bg-primary/10 text-primary font-medium"
+                    : "border-border text-muted-foreground hover:bg-accent/50",
+                )}
+              >
+                <span>{s.label}</span>
+                <span className="text-[9px] opacity-70">{s.desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button
+          onClick={handleImport}
+          disabled={importing}
+          className="flex items-center gap-2 rounded-md border border-primary px-4 py-2 text-xs text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+        >
+          {importing ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+          {importing ? t("importing") : t("importData")}
+        </button>
+      </div>
+
+      {/* Message */}
+      {message && (
+        <div
+          className={cn(
+            "flex items-center gap-2 rounded-lg px-4 py-3 text-xs",
+            message.type === "success"
+              ? "bg-green-500/10 text-green-600 dark:text-green-400"
+              : "bg-destructive/10 text-destructive",
+          )}
+        >
+          {message.type === "success" ? <Check size={14} /> : <AlertCircle size={14} />}
+          {message.text}
+        </div>
+      )}
+
+      {/* Import Result Summary */}
+      {importResult && (
+        <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+          <div className="text-sm font-medium text-foreground">{t("importResult")}</div>
+          <div className="grid grid-cols-3 gap-3">
+            <ResultStat label={t("sessionsImported")} value={importResult.sessionsImported} />
+            <ResultStat label={t("messagesImported")} value={importResult.messagesImported} />
+            <ResultStat label={t("providersImported")} value={importResult.providersImported} />
+            <ResultStat label={t("settingsImported")} value={importResult.settingsImported} />
+            <ResultStat label={t("usageImported")} value={importResult.usageImported} />
+            <ResultStat label={t("skipped")} value={importResult.skipped} />
+          </div>
+          {importResult.errors.length > 0 && (
+            <div className="space-y-1">
+              <div className="text-[10px] font-medium uppercase tracking-wider text-destructive">
+                {t("errors")} ({importResult.errors.length})
+              </div>
+              {importResult.errors.slice(0, 5).map((err, i) => (
+                <div key={i} className="text-[10px] text-muted-foreground truncate">
+                  {err}
+                </div>
+              ))}
+              {importResult.errors.length > 5 && (
+                <div className="text-[10px] text-muted-foreground">
+                  ...and {importResult.errors.length - 5} more
+                </div>
+              )}
+            </div>
+          )}
+          {importResult.errors.length === 0 && (
+            <div className="text-[10px] text-green-500">{t("noErrors")}</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ResultStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-center">
+      <div className="text-lg font-semibold text-foreground">{value}</div>
+      <div className="text-[9px] text-muted-foreground">{label}</div>
+    </div>
   );
 }

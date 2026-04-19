@@ -135,10 +135,12 @@ export function TopBar() {
   }, []);
 
   return (
-    <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border bg-background/80 px-3 backdrop-blur-sm">
+    <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border bg-background/80 px-3 backdrop-blur-sm" role="toolbar" aria-label={t("a11y.topBarToolbar")}>
       <button
         onClick={toggleSidebar}
         className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        aria-label={t("a11y.sidebarToggle")}
+        aria-pressed={sidebarOpen}
       >
         {sidebarOpen ? <PanelLeftClose size={15} /> : <PanelLeft size={15} />}
       </button>
@@ -148,6 +150,9 @@ export function TopBar() {
         <button
           onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
           className="flex items-center gap-1.5 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-medium transition-colors hover:bg-accent"
+          aria-label={t("a11y.selectModel")}
+          aria-expanded={modelDropdownOpen}
+          aria-haspopup="listbox"
         >
           <span className={cn("h-2 w-2 rounded-full", selectedModel.color)} />
           <span className="max-w-[140px] truncate">{selectedModel.name}</span>
@@ -155,7 +160,7 @@ export function TopBar() {
         </button>
 
         {modelDropdownOpen && (
-          <div className="absolute left-0 top-full z-50 mt-1 w-72 max-h-80 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-lg">
+          <div className="absolute left-0 top-full z-50 mt-1 w-72 max-h-80 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-lg" role="listbox" aria-label={t("a11y.selectModel")}>
             {groupedModels.length === 0 && (
               <div className="px-2.5 py-3 text-xs text-muted-foreground text-center">
                 No models available — configure providers in Settings
@@ -179,6 +184,8 @@ export function TopBar() {
                       "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-accent",
                       selectedModel.id === m.id && "bg-accent",
                     )}
+                    role="option"
+                    aria-selected={selectedModel.id === m.id}
                   >
                     <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", m.color)} />
                     <div className="min-w-0 flex-1">
@@ -195,7 +202,7 @@ export function TopBar() {
       <div className="h-4 w-px bg-border" />
 
       {/* Mode Tabs */}
-      <div className="flex rounded-md border border-input text-xs">
+      <div className="flex rounded-md border border-input text-xs" role="radiogroup" aria-label={t("a11y.modeSelector")}>
         {MODES.map((mode) => (
           <button
             key={mode}
@@ -206,6 +213,9 @@ export function TopBar() {
                 ? "bg-primary text-primary-foreground"
                 : "text-muted-foreground hover:bg-accent hover:text-foreground",
             )}
+            role="radio"
+            aria-checked={activeMode === mode}
+            aria-label={t(`a11y.mode${mode.charAt(0).toUpperCase() + mode.slice(1)}`)}
           >
             {t(mode)}
           </button>
@@ -224,6 +234,9 @@ export function TopBar() {
             effortOpen ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground",
           )}
           title={t("reasoningEffort")}
+          aria-label={t("a11y.reasoningEffortBtn")}
+          aria-expanded={effortOpen}
+          aria-pressed={effortOpen}
         >
           <SlidersHorizontal size={12} />
           <span className="hidden sm:inline">{reasoningEffort}%</span>
@@ -264,6 +277,8 @@ export function TopBar() {
                   : "text-muted-foreground hover:text-foreground",
               )}
               title={t("splitView")}
+              aria-label={t("a11y.toggleSplitView")}
+              aria-pressed={splitViewActive}
             >
               <Columns2 size={14} />
             </button>
@@ -276,6 +291,8 @@ export function TopBar() {
                   : "text-muted-foreground hover:text-foreground",
               )}
               title="Files"
+              aria-label={t("a11y.toggleFiles")}
+              aria-pressed={rightPanel === "files"}
             >
               <FolderOpen size={14} />
             </button>
@@ -288,6 +305,8 @@ export function TopBar() {
                   : "text-muted-foreground hover:text-foreground",
               )}
               title="Terminal"
+              aria-label={t("a11y.toggleTerminal")}
+              aria-pressed={rightPanel === "terminal"}
             >
               <Terminal size={14} />
             </button>
@@ -300,6 +319,8 @@ export function TopBar() {
                   : "text-muted-foreground hover:text-foreground",
               )}
               title="Preview"
+              aria-label={t("a11y.togglePreview")}
+              aria-pressed={rightPanel === "preview"}
             >
               <Eye size={14} />
             </button>
@@ -313,6 +334,7 @@ export function TopBar() {
         <button
           onClick={() => setLocale(locale === "en" ? "zh" : "en")}
           className="flex h-7 items-center rounded-md px-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          aria-label={t("a11y.switchLanguage")}
         >
           {locale === "en" ? "中文" : "EN"}
         </button>
@@ -324,6 +346,7 @@ export function TopBar() {
               ? "text-primary"
               : "text-muted-foreground hover:text-foreground",
           )}
+          aria-label={t("a11y.openSettings")}
         >
           <Settings size={14} />
         </button>
@@ -331,6 +354,7 @@ export function TopBar() {
           onClick={cycleTheme}
           className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           title={theme === "system" ? t("themeSystem") : theme === "dark" ? t("themeDark") : t("themeLight")}
+          aria-label={t("a11y.toggleTheme")}
         >
           {theme === "system" ? <Monitor size={14} /> : resolvedTheme === "dark" ? <Moon size={14} /> : <Sun size={14} />}
         </button>
@@ -381,6 +405,7 @@ function WorkingDirSelector() {
           : "text-muted-foreground hover:bg-accent hover:text-foreground",
       )}
       title={workingDir || t("noDirSelected")}
+      aria-label={t("a11y.selectWorkingDir")}
     >
       <FolderCog size={13} className="shrink-0" />
       <span className="truncate">{displayDir}</span>

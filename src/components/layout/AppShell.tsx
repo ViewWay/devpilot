@@ -3,12 +3,15 @@ import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { CommandPalette } from "../CommandPalette";
 import { ToastContainer } from "../ToastContainer";
+import { UpdateChecker } from "../UpdateChecker";
 import { useUIStore } from "../../stores/uiStore";
 import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
 import { useShortcutStore } from "../../stores/shortcutStore";
+import { useI18n } from "../../i18n";
 import { useEffect, useCallback } from "react";
 
 export function AppShell() {
+  const { t } = useI18n();
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const setActiveView = useUIStore((s) => s.setActiveView);
@@ -39,6 +42,14 @@ export function AppShell() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
+      {/* Skip to main content link for keyboard/screen reader users */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-0 focus:left-0 focus:z-50 focus:p-2 focus:bg-primary focus:text-primary-foreground"
+      >
+        {t("a11y.skipToMain")}
+      </a>
+
       {/* Mobile backdrop */}
       {sidebarOpen && (
         <div
@@ -56,8 +67,9 @@ export function AppShell() {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <UpdateChecker />
         <TopBar />
-        <main className="flex-1 overflow-hidden">
+        <main id="main-content" className="flex-1 overflow-hidden">
           <Outlet />
         </main>
       </div>

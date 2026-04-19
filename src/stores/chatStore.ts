@@ -753,12 +753,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
         // NOW start streaming — listeners are already registered
         const workingDir = useUIStore.getState().workingDir || undefined;
+        const { activeMode, reasoningEffort } = useUIStore.getState();
         await invoke("send_message_stream", {
           provider: providerConfig,
           chatRequest: { model, messages, stream: true },
           sessionId,
           userMessage: content,
           workingDir,
+          mode: activeMode,
+          reasoningEffort,
         });
 
         return; // Tauri handled it

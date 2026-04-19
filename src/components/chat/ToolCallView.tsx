@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { ToolCall } from "../../types";
 import { cn } from "../../lib/utils";
+import { useI18n } from "../../i18n";
 
 interface ToolCallViewProps {
   toolCall: ToolCall;
@@ -43,13 +44,16 @@ function formatDuration(ms: number): string {
 }
 
 export function ToolCallView({ toolCall }: ToolCallViewProps) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-muted/30">
+    <div className="overflow-hidden rounded-lg border border-border bg-muted/30" role="region" aria-label={t("a11y.toolCallRegion")}>
       <button
         onClick={() => setExpanded(!expanded)}
         className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-muted/50"
+        aria-label={t("a11y.toolCallToggle")}
+        aria-expanded={expanded}
       >
         {expanded ? <ChevronDown size={12} className="text-muted-foreground" /> : <ChevronRight size={12} className="text-muted-foreground" />}
         <span className="text-muted-foreground">{getToolIcon(toolCall.name)}</span>

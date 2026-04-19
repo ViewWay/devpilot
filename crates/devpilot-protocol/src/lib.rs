@@ -395,6 +395,60 @@ pub enum ReasoningEffort {
     High,
 }
 
+impl ReasoningEffort {
+    /// Convert a 0-100 numeric value to a [`ReasoningEffort`].
+    ///
+    /// 0-33 → Low, 34-66 → Medium, 67-100 → High.
+    pub fn from_number(value: u8) -> Self {
+        match value {
+            0..=33 => Self::Low,
+            34..=66 => Self::Medium,
+            _ => Self::High,
+        }
+    }
+}
+
+// ── Skill Types ──────────────────────────────────────
+
+/// A skill loaded from `~/.devpilot/skills/{name}/SKILL.md`.
+///
+/// Each skill is a markdown file with optional YAML frontmatter that defines
+/// metadata (name, description, tags, trigger, etc.) and a markdown body that
+/// contains the skill instructions injected into the LLM system prompt.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillInfo {
+    /// Unique skill name (directory name under skills/).
+    pub name: String,
+    /// Short human-readable description.
+    pub description: String,
+    /// Semantic version string (e.g. "1.0.0").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    /// Author of the skill.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub author: Option<String>,
+    /// Category grouping (e.g. "development", "writing").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub category: Option<String>,
+    /// Tags for search/filter.
+    #[serde(default)]
+    pub tags: Vec<String>,
+    /// Natural-language description of when this skill should activate.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trigger: Option<String>,
+    /// Full markdown body (everything after the YAML frontmatter).
+    pub content: String,
+    /// Whether this skill is currently enabled.
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    /// ISO-8601 timestamp when the skill was first installed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub installed_at: Option<String>,
+    /// ISO-8601 timestamp when the skill was last updated.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<String>,
+}
+
 // ── Tests ──────────────────────────────────────────────
 
 #[cfg(test)]

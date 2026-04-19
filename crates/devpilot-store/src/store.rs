@@ -1202,6 +1202,281 @@ impl Store {
             .execute("DELETE FROM media_generations WHERE id = ?1", [id])?;
         Ok(())
     }
+
+    // ── Full Data Export / Import ─────────────────────────
+
+    /// Export all user data as a structured object.
+    ///
+    /// Includes sessions, messages, providers (encrypted API keys exported as-is),
+    /// settings, and usage records. API keys remain in their encrypted form —
+    /// the backup is tied to the same machine unless re-encrypted.
+    pub fn export_all(&self) -> Result<ExportData> {
+        let sessions_meta = self.list_sessions()?;
+        let mut sessions = Vec::with_capacity(sessions_meta.len());
+        for s in &sessions_meta {
+            let messages = self.get_session_messages(&s.id)?;
+            sessions.push(SessionExport {
+                session: s.clone(),
+                messages,
+            });
+        }
+
+        // Export providers with raw encrypted API keys
+        let provider_rows = self.list_providers()?;
+        let mut providers = Vec::with_capacity(provider_rows.len());
+        for p in &provider_rows {
+            let api_key_encrypted: Option<String> = self
+                .conn
+                .query_row(
+                    "SELECT api_key_encrypted FROM providers WHERE id = ?1",
+                    rusqlite::params![p.id],
+                    |row| row.get(0),
+                )
+                .ok()
+                .flatten();
+            providers.push(ProviderExport {
+                record: p.clone(),
+                api_key_encrypted,
+            });
+        }
+
+        let settings = self.list_settings()?;
+        let usage = self.get_total_usage()?;
+
+        Ok(ExportData {
+            version: "1.0".to_string(),
+            exported_at: chrono::Utc::now().to_rfc3339(),
+            app_version: env!("CARGO_PKG_VERSION").to_string(),
+            sessions,
+            providers,
+            settings,
+            usage,
+        })
+    }
+
+    /// Import data from a previously exported backup, using the given conflict strategy.
+    pub fn import_all(&self, data: &ExportData, strategy: ImportStrategy) -> Result<ImportResult> {
+        let mut result = ImportResult {
+            sessions_imported: 0,
+            messages_imported: 0,
+            providers_imported: 0,
+            settings_imported: 0,
+            usage_imported: 0,
+            skipped: 0,
+            errors: Vec::new(),
+        };
+
+        // Collect existing IDs for skip/merge logic
+        let existing_sessions = self.list_sessions()?;
+        let existing_session_ids: std::collections::HashSet<String> =
+            existing_sessions.iter().map(|s| s.id.clone()).collect();
+
+        let existing_providers = self.list_providers()?;
+        let existing_provider_ids: std::collections::HashSet<String> =
+            existing_providers.iter().map(|p| p.id.clone()).collect();
+
+        let existing_settings = self.list_settings()?;
+        let existing_setting_keys: std::collections::HashSet<String> =
+            existing_settings.iter().map(|s| s.key.clone()).collect();
+
+        // If Overwrite, clear existing data first
+        if matches!(strategy, ImportStrategy::Overwrite) {
+            // Delete in dependency order
+            self.conn
+                .execute_batch(
+                    "DELETE FROM messages;
+                     DELETE FROM checkpoints;
+                     DELETE FROM sessions;
+                     DELETE FROM providers;
+                     DELETE FROM settings;
+                     DELETE FROM usage;",
+                )
+                .context("Failed to clear existing data for overwrite")?;
+        }
+
+        // Import sessions + messages
+        for se in &data.sessions {
+            let sid = &se.session.id;
+            let should_skip = match strategy {
+                ImportStrategy::Overwrite => false,
+                ImportStrategy::Merge => false,
+                ImportStrategy::SkipExisting => existing_session_ids.contains(sid),
+            };
+
+            if should_skip {
+                result.skipped += 1;
+                continue;
+            }
+
+            // For Merge with existing session, skip session creation but still try messages
+            let session_exists = existing_session_ids.contains(sid);
+            if !session_exists || matches!(strategy, ImportStrategy::Overwrite) {
+                // Insert session preserving original ID and timestamps
+                self.conn.execute(
+                    "INSERT OR IGNORE INTO sessions
+                     (id, title, model, provider, working_dir, mode, reasoning_effort, created_at, updated_at, archived_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                    rusqlite::params![
+                        sid,
+                        se.session.title,
+                        se.session.model,
+                        se.session.provider,
+                        se.session.working_dir,
+                        se.session.mode,
+                        se.session.reasoning_effort,
+                        se.session.created_at,
+                        se.session.updated_at,
+                        se.session.archived_at,
+                    ],
+                )?;
+                result.sessions_imported += 1;
+            } else {
+                // Merge: session already exists, skip it but count as skipped
+                result.skipped += 1;
+            }
+
+            // Import messages for this session
+            for msg in &se.messages {
+                // Use INSERT OR IGNORE to avoid duplicate message IDs
+                match self.conn.execute(
+                    "INSERT OR IGNORE INTO messages
+                     (id, session_id, role, content, model, token_input, token_output,
+                      token_cache_read, token_cache_write, cost_usd, tool_calls, tool_call_id, created_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                    rusqlite::params![
+                        msg.id,
+                        msg.session_id,
+                        msg.role,
+                        msg.content,
+                        msg.model,
+                        msg.token_input,
+                        msg.token_output,
+                        msg.token_cache_read,
+                        msg.token_cache_write,
+                        msg.cost_usd,
+                        msg.tool_calls,
+                        msg.tool_call_id,
+                        msg.created_at,
+                    ],
+                ) {
+                    Ok(rows) => {
+                        if rows > 0 {
+                            result.messages_imported += 1;
+                        } else {
+                            result.skipped += 1;
+                        }
+                    }
+                    Err(e) => {
+                        result.errors.push(format!("Message {}: {}", msg.id, e));
+                    }
+                }
+            }
+        }
+
+        // Import providers (with encrypted API key blobs preserved)
+        for pe in &data.providers {
+            let pid = &pe.record.id;
+            let should_skip = match strategy {
+                ImportStrategy::Overwrite => false,
+                ImportStrategy::Merge => false,
+                ImportStrategy::SkipExisting => existing_provider_ids.contains(pid),
+            };
+
+            if should_skip {
+                result.skipped += 1;
+                continue;
+            }
+
+            // If Merge and provider exists, skip to avoid overwriting API key
+            if matches!(strategy, ImportStrategy::Merge) && existing_provider_ids.contains(pid) {
+                result.skipped += 1;
+                continue;
+            }
+
+            match self.conn.execute(
+                "INSERT OR REPLACE INTO providers
+                 (id, name, type, base_url, api_key_encrypted, models, enabled, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                rusqlite::params![
+                    pid,
+                    pe.record.name,
+                    pe.record.provider_type,
+                    pe.record.base_url,
+                    pe.api_key_encrypted,
+                    pe.record.models,
+                    pe.record.enabled as i32,
+                    pe.record.created_at,
+                ],
+            ) {
+                Ok(_) => {
+                    result.providers_imported += 1;
+                }
+                Err(e) => {
+                    result.errors.push(format!("Provider {}: {}", pid, e));
+                }
+            }
+        }
+
+        // Import settings
+        for s in &data.settings {
+            let should_skip = match strategy {
+                ImportStrategy::Overwrite => false,
+                ImportStrategy::Merge => existing_setting_keys.contains(&s.key),
+                ImportStrategy::SkipExisting => existing_setting_keys.contains(&s.key),
+            };
+
+            if should_skip {
+                result.skipped += 1;
+                continue;
+            }
+
+            match self.set_setting(&s.key, &s.value) {
+                Ok(_) => {
+                    result.settings_imported += 1;
+                }
+                Err(e) => {
+                    result.errors.push(format!("Setting {}: {}", s.key, e));
+                }
+            }
+        }
+
+        // Import usage records
+        for u in &data.usage {
+            match self.conn.execute(
+                "INSERT OR IGNORE INTO usage
+                 (date, provider, model, token_input, token_output, token_cache_read,
+                  token_cache_write, cost_usd, request_count)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                rusqlite::params![
+                    u.date,
+                    u.provider,
+                    u.model,
+                    u.token_input,
+                    u.token_output,
+                    u.token_cache_read,
+                    u.token_cache_write,
+                    u.cost_usd,
+                    u.request_count,
+                ],
+            ) {
+                Ok(rows) => {
+                    if rows > 0 {
+                        result.usage_imported += 1;
+                    } else {
+                        result.skipped += 1;
+                    }
+                }
+                Err(e) => {
+                    result.errors.push(format!(
+                        "Usage {}/{}/{}: {}",
+                        u.date, u.provider, u.model, e
+                    ));
+                }
+            }
+        }
+
+        Ok(result)
+    }
 }
 
 // ── Tests ─────────────────────────────────────────────
@@ -1596,5 +1871,229 @@ mod tests {
         // Delete
         store.delete_media_generation("img-1").unwrap();
         assert!(store.list_media_generations().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_export_all_and_import_overwrite() {
+        let store = test_store();
+
+        // Populate with data
+        let session = store
+            .create_session("Export Test", "gpt-4o", "openai")
+            .unwrap();
+        store
+            .add_message(&session.id, "user", "Hello", None, None, None)
+            .unwrap();
+        store
+            .add_message(&session.id, "assistant", "Hi!", Some("gpt-4o"), None, None)
+            .unwrap();
+        store.set_setting("theme", "dark").unwrap();
+        store.set_setting("locale", "en").unwrap();
+
+        let provider = ProviderRecord {
+            id: "test-provider".to_string(),
+            name: "Test Provider".to_string(),
+            provider_type: "openai".to_string(),
+            base_url: "https://api.example.com".to_string(),
+            api_key_set: false,
+            models: None,
+            enabled: true,
+            created_at: chrono::Utc::now().to_rfc3339(),
+        };
+        store.upsert_provider(&provider).unwrap();
+
+        store
+            .add_usage(&session.id, "gpt-4o", "openai", 100, 50, 0.01)
+            .unwrap();
+
+        // Export
+        let exported = store.export_all().unwrap();
+        assert_eq!(exported.version, "1.0");
+        assert_eq!(exported.sessions.len(), 1);
+        assert_eq!(exported.sessions[0].messages.len(), 2);
+        assert_eq!(exported.providers.len(), 1);
+        assert_eq!(exported.settings.len(), 2);
+        assert_eq!(exported.usage.len(), 1);
+
+        // Verify JSON roundtrip
+        let json = serde_json::to_string(&exported).unwrap();
+        let reparsed: ExportData = serde_json::from_str(&json).unwrap();
+        assert_eq!(reparsed.sessions.len(), 1);
+
+        // Add extra data, then import with Overwrite — should replace everything
+        store.create_session("Extra", "model", "prov").unwrap();
+        assert_eq!(store.list_sessions().unwrap().len(), 2);
+
+        let result = store
+            .import_all(&exported, ImportStrategy::Overwrite)
+            .unwrap();
+        assert_eq!(result.sessions_imported, 1);
+        assert_eq!(result.messages_imported, 2);
+        assert_eq!(result.providers_imported, 1);
+        assert_eq!(result.settings_imported, 2);
+        assert_eq!(result.usage_imported, 1);
+        assert!(result.errors.is_empty());
+
+        // Verify data matches export
+        let sessions = store.list_sessions().unwrap();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].title, "Export Test");
+        let msgs = store.get_session_messages(&session.id).unwrap();
+        assert_eq!(msgs.len(), 2);
+    }
+
+    #[test]
+    fn test_import_merge_skips_existing() {
+        let store = test_store();
+
+        // Create existing data
+        let session = store
+            .create_session("Existing", "model-a", "prov-a")
+            .unwrap();
+        store.set_setting("theme", "dark").unwrap();
+
+        let provider = ProviderRecord {
+            id: "existing-prov".to_string(),
+            name: "Existing Provider".to_string(),
+            provider_type: "openai".to_string(),
+            base_url: "https://api.example.com".to_string(),
+            api_key_set: false,
+            models: None,
+            enabled: true,
+            created_at: chrono::Utc::now().to_rfc3339(),
+        };
+        store.upsert_provider(&provider).unwrap();
+
+        // Build import data that shares some IDs
+        let import_data = ExportData {
+            version: "1.0".to_string(),
+            exported_at: chrono::Utc::now().to_rfc3339(),
+            app_version: "0.4.0".to_string(),
+            sessions: vec![SessionExport {
+                session: SessionInfo {
+                    id: session.id.clone(),
+                    title: "Updated Title".to_string(),
+                    model: "model-b".to_string(),
+                    provider: "prov-b".to_string(),
+                    working_dir: None,
+                    mode: "code".to_string(),
+                    reasoning_effort: None,
+                    created_at: session.created_at.clone(),
+                    updated_at: session.updated_at.clone(),
+                    archived_at: None,
+                    message_count: 0,
+                },
+                messages: vec![],
+            }],
+            providers: vec![ProviderExport {
+                record: ProviderRecord {
+                    id: "existing-prov".to_string(),
+                    name: "Should Not Overwrite".to_string(),
+                    provider_type: "openai".to_string(),
+                    base_url: "https://other.com".to_string(),
+                    api_key_set: false,
+                    models: None,
+                    enabled: true,
+                    created_at: chrono::Utc::now().to_rfc3339(),
+                },
+                api_key_encrypted: None,
+            }],
+            settings: vec![SettingEntry {
+                key: "theme".to_string(),
+                value: "\"light\"".to_string(),
+            }],
+            usage: vec![],
+        };
+
+        let result = store
+            .import_all(&import_data, ImportStrategy::Merge)
+            .unwrap();
+
+        // Merge should skip existing session, provider, and setting
+        assert_eq!(result.sessions_imported, 0);
+        assert_eq!(result.providers_imported, 0);
+        assert_eq!(result.settings_imported, 0);
+        assert!(result.skipped > 0);
+
+        // Verify original data untouched
+        let got = store.get_session(&session.id).unwrap();
+        assert_eq!(got.title, "Existing"); // NOT "Updated Title"
+        let prov = store.get_provider("existing-prov").unwrap();
+        assert_eq!(prov.name, "Existing Provider"); // NOT overwritten
+        assert_eq!(
+            store.get_setting("theme").unwrap(),
+            Some("dark".to_string())
+        );
+    }
+
+    #[test]
+    fn test_import_skip_existing_strategy() {
+        let store = test_store();
+
+        // Pre-existing session
+        let existing = store.create_session("Old", "m1", "p1").unwrap();
+
+        // Import data with same session ID + a new one
+        let import_data = ExportData {
+            version: "1.0".to_string(),
+            exported_at: chrono::Utc::now().to_rfc3339(),
+            app_version: "0.4.0".to_string(),
+            sessions: vec![
+                SessionExport {
+                    session: SessionInfo {
+                        id: existing.id.clone(),
+                        title: "Should Be Skipped".to_string(),
+                        model: "m2".to_string(),
+                        provider: "p2".to_string(),
+                        working_dir: None,
+                        mode: "code".to_string(),
+                        reasoning_effort: None,
+                        created_at: existing.created_at.clone(),
+                        updated_at: existing.updated_at.clone(),
+                        archived_at: None,
+                        message_count: 0,
+                    },
+                    messages: vec![],
+                },
+                SessionExport {
+                    session: SessionInfo {
+                        id: "brand-new-session".to_string(),
+                        title: "New Session".to_string(),
+                        model: "m3".to_string(),
+                        provider: "p3".to_string(),
+                        working_dir: None,
+                        mode: "code".to_string(),
+                        reasoning_effort: None,
+                        created_at: chrono::Utc::now().to_rfc3339(),
+                        updated_at: chrono::Utc::now().to_rfc3339(),
+                        archived_at: None,
+                        message_count: 0,
+                    },
+                    messages: vec![],
+                },
+            ],
+            providers: vec![],
+            settings: vec![],
+            usage: vec![],
+        };
+
+        let result = store
+            .import_all(&import_data, ImportStrategy::SkipExisting)
+            .unwrap();
+
+        // Old session should be skipped, new one imported
+        assert_eq!(result.sessions_imported, 1);
+        assert!(result.skipped >= 1);
+
+        let sessions = store.list_sessions().unwrap();
+        assert_eq!(sessions.len(), 2);
+
+        // Existing session unchanged
+        let old = store.get_session(&existing.id).unwrap();
+        assert_eq!(old.title, "Old");
+
+        // New session present
+        let new = store.get_session("brand-new-session").unwrap();
+        assert_eq!(new.title, "New Session");
     }
 }

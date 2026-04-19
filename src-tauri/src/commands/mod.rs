@@ -6,6 +6,7 @@ use devpilot_store::{
 use tauri::State;
 
 pub mod bridge;
+pub mod data;
 pub mod llm;
 pub mod mcp;
 pub mod media;
@@ -13,6 +14,7 @@ pub mod memory;
 pub mod sandbox;
 pub mod scheduler;
 pub mod search;
+pub mod skills;
 pub mod tools;
 
 /// Health check / ping command.

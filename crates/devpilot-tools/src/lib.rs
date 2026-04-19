@@ -9,11 +9,13 @@
 mod error;
 mod executor;
 mod registry;
+mod skill_loader;
 mod tools;
 
 pub use error::{ToolError, ToolResult};
 pub use executor::{ApprovalRequest, ApprovalStatus, ToolExecutor};
 pub use registry::ToolRegistry;
+pub use skill_loader::SkillLoader;
 pub use tools::{
     ApplyPatchTool, FileReadTool, FileSearchTool, FileWriteTool, GlobTool, ListDirectoryTool,
     ShellExecTool, WebFetchTool,

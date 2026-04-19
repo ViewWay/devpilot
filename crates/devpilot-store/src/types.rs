@@ -187,3 +187,68 @@ pub struct MediaGenerationRecord {
     pub tags: Option<String>,
     pub created_at: String,
 }
+
+// ── Full Data Export / Import types ─────────────────────
+
+/// Top-level container for a full data export.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportData {
+    /// Export format version (e.g. "1.0")
+    pub version: String,
+    /// ISO 8601 timestamp of when the export was created
+    pub exported_at: String,
+    /// App version that produced the export
+    pub app_version: String,
+    /// Sessions with their messages
+    pub sessions: Vec<SessionExport>,
+    /// Provider records (API keys are exported as encrypted blobs)
+    pub providers: Vec<ProviderExport>,
+    /// Key-value settings
+    pub settings: Vec<SettingEntry>,
+    /// Usage records
+    pub usage: Vec<UsageRecord>,
+}
+
+/// A session bundled with its messages for export.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionExport {
+    pub session: SessionInfo,
+    pub messages: Vec<MessageInfo>,
+}
+
+/// A provider record with its encrypted API key for export.
+/// The `api_key_encrypted` field contains the raw encrypted blob from the DB.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderExport {
+    pub record: ProviderRecord,
+    /// Raw encrypted API key blob from the database (may be empty).
+    pub api_key_encrypted: Option<String>,
+}
+
+/// Strategy for resolving conflicts during import.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ImportStrategy {
+    /// Replace all existing data with imported data
+    Overwrite,
+    /// Keep existing data, add only new entries
+    Merge,
+    /// Skip entries whose IDs already exist
+    SkipExisting,
+}
+
+/// Summary of an import operation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportResult {
+    pub sessions_imported: usize,
+    pub messages_imported: usize,
+    pub providers_imported: usize,
+    pub settings_imported: usize,
+    pub usage_imported: usize,
+    pub skipped: usize,
+    pub errors: Vec<String>,
+}

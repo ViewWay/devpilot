@@ -135,7 +135,24 @@ impl Session {
     ///
     /// This assembles the message history, system prompt, tools, and
     /// model parameters into a request ready to send to the LLM provider.
+    ///
+    /// Mode behaviour:
+    /// - **Ask** — tools are omitted entirely (pure Q&A).
+    /// - **Plan** — tool definitions are included so the LLM can *plan*
+    ///   what to call, but the agent loop will not execute them.
+    /// - **Code** — tool definitions are included and will be executed.
     pub fn build_chat_request(&self, tools: Vec<devpilot_protocol::ToolDefinition>) -> ChatRequest {
+        let resolved_tools = match self.config.mode {
+            SessionMode::Ask => None,
+            SessionMode::Plan | SessionMode::Code => {
+                if tools.is_empty() {
+                    None
+                } else {
+                    Some(tools)
+                }
+            }
+        };
+
         ChatRequest {
             model: self.config.model.clone(),
             messages: self.messages_for_request(),
@@ -144,7 +161,7 @@ impl Session {
             max_tokens: None,
             top_p: None,
             stop: None,
-            tools: if tools.is_empty() { None } else { Some(tools) },
+            tools: resolved_tools,
             stream: true,
         }
     }
@@ -296,6 +313,42 @@ mod tests {
         assert_eq!(req.model, "test-model");
         assert_eq!(req.messages.len(), 1);
         assert!(req.stream);
+    }
+
+    #[test]
+    fn build_chat_request_ask_mode_strips_tools() {
+        let mut config = test_config();
+        config.mode = SessionMode::Ask;
+        let mut session = Session::new(config);
+        session.add_user_message("Hello!");
+        let tool_def = devpilot_protocol::ToolDefinition {
+            name: "shell".into(),
+            description: "Run a command".into(),
+            input_schema: serde_json::json!({"type": "object"}),
+        };
+        let req = session.build_chat_request(vec![tool_def]);
+        assert!(
+            req.tools.is_none(),
+            "Ask mode should strip all tools from the request"
+        );
+    }
+
+    #[test]
+    fn build_chat_request_plan_mode_includes_tools() {
+        let mut config = test_config();
+        config.mode = SessionMode::Plan;
+        let mut session = Session::new(config);
+        session.add_user_message("Plan a refactor");
+        let tool_def = devpilot_protocol::ToolDefinition {
+            name: "read_file".into(),
+            description: "Read a file".into(),
+            input_schema: serde_json::json!({"type": "object"}),
+        };
+        let req = session.build_chat_request(vec![tool_def]);
+        assert!(
+            req.tools.is_some(),
+            "Plan mode should include tool definitions"
+        );
     }
 
     #[test]
