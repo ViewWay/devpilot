@@ -220,6 +220,17 @@ function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
       });
     case "import_sessions":
       return { sessionsImported: 0, messagesImported: 0 };
+    // Memory & Persona
+    case "load_persona_files_cmd":
+      return { soul: "", user: "", memory: "" };
+    case "save_persona_file_cmd":
+      return null;
+    case "list_daily_memories_cmd":
+      return [];
+    case "search_memories_cmd":
+      return [];
+    case "create_daily_memory_cmd":
+      return null;
     default:
       console.warn(`[IPC mock] Unhandled command: ${cmd}`);
       return null;
@@ -360,6 +371,13 @@ export interface IPCCommands {
   // Data Import / Export
   export_sessions: void;
   import_sessions: { jsonData: string };
+
+  // Memory & Persona
+  load_persona_files_cmd: { workspaceDir: string };
+  save_persona_file_cmd: { workspaceDir: string; fileType: string; content: string };
+  list_daily_memories_cmd: { dataDir: string; limit?: number | null };
+  search_memories_cmd: { dataDir: string; query: string };
+  create_daily_memory_cmd: { dataDir: string; date: string; content: string };
 }
 
 export interface ProviderConfigIPC {

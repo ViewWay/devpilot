@@ -110,6 +110,12 @@ pub fn run() {
             commands::mcp::mcp_connect_server,
             commands::mcp::mcp_disconnect_server,
             commands::mcp::mcp_list_connected,
+            // Memory & Persona
+            commands::memory::load_persona_files_cmd,
+            commands::memory::save_persona_file_cmd,
+            commands::memory::list_daily_memories_cmd,
+            commands::memory::search_memories_cmd,
+            commands::memory::create_daily_memory_cmd,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
