@@ -13,6 +13,7 @@ import {
   type HydratedSession,
 } from "../lib/persistence";
 import { invoke, listen, isTauriRuntime } from "../lib/ipc";
+import { buildSystemPrompt } from "../lib/systemPrompt";
 
 let nextId = 100;
 function genId() {
@@ -549,10 +550,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }));
 
         // Inject system prompt if configured
-        const systemPrompt = useUIStore.getState().systemPrompt;
-        if (systemPrompt.trim()) {
-          messages.unshift({ role: "system", content: [{ type: "text" as const, text: systemPrompt.trim() }] });
-        }
+        const customPrompt = useUIStore.getState().systemPrompt;
+        const systemPrompt = buildSystemPrompt(customPrompt);
+        messages.unshift({ role: "system", content: [{ type: "text" as const, text: systemPrompt }] });
 
         messages.push({ role: "user", content: [{ type: "text" as const, text: content }] });
 
