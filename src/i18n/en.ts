@@ -125,6 +125,16 @@ const en: Record<string, string> = {
   scStopGeneration: "Stop generation / Close panel",
   scPrevConversation: "Previous conversation",
   scNextConversation: "Next conversation",
+  scToggleSplitView: "Toggle split view",
+  scToggleTerminal: "Toggle terminal panel",
+  scToggleFiles: "Toggle files panel",
+  scClickToRebind: "Click to rebind",
+  scPressKeys: "Press keys...",
+  scReset: "Reset",
+  scResetAll: "Reset All",
+  scResetAllConfirm: "Reset all shortcuts to defaults?",
+  scRecording: "Listening for shortcut...",
+  scConflict: "Conflict: already bound to",
 
   // --- Settings extras ---
   appearanceDesc: "Customize the look and feel of DevPilot.",

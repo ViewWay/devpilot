@@ -125,6 +125,16 @@ const zh: Record<string, string> = {
   scStopGeneration: "停止生成 / 关闭面板",
   scPrevConversation: "上一条对话",
   scNextConversation: "下一条对话",
+  scToggleSplitView: "切换分屏视图",
+  scToggleTerminal: "切换终端面板",
+  scToggleFiles: "切换文件面板",
+  scClickToRebind: "点击重新绑定",
+  scPressKeys: "按下快捷键...",
+  scReset: "重置",
+  scResetAll: "全部重置",
+  scResetAllConfirm: "确定将所有快捷键恢复为默认值？",
+  scRecording: "正在监听快捷键...",
+  scConflict: "冲突：已绑定到",
 
   // --- Settings extras ---
   appearanceDesc: "自定义 DevPilot 的外观和体验。",

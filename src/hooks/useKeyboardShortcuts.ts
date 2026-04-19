@@ -1,102 +1,116 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useMemo } from "react";
 import { useUIStore } from "../stores/uiStore";
 import { useChatStore } from "../stores/chatStore";
+import { useShortcutStore, parseCombo, SHORTCUT_DEFINITIONS, type ShortcutAction } from "../stores/shortcutStore";
+import { useNavigate } from "react-router-dom";
+import { toast } from "../stores/toastStore";
 
-type ShortcutAction = () => void;
-
-interface Shortcut {
-  key: string;
-  ctrl?: boolean;
-  shift?: boolean;
-  meta?: boolean;
-  description: string;
-  action: ShortcutAction;
-}
+type ShortcutHandler = () => void;
 
 /**
  * Global keyboard shortcuts hook.
- * Attaches listeners on mount, cleans up on unmount.
- *
- * Default bindings (Mac-aware):
- *   Ctrl/Cmd + K   → Focus chat input
- *   Ctrl/Cmd + N   → New chat session
- *   Ctrl/Cmd + B   → Toggle sidebar
- *   Ctrl/Cmd + J   → Toggle terminal panel
- *   Ctrl/Cmd + E   → Toggle files panel
- *   Ctrl/Cmd + .   → Toggle right panel (last used)
- *   Ctrl/Cmd + Shift + P → (reserved for command palette)
- *   Escape         → Close right panel / clear input
+ * Reads current bindings from shortcutStore and attaches listeners.
+ * Cleans up on unmount.
  */
 export function useKeyboardShortcuts() {
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const toggleRightPanel = useUIStore((s) => s.toggleRightPanel);
   const rightPanel = useUIStore((s) => s.rightPanel);
+  const toggleSplitView = useUIStore((s) => s.toggleSplitView);
   const createSession = useChatStore((s) => s.createSession);
-  const toggleCommandPalette = useUIStore((s) => s.toggleCommandPalette);
   const setCommandPaletteOpen = useUIStore((s) => s.setCommandPaletteOpen);
+  const commandPaletteOpen = useUIStore((s) => s.commandPaletteOpen);
+  const selectedModel = useUIStore((s) => s.selectedModel);
+  const setActiveView = useUIStore((s) => s.setActiveView);
+  const shortcuts = useShortcutStore((s) => s.shortcuts);
 
-  const focusChatInput = useCallback(() => {
+  const navigate = useNavigate();
+
+  const handleNewChat = useCallback(() => {
+    createSession(selectedModel.id, selectedModel.provider);
+    navigate("/");
+  }, [createSession, selectedModel, navigate]);
+
+  const handleOpenSettings = useCallback(() => {
+    setActiveView("settings");
+    navigate("/settings");
+  }, [setActiveView, navigate]);
+
+  const handleCommandPalette = useCallback(() => {
+    if (commandPaletteOpen) {
+      setCommandPaletteOpen(false);
+    } else {
+      setCommandPaletteOpen(true);
+      toast.info("Command palette opened");
+    }
+  }, [commandPaletteOpen, setCommandPaletteOpen]);
+
+  const handleSendMessage = useCallback(() => {
     const input = document.querySelector<HTMLTextAreaElement>(
       'textarea[data-testid="chat-input"]',
     );
     if (input) {
       input.focus();
-      input.select();
+      input.dispatchEvent(new CustomEvent("shortcut-send"));
     }
   }, []);
 
-  const selectedModel = useUIStore((s) => s.selectedModel);
+  const handleEscape = useCallback(() => {
+    setCommandPaletteOpen(false);
+    if (rightPanel !== "none") {
+      toggleRightPanel(rightPanel);
+    }
+    const target = document.activeElement as HTMLElement;
+    if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
+      target.blur();
+    }
+  }, [rightPanel, toggleRightPanel, setCommandPaletteOpen]);
 
-  const handleNewChat = useCallback(() => {
-    createSession(selectedModel.id, selectedModel.provider);
-  }, [createSession, selectedModel]);
+  // Memoize the action handlers map so it has a stable reference
+  const actionHandlers: Record<ShortcutAction, ShortcutHandler> = useMemo(() => ({
+    newSession: handleNewChat,
+    toggleSidebar: toggleSidebar,
+    toggleSplitView: () => toggleSplitView(),
+    commandPalette: handleCommandPalette,
+    openSettings: handleOpenSettings,
+    sendMessage: handleSendMessage,
+    escape: handleEscape,
+    toggleTerminal: () => toggleRightPanel("terminal"),
+    toggleFiles: () => toggleRightPanel("files"),
+  }), [handleNewChat, toggleSidebar, toggleSplitView, handleCommandPalette,
+    handleOpenSettings, handleSendMessage, handleEscape, toggleRightPanel]);
 
   useEffect(() => {
-    const shortcuts: Shortcut[] = [
-      { key: "k", ctrl: true, description: "Command palette", action: toggleCommandPalette },
-      { key: "k", ctrl: true, shift: true, description: "Focus chat input", action: focusChatInput },
-      { key: "n", ctrl: true, description: "New chat", action: handleNewChat },
-      { key: "b", ctrl: true, description: "Toggle sidebar", action: toggleSidebar },
-      { key: "j", ctrl: true, description: "Toggle terminal", action: () => toggleRightPanel("terminal") },
-      { key: "e", ctrl: true, description: "Toggle files", action: () => toggleRightPanel("files") },
-      { key: ".", ctrl: true, description: "Toggle panel", action: () => toggleRightPanel(rightPanel === "none" ? "files" : "none") },
-    ];
-
     const handler = (e: KeyboardEvent) => {
-      // Skip when user is typing in an input/textarea (except for Escape)
       const target = e.target as HTMLElement;
       const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
-      if (e.key !== "Escape" && isInput) {return;}
-
-      const isMac = navigator.platform.startsWith("Mac");
+      const isMac = navigator.platform.toUpperCase().startsWith("MAC");
       const ctrlOrMeta = isMac ? e.metaKey : e.ctrlKey;
 
-      for (const sc of shortcuts) {
+      for (const def of SHORTCUT_DEFINITIONS) {
+        // Skip input-excluded shortcuts when typing
+        if (!def.worksInInput && e.key !== "Escape" && isInput) {
+          continue;
+        }
+
+        const comboStr = shortcuts[def.action];
+        const combo = parseCombo(comboStr);
+
         if (
-          e.key.toLowerCase() === sc.key &&
-          (sc.ctrl ? ctrlOrMeta : !ctrlOrMeta) &&
-          (sc.shift ? e.shiftKey : !e.shiftKey) &&
-          (sc.meta ? e.metaKey : true)
+          e.key.toLowerCase() === combo.key.toLowerCase() &&
+          (combo.ctrlOrCmd ? ctrlOrMeta : !ctrlOrMeta) &&
+          (combo.shift ? e.shiftKey : !e.shiftKey) &&
+          (combo.alt ? e.altKey : !e.altKey)
         ) {
           e.preventDefault();
-          sc.action();
+          e.stopPropagation();
+          actionHandlers[def.action]?.();
           return;
-        }
-      }
-
-      // Escape handler
-      if (e.key === "Escape") {
-        setCommandPaletteOpen(false);
-        if (rightPanel !== "none") {
-          toggleRightPanel(rightPanel);
-        }
-        if (isInput) {
-          target.blur();
         }
       }
     };
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [focusChatInput, handleNewChat, toggleSidebar, toggleRightPanel, rightPanel, toggleCommandPalette, setCommandPaletteOpen]);
+  }, [shortcuts, actionHandlers]);
 }

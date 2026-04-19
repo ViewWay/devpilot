@@ -32,6 +32,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import { PersonaMemoryTab } from "../components/PersonaMemoryTab";
+import { useShortcutStore, SHORTCUT_DEFINITIONS, type ShortcutAction } from "../stores/shortcutStore";
 
 type TabId = "providers" | "appearance" | "shortcuts" | "usage" | "bridge" | "mcp" | "security" | "persona";
 
@@ -586,45 +587,248 @@ function AppearanceTab() {
 
 // --- Shortcuts Tab ---
 
+function ShortcutKey({ combo, isMac }: { combo: string; isMac: boolean }) {
+  const parts = combo.split("+").map((p) => p.trim());
+  return (
+    <div className="flex items-center gap-1">
+      {parts.map((part, i) => {
+        let label = part;
+        if (part === "ctrlOrCmd") {
+          label = isMac ? "⌘" : "Ctrl";
+        } else if (part === "shift") {
+          label = "⇧";
+        } else if (part === "alt") {
+          label = isMac ? "⌥" : "Alt";
+        } else {
+          const keyMap: Record<string, string> = {
+            enter: "Enter",
+            escape: "Esc",
+            "`": "`",
+            ",": ",",
+            ".": ".",
+          };
+          label = keyMap[part.toLowerCase()] ?? part.toUpperCase();
+        }
+        return (
+          <span key={i}>
+            {i > 0 && <span className="mx-0.5 text-muted-foreground">+</span>}
+            <kbd className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-border bg-muted px-1.5 text-[10px] font-mono text-muted-foreground">
+              {label}
+            </kbd>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function RecordingInput({
+  onCapture,
+  onCancel,
+}: {
+  onCapture: (combo: string) => void;
+  onCancel: () => void;
+}) {
+  const { t } = useI18n();
+  const [status, setStatus] = useState<"recording" | "done">("recording");
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Ignore lone modifier presses
+      if (["Control", "Shift", "Alt", "Meta"].includes(e.key)) {
+        return;
+      }
+
+      const isMac = navigator.platform.toUpperCase().startsWith("MAC");
+      const ctrlOrCmd = isMac ? e.metaKey : e.ctrlKey;
+
+      // Build combo string
+      const parts: string[] = [];
+      if (ctrlOrCmd) { parts.push("ctrlOrCmd"); }
+      if (e.shiftKey) { parts.push("shift"); }
+      if (e.altKey) { parts.push("alt"); }
+
+      // Key name
+      let key = e.key;
+      if (key === " ") { key = "Space"; }
+      parts.push(key);
+
+      const combo = parts.join("+");
+      setStatus("done");
+      onCapture(combo);
+    };
+
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
+  }, [onCapture]);
+
+  // Auto-cancel on blur
+  useEffect(() => {
+    const handleBlur = () => {
+      if (status === "recording") { onCancel(); }
+    };
+    window.addEventListener("blur", handleBlur);
+    return () => window.removeEventListener("blur", handleBlur);
+  }, [status, onCancel]);
+
+  // Listen for Escape to cancel
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && status === "recording") {
+        e.preventDefault();
+        e.stopPropagation();
+        onCancel();
+      }
+    };
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
+  }, [status, onCancel]);
+
+  return (
+    <div className="flex items-center gap-1">
+      <kbd className="inline-flex h-5 min-w-[60px] items-center justify-center rounded border border-primary bg-primary/10 px-2 text-[10px] font-mono text-primary animate-pulse">
+        {status === "recording" ? t("scRecording") : "✓"}
+      </kbd>
+    </div>
+  );
+}
+
 function ShortcutsTab() {
   const { t } = useI18n();
-  const shortcuts = [
-    { keys: ["⌘", "Enter"], description: t("scSendMessage") },
-    { keys: ["Shift", "Enter"], description: t("scNewLine") },
-    { keys: ["⌘", "N"], description: t("scNewChat") },
-    { keys: ["⌘", "B"], description: t("scToggleSidebar") },
-    { keys: ["⌘", ","], description: t("scOpenSettings") },
-    { keys: ["⌘", "K"], description: t("scSearch") },
-    { keys: ["⌘", "Shift", "S"], description: t("scTogglePrompt") },
-    { keys: ["Escape"], description: t("scStopGeneration") },
-    { keys: ["⌘", "↑"], description: t("scPrevConversation") },
-    { keys: ["⌘", "↓"], description: t("scNextConversation") },
-  ];
+  const shortcuts = useShortcutStore((s) => s.shortcuts);
+  const updateShortcut = useShortcutStore((s) => s.updateShortcut);
+  const resetShortcut = useShortcutStore((s) => s.resetShortcut);
+  const resetAllShortcuts = useShortcutStore((s) => s.resetAllShortcuts);
+  const [recordingAction, setRecordingAction] = useState<string | null>(null);
+  const [conflictMsg, setConflictMsg] = useState<string | null>(null);
+
+  const isMac = typeof navigator !== "undefined" && navigator.platform.toUpperCase().startsWith("MAC");
+
+  const handleCapture = useCallback((action: ShortcutAction, combo: string) => {
+    setRecordingAction(null);
+    // Check for conflicts
+    const conflict = SHORTCUT_DEFINITIONS.find(
+      (def) => def.action !== action && shortcuts[def.action] === combo,
+    );
+    if (conflict) {
+      setConflictMsg(`${t("scConflict")} "${t(conflict.labelKey)}"`);
+      setTimeout(() => setConflictMsg(null), 3000);
+      return;
+    }
+    updateShortcut(action, combo);
+  }, [shortcuts, updateShortcut, t]);
+
+  const [showResetDialog, setShowResetDialog] = useState(false);
+
+  const handleResetAll = () => {
+    setShowResetDialog(true);
+  };
+
+  const confirmResetAll = () => {
+    resetAllShortcuts();
+    setShowResetDialog(false);
+  };
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h2 className="text-base font-semibold text-foreground">{t("keyboardShortcuts")}</h2>
-        <p className="text-xs text-muted-foreground mt-1">{t("shortcutsDesc")}</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-foreground">{t("keyboardShortcuts")}</h2>
+          <p className="text-xs text-muted-foreground mt-1">{t("shortcutsDesc")}</p>
+        </div>
+        <button
+          onClick={handleResetAll}
+          className="rounded-md border border-border px-2.5 py-1.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          {t("scResetAll")}
+        </button>
       </div>
 
+      {conflictMsg && (
+        <div className="flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <AlertCircle size={14} />
+          <span>{conflictMsg}</span>
+          <button onClick={() => setConflictMsg(null)} className="ml-auto text-destructive/70 hover:text-destructive">
+            <X size={12} />
+          </button>
+        </div>
+      )}
+
       <div className="space-y-1">
-        {shortcuts.map((shortcut) => (
-          <div key={shortcut.description} className="flex items-center justify-between rounded-md px-3 py-2 hover:bg-accent/50">
-            <span className="text-xs text-foreground">{shortcut.description}</span>
-            <div className="flex items-center gap-1">
-              {shortcut.keys.map((key, i) => (
-                <span key={i}>
-                  {i > 0 && <span className="mx-0.5 text-muted-foreground">+</span>}
-                  <kbd className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-border bg-muted px-1.5 text-[10px] font-mono text-muted-foreground">
-                    {key}
-                  </kbd>
-                </span>
-              ))}
+        {SHORTCUT_DEFINITIONS.map((def) => {
+          const currentCombo = shortcuts[def.action];
+          const isDefault = currentCombo === def.defaultCombo;
+          const isRecording = recordingAction === def.action;
+
+          return (
+            <div
+              key={def.action}
+              className="flex items-center justify-between rounded-md px-3 py-2 hover:bg-accent/50 group"
+            >
+              <span className="text-xs text-foreground">{t(def.labelKey)}</span>
+              <div className="flex items-center gap-2">
+                {isRecording ? (
+                  <RecordingInput
+                    onCapture={(combo) => handleCapture(def.action, combo)}
+                    onCancel={() => setRecordingAction(null)}
+                  />
+                ) : (
+                  <button
+                    onClick={() => setRecordingAction(def.action)}
+                    className="flex items-center gap-1 rounded-md border border-transparent px-1 py-0.5 transition-colors hover:border-border hover:bg-muted/50"
+                    title={t("scClickToRebind")}
+                  >
+                    <ShortcutKey combo={currentCombo} isMac={isMac} />
+                  </button>
+                )}
+
+                {!isDefault && (
+                  <button
+                    onClick={() => resetShortcut(def.action)}
+                    className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground"
+                    title={t("scReset")}
+                  >
+                    <Trash2 size={11} />
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Hint text */}
+      <div className="text-[10px] text-muted-foreground/60 space-y-0.5">
+        <p>{isMac ? "⌘ = Command key" : "Ctrl = Control key"}</p>
+        <p>{t("scClickToRebind")} · Esc to cancel recording</p>
+      </div>
+
+      {/* Reset confirmation dialog */}
+      {showResetDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowResetDialog(false)}>
+          <div className="w-80 rounded-lg border border-border bg-background p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <p className="text-sm font-medium text-foreground">{t("scResetAll")}</p>
+            <p className="mt-2 text-xs text-muted-foreground">{t("scResetAllConfirm")}</p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setShowResetDialog(false)}
+                className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmResetAll}
+                className="rounded-md bg-destructive px-3 py-1.5 text-xs text-white hover:bg-destructive/90"
+              >
+                {t("scResetAll")}
+              </button>
             </div>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

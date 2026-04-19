@@ -5,6 +5,7 @@ import { CommandPalette } from "../CommandPalette";
 import { ToastContainer } from "../ToastContainer";
 import { useUIStore } from "../../stores/uiStore";
 import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
+import { useShortcutStore } from "../../stores/shortcutStore";
 import { useEffect, useCallback } from "react";
 
 export function AppShell() {
@@ -15,6 +16,12 @@ export function AppShell() {
 
   // Global keyboard shortcuts
   useKeyboardShortcuts();
+
+  // Hydrate shortcut config from backend
+  const hydrateShortcuts = useShortcutStore((s) => s.hydrateFromBackend);
+  useEffect(() => {
+    hydrateShortcuts();
+  }, [hydrateShortcuts]);
 
   // Sync URL → store
   useEffect(() => {
