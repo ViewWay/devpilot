@@ -768,3 +768,53 @@ New test files:
 | Version        | 0.1.0            | 0.4.0     |
 
 **QA:** `cargo test --workspace` 202 pass, `vitest run` 142 pass, `tsc --noEmit` clean, ESLint 0 errors
+
+---
+
+## Session O: P5 Persistence Layer / P5 持久化层
+
+**Goal:** Add SQLite persistence for Phase 5 features (bridge, scheduler, media) to complement the existing in-memory managers.
+
+### P5-1: Store Types & Migrations ✅
+
+- Added `BridgeChannelRecord`, `ScheduledTaskRecord`, `TaskRunRecord`, `MediaGenerationRecord` to `devpilot-store/src/types.rs`
+- Added 4 new DB migrations: `bridge_channels`, `scheduled_tasks`, `task_runs`, `media_generations`
+- All tables follow PRD schema with proper CHECK constraints, FK cascades, and indexes
+
+### P5-2: Store CRUD Methods ✅
+
+- Bridge: `list_bridge_channels`, `get_bridge_channel`, `upsert_bridge_channel`, `delete_bridge_channel`, `update_bridge_channel_status`
+- Scheduler: `list_scheduled_tasks`, `get_scheduled_task`, `upsert_scheduled_task`, `delete_scheduled_task`, `update_task_run_times`
+- Task Runs: `create_task_run`, `list_task_runs`, `update_task_run`
+- Media: `list_media_generations`, `get_media_generation`, `create_media_generation`, `update_media_generation`, `update_media_generation_tags`, `delete_media_generation`
+
+### P5-3: Tauri Persistence Commands ✅
+
+- Bridge: `bridge_save`, `bridge_list_saved`, `bridge_delete_saved`, `bridge_update_status`
+- Scheduler: `scheduler_save_task`, `scheduler_list_saved`, `scheduler_delete_saved`, `scheduler_save_run`, `scheduler_list_runs`
+- Media: `media_save`, `media_list_saved`, `media_get`, `media_update_status`, `media_update_tags`, `media_delete`
+- All 14 new commands registered in `invoke_handler`
+
+### P5-4: Frontend Store Persistence Integration ✅
+
+- `bridgeStore.ts`: Added `BridgeChannelRecord` type, `savedChannels` state, `fetchSavedChannels`, `saveChannel`, `deleteSavedChannel`, `updateChannelStatus`
+- `schedulerStore.ts`: Added `ScheduledTaskRecord`, `TaskRunRecord` types, `savedTasks`, `taskRuns` state, `fetchSavedTasks`, `fetchTaskRuns`, `saveTask`, `deleteSavedTask`, `saveRun`
+- `mediaStore.ts`: Added `MediaGenerationRecord` type, `savedGenerations` state, `fetchSavedGenerations`, `saveGeneration`, `updateGenerationStatus`, `updateGenerationTags`, `deleteGeneration`
+
+### P5-5: Store Tests ✅
+
+- `test_bridge_channels_crud`: Create, get, update, status update, delete
+- `test_scheduled_tasks_crud`: Create, get, update run times, delete
+- `test_task_runs_crud`: Create, update to done, cascade delete
+- `test_media_generations_crud`: Create, get, update status, update tags, delete
+
+### Stats
+
+| Metric         | Before (67dde96) | Current |
+| -------------- | ---------------- | ------- |
+| Rust tests     | 230              | **234** |
+| Frontend tests | 142              | 142     |
+| Tauri commands | 57               | **71**  |
+| DB tables      | 7                | **11**  |
+
+**QA:** `cargo test --workspace` 234 pass, `vitest run` 142 pass, `cargo clippy -D warnings` clean, `npm run build` clean

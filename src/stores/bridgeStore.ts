@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { invoke } from "../lib/ipc";
 
-/** Bridge info returned by the backend. */
+/** Bridge info returned by the backend (in-memory). */
 export interface BridgeInfo {
   id: string;
   name: string | null;
@@ -9,12 +9,25 @@ export interface BridgeInfo {
   enabled: boolean;
 }
 
+/** Persisted bridge channel from SQLite. */
+export interface BridgeChannelRecord {
+  id: string;
+  channelType: string;
+  config: string;
+  sessionBindings: string | null;
+  enabled: boolean;
+  status: string;
+  createdAt: string;
+}
+
 interface BridgeState {
   bridges: BridgeInfo[];
+  savedChannels: BridgeChannelRecord[];
   loading: boolean;
   error: string | null;
 
   fetchBridges: () => Promise<void>;
+  fetchSavedChannels: () => Promise<void>;
   createBridge: (
     name: string,
     platform: string,
@@ -26,10 +39,14 @@ interface BridgeState {
   enableBridge: (bridgeId: string) => Promise<void>;
   disableBridge: (bridgeId: string) => Promise<void>;
   sendTest: (bridgeId: string) => Promise<void>;
+  saveChannel: (channel: BridgeChannelRecord) => Promise<void>;
+  deleteSavedChannel: (bridgeId: string) => Promise<void>;
+  updateChannelStatus: (bridgeId: string, status: string) => Promise<void>;
 }
 
 export const useBridgeStore = create<BridgeState>((set, get) => ({
   bridges: [],
+  savedChannels: [],
   loading: false,
   error: null,
 
@@ -44,6 +61,13 @@ export const useBridgeStore = create<BridgeState>((set, get) => ({
         loading: false,
       });
     }
+  },
+
+  fetchSavedChannels: async () => {
+    try {
+      const savedChannels = await invoke<BridgeChannelRecord[]>("bridge_list_saved");
+      set({ savedChannels });
+    } catch { /* ignore */ }
   },
 
   createBridge: async (name, platform, url, channel, token) => {
@@ -79,5 +103,20 @@ export const useBridgeStore = create<BridgeState>((set, get) => ({
       content: "🔔 Test notification from DevPilot",
       title: "Test Notification",
     });
+  },
+
+  saveChannel: async (channel) => {
+    await invoke("bridge_save", { channel });
+    await get().fetchSavedChannels();
+  },
+
+  deleteSavedChannel: async (bridgeId) => {
+    await invoke("bridge_delete_saved", { bridgeId });
+    await get().fetchSavedChannels();
+  },
+
+  updateChannelStatus: async (bridgeId, status) => {
+    await invoke("bridge_update_status", { bridgeId, status });
+    await get().fetchSavedChannels();
   },
 }));

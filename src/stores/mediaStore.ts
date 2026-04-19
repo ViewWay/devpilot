@@ -13,17 +13,36 @@ interface GeneratedImage {
   createdAt: string;
 }
 
+/** Persisted media generation from SQLite. */
+export interface MediaGenerationRecord {
+  id: string;
+  prompt: string;
+  model: string;
+  provider: string;
+  filePath: string | null;
+  status: string;
+  tags: string | null;
+  createdAt: string;
+}
+
 interface MediaState {
   images: GeneratedImage[];
+  savedGenerations: MediaGenerationRecord[];
   providers: string[];
   loading: boolean;
   error: string | null;
   fetchProviders: () => Promise<void>;
+  fetchSavedGenerations: () => Promise<void>;
   generate: (prompt: string, provider?: string, model?: string, size?: string, apiKey?: string) => Promise<void>;
+  saveGeneration: (record: MediaGenerationRecord) => Promise<void>;
+  updateGenerationStatus: (mediaId: string, status: string, filePath?: string) => Promise<void>;
+  updateGenerationTags: (mediaId: string, tags: string) => Promise<void>;
+  deleteGeneration: (mediaId: string) => Promise<void>;
 }
 
-export const useMediaStore = create<MediaState>((set) => ({
+export const useMediaStore = create<MediaState>((set, get) => ({
   images: [],
+  savedGenerations: [],
   providers: ["openai", "stability", "generic"],
   loading: false,
   error: null,
@@ -33,6 +52,13 @@ export const useMediaStore = create<MediaState>((set) => ({
       const providers = await invoke<string[]>("media_providers");
       set({ providers });
     } catch { /* keep defaults */ }
+  },
+
+  fetchSavedGenerations: async () => {
+    try {
+      const savedGenerations = await invoke<MediaGenerationRecord[]>("media_list_saved");
+      set({ savedGenerations });
+    } catch { /* ignore */ }
   },
 
   generate: async (prompt, provider, model, size, apiKey) => {
@@ -60,5 +86,25 @@ export const useMediaStore = create<MediaState>((set) => ({
     } catch (e: unknown) {
       set({ error: String(e), loading: false });
     }
+  },
+
+  saveGeneration: async (record) => {
+    await invoke("media_save", { record });
+    await get().fetchSavedGenerations();
+  },
+
+  updateGenerationStatus: async (mediaId, status, filePath) => {
+    await invoke("media_update_status", { mediaId, status, filePath });
+    await get().fetchSavedGenerations();
+  },
+
+  updateGenerationTags: async (mediaId, tags) => {
+    await invoke("media_update_tags", { mediaId, tags });
+    await get().fetchSavedGenerations();
+  },
+
+  deleteGeneration: async (mediaId) => {
+    await invoke("media_delete", { mediaId });
+    await get().fetchSavedGenerations();
   },
 }));
