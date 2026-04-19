@@ -15,6 +15,9 @@ const zh: Record<string, string> = {
   confirmDelete: "删除此对话？",
   noSessions: "暂无对话",
   noSessionsHint: "开始新对话",
+  exportAs: "导出为...",
+  exportJson: "JSON",
+  exportMarkdown: "Markdown",
 
   // --- TopBar ---
   code: "代码",

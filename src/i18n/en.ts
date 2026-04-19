@@ -15,6 +15,9 @@ const en: Record<string, string> = {
   confirmDelete: "Delete this conversation?",
   noSessions: "No conversations yet",
   noSessionsHint: "Start a new chat to begin",
+  exportAs: "Export as...",
+  exportJson: "JSON",
+  exportMarkdown: "Markdown",
 
   // --- TopBar ---
   code: "Code",

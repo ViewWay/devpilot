@@ -17,6 +17,7 @@ import {
   PanelLeft,
   Pencil,
   Archive,
+  Download,
 } from "lucide-react";
 
 export function Sidebar() {
@@ -160,6 +161,7 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
   const deleteSession = useChatStore((s) => s.deleteSession);
   const updateSessionTitle = useChatStore((s) => s.updateSessionTitle);
   const archiveSession = useChatStore((s) => s.archiveSession);
+  const exportSession = useChatStore((s) => s.exportSession);
   const searchSessions = useChatStore((s) => s.searchSessions);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -319,6 +321,34 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
                         >
                           <Archive size={12} /> {t("archive")}
                         </button>
+                        <div className="my-1 h-px bg-border" />
+                        <div className="px-2 py-1">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Download size={12} /> {t("exportAs")}
+                          </div>
+                          <div className="ml-5 mt-0.5 flex gap-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                exportSession(session.id, "json");
+                                setMenuOpenId(null);
+                              }}
+                              className="rounded px-1.5 py-0.5 text-xs text-foreground transition-colors hover:bg-accent"
+                            >
+                              {t("exportJson")}
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                exportSession(session.id, "markdown");
+                                setMenuOpenId(null);
+                              }}
+                              className="rounded px-1.5 py-0.5 text-xs text-foreground transition-colors hover:bg-accent"
+                            >
+                              {t("exportMarkdown")}
+                            </button>
+                          </div>
+                        </div>
                         <div className="my-1 h-px bg-border" />
                         <button
                           onClick={(e) => {

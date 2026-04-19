@@ -373,6 +373,8 @@ interface ChatState {
   resolveApproval: (requestId: string, approved: boolean) => void;
   /** Approve all pending approvals at once. */
   approveAll: () => void;
+  /** Export a session as JSON or Markdown file (browser download). */
+  exportSession: (sessionId: string, format: "json" | "markdown") => void;
 
   // Internal
   _streamCleanup: (() => void) | null;
@@ -570,6 +572,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           unlistenApproval();
           unlistenDone();
           unlistenError();
+          unlistenCompacted();
         };
 
         let unlistenChunk = () => {};
@@ -578,6 +581,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         let unlistenApproval = () => {};
         let unlistenDone = () => {};
         let unlistenError = () => {};
+        let unlistenCompacted = () => {};
 
         // Track active tool calls for this session
         const activeToolCalls: Record<string, { msgId: string; startTime: number }> = {};
@@ -719,6 +723,41 @@ export const useChatStore = create<ChatState>((set, get) => ({
           },
         );
 
+        // Context compaction event — reload messages from backend
+        unlistenCompacted = await listen<{
+          sessionId: string; messagesRemoved: number; summaryAdded: boolean;
+        }>(
+          "stream-compacted",
+          async (payload) => {
+            if (payload.sessionId !== sessionId) {return;}
+            // Reload messages from DB to reflect compacted state
+            try {
+              const dbMessages = await invoke<
+                Array<{
+                  id: string; sessionId: string; role: string; content: string;
+                  model: string | null; createdAt: string;
+                }>
+              >("get_session_messages", { sessionId });
+              set((s) => ({
+                sessions: s.sessions.map((sess) =>
+                  sess.id === sessionId
+                    ? {
+                        ...sess,
+                        messages: dbMessages.map((m) => ({
+                          id: m.id,
+                          role: m.role as Message["role"],
+                          content: m.content,
+                          model: m.model ?? undefined,
+                          timestamp: m.createdAt,
+                        })),
+                      }
+                    : sess,
+                ),
+              }));
+            } catch { /* ignore reload failure */ }
+          },
+        );
+
         // Save cleanup so abortStreaming can cancel listeners
         set({ _streamCleanup: cleanup });
 
@@ -797,6 +836,70 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }).catch(() => {});
     }
     set({ pendingApprovals: [] });
+  },
+
+  exportSession: (sessionId, format) => {
+    const session = get().sessions.find((s) => s.id === sessionId);
+    if (!session) { return; }
+
+    const exportedAt = new Date().toISOString();
+    let content: string;
+    let mimeType: string;
+    let extension: string;
+
+    if (format === "json") {
+      const exportObj = {
+        title: session.title,
+        model: session.model,
+        provider: session.provider,
+        exportedAt,
+        messages: session.messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+          model: m.model,
+          timestamp: m.timestamp,
+          ...(m.toolCalls ? { toolCalls: m.toolCalls } : {}),
+        })),
+      };
+      content = JSON.stringify(exportObj, null, 2);
+      mimeType = "application/json";
+      extension = "json";
+    } else {
+      // Markdown format
+      const lines: string[] = [
+        `# ${session.title}`,
+        `Model: ${session.model} | Provider: ${session.provider} | Exported: ${exportedAt}`,
+        "",
+        "---",
+        "",
+      ];
+      for (const m of session.messages) {
+        if (m.role === "user") {
+          lines.push(`## User`, m.content, "", "---", "");
+        } else if (m.role === "assistant") {
+          lines.push(`## Assistant`, m.content, "", "---", "");
+        } else if (m.role === "tool") {
+          const toolName = m.toolCalls?.map((tc) => tc.name).join(", ") ?? "Tool";
+          lines.push(`## Tool: ${toolName}`, m.content, "", "---", "");
+        } else if (m.role === "system") {
+          lines.push(`## System`, m.content, "", "---", "");
+        }
+      }
+      content = lines.join("\n");
+      mimeType = "text/markdown";
+      extension = "md";
+    }
+
+    // Sanitize title for filename
+    const safeTitle = session.title.replace(/[^a-zA-Z0-9\u4e00-\u9fff._-]/g, "_").slice(0, 60);
+
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${safeTitle}.${extension}`;
+    a.click();
+    URL.revokeObjectURL(url);
   },
 
   abortStreaming: () => {
