@@ -65,6 +65,11 @@ impl PlatformSender for TelegramSender {
 }
 
 /// Feishu/Lark webhook sender.
+///
+/// Supports two message formats:
+/// - **Interactive card** (`interactive`) when the payload has a title or metadata
+///   — uses rich formatting with colored header, markdown body, and field columns.
+/// - **Plain text** (`text`) when the payload is simple text only.
 pub struct FeishuSender;
 
 #[async_trait]
@@ -74,13 +79,11 @@ impl PlatformSender for FeishuSender {
         config: &BridgeConfig,
         payload: &MessagePayload,
     ) -> Result<SendResult, BridgeError> {
-        let text = format_payload_text(payload);
-        let body = json!({
-            "msg_type": "text",
-            "content": {
-                "text": text,
-            }
-        });
+        let body = if payload.title.is_some() || !payload.metadata.is_empty() {
+            build_feishu_interactive_card(payload)
+        } else {
+            build_feishu_text(payload)
+        };
 
         let resp = reqwest::Client::new()
             .post(&config.webhook_url)
@@ -104,7 +107,132 @@ impl PlatformSender for FeishuSender {
     }
 }
 
+/// Build a Feishu interactive card message with rich formatting.
+///
+/// Card structure:
+/// - Header: colored banner with title (if present) or level icon
+/// - Body: markdown-formatted text content
+/// - Footer: metadata columns (if present)
+fn build_feishu_interactive_card(payload: &MessagePayload) -> serde_json::Value {
+    let header_color = level_to_feishu_color(payload.level);
+    let level_icon = match payload.level {
+        MessageLevel::Info => "ℹ️",
+        MessageLevel::Warning => "⚠️",
+        MessageLevel::Error => "❌",
+        MessageLevel::Success => "✅",
+    };
+
+    let default_title = format!("{level_icon} DevPilot Notification");
+    let title_text = payload.title.as_deref().unwrap_or(&default_title);
+
+    let mut elements = vec![];
+
+    // Markdown content element
+    let md_content = if payload.title.is_some() {
+        format!("{level_icon} {}", payload.text)
+    } else {
+        payload.text.clone()
+    };
+    elements.push(json!({
+        "tag": "div",
+        "text": {
+            "tag": "lark_md",
+            "content": escape_feishu_md(&md_content),
+        }
+    }));
+
+    // Metadata columns (displayed as column_set with 2-column layout)
+    if !payload.metadata.is_empty() {
+        let mut columns = vec![];
+        for chunk in payload.metadata.chunks(2) {
+            let col_elements: Vec<serde_json::Value> = chunk
+                .iter()
+                .map(|(k, v)| {
+                    json!({
+                        "tag": "div",
+                        "text": {
+                            "tag": "lark_md",
+                            "content": format!("**{}**\n{}", escape_feishu_md(k), escape_feishu_md(v)),
+                        }
+                    })
+                })
+                .collect();
+            columns.push(json!({
+                "tag": "column_set",
+                "flex_mode": "bisect",
+                "background_style": "default",
+                "columns": col_elements.iter().map(|_| {
+                    json!({
+                        "tag": "column",
+                        "width": "weighted",
+                        "weight": 1,
+                    })
+                }).collect::<Vec<_>>(),
+                "elements": col_elements,
+            }));
+        }
+        // Add a divider before metadata
+        elements.push(json!({ "tag": "hr" }));
+        elements.extend(columns);
+    }
+
+    // Timestamp footer
+    elements.push(json!({
+        "tag": "div",
+        "text": {
+            "tag": "plain_text",
+            "content": format!("📅 {}", payload.timestamp.format("%Y-%m-%d %H:%M UTC")),
+        }
+    }));
+
+    json!({
+        "msg_type": "interactive",
+        "card": {
+            "header": {
+                "title": {
+                    "tag": "plain_text",
+                    "content": title_text,
+                },
+                "template": header_color,
+            },
+            "elements": elements,
+        }
+    })
+}
+
+/// Build a simple Feishu text message (for payloads without title/metadata).
+fn build_feishu_text(payload: &MessagePayload) -> serde_json::Value {
+    let text = format_payload_text(payload);
+    json!({
+        "msg_type": "text",
+        "content": {
+            "text": text,
+        }
+    })
+}
+
+/// Map message level to Feishu card header color template.
+fn level_to_feishu_color(level: MessageLevel) -> &'static str {
+    match level {
+        MessageLevel::Info => "blue",
+        MessageLevel::Warning => "orange",
+        MessageLevel::Error => "red",
+        MessageLevel::Success => "green",
+    }
+}
+
+/// Escape special characters for Feishu Lark MD format.
+/// Feishu uses `<text>` for links, so `<` and `>` need escaping.
+fn escape_feishu_md(text: &str) -> String {
+    text.replace('<', "&lt;").replace('>', "&gt;")
+}
+
 /// Discord webhook sender.
+///
+/// Supports Discord embeds for rich formatting:
+/// - Colored side bar based on severity level
+/// - Title + description in embed body
+/// - Metadata as inline fields
 pub struct DiscordSender;
 
 #[async_trait]
@@ -114,18 +242,26 @@ impl PlatformSender for DiscordSender {
         config: &BridgeConfig,
         payload: &MessagePayload,
     ) -> Result<SendResult, BridgeError> {
-        let text = format_payload_text(payload);
-        let mut body = json!({
-            "content": text,
-        });
+        let mut body = if payload.title.is_some() || !payload.metadata.is_empty() {
+            build_discord_embed(payload)
+        } else {
+            let text = format_payload_text(payload);
+            json!({ "content": text })
+        };
 
-        if let Some(ref title) = payload.title {
-            body["embeds"] = json!([{
-                "title": title,
-                "description": &payload.text,
-                "color": level_to_discord_color(payload.level),
-            }]);
-            body["content"] = json!(null);
+        // Add metadata fields as embed fields if present (only when using embeds)
+        #[allow(clippy::collapsible_if)]
+        if payload.title.is_some() && !payload.metadata.is_empty() {
+            if let Some(embeds) = body["embeds"].as_array_mut() {
+                if let Some(embed) = embeds.first_mut() {
+                    let fields: Vec<serde_json::Value> = payload
+                        .metadata
+                        .iter()
+                        .map(|(k, v)| json!({ "name": k, "value": v, "inline": true }))
+                        .collect();
+                    embed["fields"] = json!(fields);
+                }
+            }
         }
 
         let resp = reqwest::Client::new()
@@ -150,7 +286,35 @@ impl PlatformSender for DiscordSender {
     }
 }
 
+/// Build a Discord embed message with rich formatting.
+fn build_discord_embed(payload: &MessagePayload) -> serde_json::Value {
+    let level_icon = match payload.level {
+        MessageLevel::Info => "ℹ️",
+        MessageLevel::Warning => "⚠️",
+        MessageLevel::Error => "❌",
+        MessageLevel::Success => "✅",
+    };
+
+    let title = payload.title.as_deref().unwrap_or("DevPilot Notification");
+
+    json!({
+        "embeds": [{
+            "title": format!("{level_icon} {title}"),
+            "description": &payload.text,
+            "color": level_to_discord_color(payload.level),
+            "footer": {
+                "text": format!("📅 {}", payload.timestamp.format("%Y-%m-%d %H:%M UTC")),
+            },
+        }]
+    })
+}
+
 /// Slack webhook sender.
+///
+/// Uses Slack Block Kit for rich formatting:
+/// - Header block with title and level icon
+/// - Section block with markdown text
+/// - Metadata fields as compact context
 pub struct SlackSender;
 
 #[async_trait]
@@ -160,10 +324,12 @@ impl PlatformSender for SlackSender {
         config: &BridgeConfig,
         payload: &MessagePayload,
     ) -> Result<SendResult, BridgeError> {
-        let text = format_payload_text(payload);
-        let body = json!({
-            "text": text,
-        });
+        let body = if payload.title.is_some() || !payload.metadata.is_empty() {
+            build_slack_blocks(payload)
+        } else {
+            let text = format_payload_text(payload);
+            json!({ "text": text })
+        };
 
         let resp = reqwest::Client::new()
             .post(&config.webhook_url)
@@ -185,6 +351,69 @@ impl PlatformSender for SlackSender {
             },
         })
     }
+}
+
+/// Build a Slack Block Kit message with rich formatting.
+fn build_slack_blocks(payload: &MessagePayload) -> serde_json::Value {
+    let level_icon = match payload.level {
+        MessageLevel::Info => "ℹ️",
+        MessageLevel::Warning => "⚠️",
+        MessageLevel::Error => "❌",
+        MessageLevel::Success => "✅",
+    };
+
+    let title = payload.title.as_deref().unwrap_or("DevPilot Notification");
+
+    let mut blocks = vec![];
+
+    // Header block
+    blocks.push(json!({
+        "type": "header",
+        "text": {
+            "type": "plain_text",
+            "text": format!("{level_icon} {title}"),
+        }
+    }));
+
+    // Content section with markdown
+    blocks.push(json!({
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": &payload.text,
+        }
+    }));
+
+    // Metadata as context block
+    if !payload.metadata.is_empty() {
+        let meta_text: String = payload
+            .metadata
+            .iter()
+            .map(|(k, v)| format!("*{k}*: {v}"))
+            .collect::<Vec<_>>()
+            .join(" | ");
+        blocks.push(json!({
+            "type": "context",
+            "elements": [{
+                "type": "mrkdwn",
+                "text": meta_text,
+            }]
+        }));
+    }
+
+    // Timestamp divider
+    blocks.push(json!({
+        "type": "context",
+        "elements": [{
+            "type": "mrkdwn",
+            "text": format!("📅 {}", payload.timestamp.format("%Y-%m-%d %H:%M UTC")),
+        }]
+    }));
+
+    json!({
+        "text": format!("{level_icon} {title}"),
+        "blocks": blocks,
+    })
 }
 
 /// Generic webhook sender (POST JSON).
