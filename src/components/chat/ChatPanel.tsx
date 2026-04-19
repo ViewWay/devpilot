@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { ApprovalQueue } from "./ApprovalOverlay";
+import { CheckpointPanel } from "./CheckpointPanel";
 import { useChatStore } from "../../stores/chatStore";
 import { useUIStore } from "../../stores/uiStore";
 import { SplitView } from "../layout/SplitView";
@@ -8,7 +10,7 @@ import { FilesPanel } from "../panels/FilesPanel";
 import { TerminalPanel } from "../panels/TerminalPanel";
 import { PreviewPanel } from "../panels/PreviewPanel";
 import { RightPanelTabs } from "../panels/RightPanelTabs";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, History } from "lucide-react";
 import { useI18n } from "../../i18n";
 
 function ChatContent() {
@@ -66,12 +68,32 @@ function RightContent() {
 
 export function ChatPanel() {
   const rightPanel = useUIStore((s) => s.rightPanel);
+  const [checkpointOpen, setCheckpointOpen] = useState(false);
+
+  const chatContent = (
+    <div className="relative flex h-full">
+      {/* Chat area */}
+      <div className="flex flex-1 flex-col">
+        {/* Checkpoint toggle button */}
+        <button
+          onClick={() => setCheckpointOpen(!checkpointOpen)}
+          className="absolute right-2 top-2 z-10 rounded-md border border-border bg-background/80 p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground backdrop-blur-sm"
+          title={checkpointOpen ? "Close checkpoints" : "Open checkpoints"}
+        >
+          <History size={14} />
+        </button>
+        <ChatContent />
+      </div>
+      {/* Checkpoint side panel */}
+      <CheckpointPanel open={checkpointOpen} onClose={() => setCheckpointOpen(false)} />
+    </div>
+  );
 
   if (rightPanel === "none") {
-    return <ChatContent />;
+    return chatContent;
   }
 
   return (
-    <SplitView left={<ChatContent />} right={<RightContent />} />
+    <SplitView left={chatContent} right={<RightContent />} />
   );
 }

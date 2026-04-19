@@ -231,6 +231,16 @@ const zh: Record<string, string> = {
   create: "创建",
   test: "测试",
   bridgeError: "桥接操作失败",
+
+  // Checkpoint
+  checkpoints: "检查点",
+  createCheckpoint: "创建检查点",
+  noCheckpoints: "暂无检查点",
+  checkpointsCount: "个检查点",
+  rewindToHere: "回退到此点",
+  rewindConfirm: "确定回退到此检查点？之后的消息将被删除。",
+  checkpointCreated: "检查点已创建",
+  rewound: "已回退",
 };
 
 export default zh;

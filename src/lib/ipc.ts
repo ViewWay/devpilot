@@ -168,6 +168,12 @@ function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
       };
     case "media_providers":
       return ["openai", "stability", "generic"];
+    case "list_checkpoints":
+      return [];
+    case "create_checkpoint":
+      return { id: "cp-mock-1", sessionId: args?.sessionId, messageId: args?.messageId, summary: args?.summary, tokenCount: args?.tokenCount, createdAt: new Date().toISOString() };
+    case "rewind_checkpoint":
+      return 0;
     default:
       console.warn(`[IPC mock] Unhandled command: ${cmd}`);
       return null;

@@ -512,3 +512,25 @@ All quality gates passing: `cargo build`, `cargo test --workspace`, `tsc --noEmi
 | Commit   | 852a0d5 | HEAD  |
 
 All quality gates: `cargo build`, `cargo clippy`, `cargo test --workspace` — all passing, zero warnings.
+
+## Session J — 2026-04-19 (P3-5 Checkpoint 前端 UI)
+
+**Goal:** Build the frontend Checkpoint panel — list checkpoints, rewind to a previous state, create manual checkpoints.
+
+### P3-5: Checkpoint Frontend UI
+
+**Backend already complete:**
+
+- Store: `create_checkpoint`, `list_checkpoints`, `rewind_to_checkpoint`
+- IPC: `create_checkpoint`, `list_checkpoints`, `rewind_checkpoint` commands registered
+
+**Frontend work:**
+
+1. `src/types/index.ts` — `CheckpointInfo` type added
+2. `src/lib/ipc.ts` — mock cases for checkpoint commands
+3. `src/stores/checkpointStore.ts` — Zustand store for checkpoint state
+4. `src/components/chat/CheckpointPanel.tsx` — timeline panel UI
+5. `src/components/chat/ChatPanel.tsx` — integrate CheckpointPanel
+6. i18n — checkpoint-related keys
+
+### Status: In Progress

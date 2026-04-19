@@ -231,6 +231,16 @@ const en: Record<string, string> = {
   create: "Create",
   test: "Test",
   bridgeError: "Bridge operation failed",
+
+  // Checkpoint
+  checkpoints: "Checkpoints",
+  createCheckpoint: "Create checkpoint",
+  noCheckpoints: "No checkpoints yet",
+  checkpointsCount: "checkpoints",
+  rewindToHere: "Rewind to here",
+  rewindConfirm: "Rewind to this checkpoint? Messages after this point will be deleted.",
+  checkpointCreated: "Checkpoint created",
+  rewound: "Session rewound",
 };
 
 export default en;
