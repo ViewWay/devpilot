@@ -1,6 +1,89 @@
 # DevPilot Development Log
 
-## 2026-04-19 Session
+## 2026-04-19 Session B (commit 0aaf7d4)
+
+### Phase 4: devpilot-bridge
+
+**Goal:** IM/notification integrations — Telegram, Discord, Feishu.
+
+**Implementation:**
+
+- `BridgeManager`: register/remove/enable/disable bridge instances
+- `PlatformSender` trait with `send()`, `validate_config()`, `platform_name()`
+- Platform implementations: TelegramBot (Bot API), DiscordWebhook, FeishuBot
+- `BridgeConfig` with URL validation, max_retries, rate_limit
+- `MessagePayload` with title/content/metadata/color fields
+- Retry with exponential backoff + rate limiting via `tokio::time`
+- `format_payload()`: platform-specific message templating
+
+**Issues & Fixes:**
+
+1. **`PlatformSender` not Debug** — `Bridge` derived `Debug` but `Box<dyn PlatformSender>` doesn't implement it. Removed `#[derive(Debug)]` from `Bridge`.
+2. **Unused import `std::sync::Arc`** — clippy caught it after check. Fixed with `cargo clippy --fix`.
+
+**Result:** 799 lines, 12 tests
+
+---
+
+### Phase 5: devpilot-media
+
+**Goal:** Image generation with multiple provider backends.
+
+**Implementation:**
+
+- `MediaManager`: async orchestrator with pluggable `ImageGenerator` trait
+- `ImageGenerator` trait: `async fn generate(&self, req: &GenerateRequest)`
+- Provider implementations: OpenAI DALL-E 3, Stability AI, Generic (OpenAI-compatible)
+- `ImageSize` enum with dimension presets (256x256 to 1792x1024)
+- `GenerateRequest` validation, effective base URL resolution
+- Provider registration at runtime via `register_generator()`
+
+**Issues & Fixes:**
+
+1. **`ImageProvider` missing `Hash`** — Used as `HashMap` key but didn't derive `Hash`. Added `Hash` to derive list.
+2. **Test import missing** — `providers.rs` test module used `ImageSize` but didn't import it. Added `use crate::types::ImageSize`.
+
+**Result:** 544 lines, 8 tests
+
+---
+
+### Fix: devpilot-store type sync
+
+**Problem:** 11 compile errors in devpilot-store due to `types.rs` being updated but `store.rs` not synced.
+
+**Root cause:** Store's `types.rs` had been updated with new/changed struct fields (from protocol or manual edits), but `store.rs` (SQL queries, row mappers, struct constructors, migrations) was not updated to match.
+
+**Changes:**
+
+- `ProviderInfo` → `ProviderRecord`: renamed, `api_key_encrypted` → `api_key_set: bool`, added `created_at`
+- `SessionInfo`: added `reasoning_effort`, `archived_at`, `message_count` to constructors and row mappers
+- `MessageInfo`: added `token_cache_read`, `token_cache_write` fields
+- `UsageRecord`: restructured from per-session to daily aggregated (`id`, `date`, `token_cache_read`, `token_cache_write`, `request_count`)
+- `add_usage()` changed to upsert with aggregation logic
+- Removed `get_session_usage()` (no longer applicable)
+- Updated DB migration schemas
+- `error.rs`: added `#[allow(dead_code)]` on unused `Result` alias
+
+**Additional fix:** `src-tauri/src/commands/mod.rs` — removed `get_session_usage` IPC handler that called the deleted method. Also removed from `src-tauri/src/lib.rs` handler registration.
+
+**Result:** All 155 workspace tests passing, clippy clean
+
+---
+
+### Session Totals
+
+| Metric   | Before Session B | After Session B |
+| -------- | ---------------- | --------------- |
+| Crates   | 8                | 10              |
+| Rust LOC | 9,853            | 10,473          |
+| Tests    | 101              | 155             |
+| Commits  | aa2cdd6          | 0aaf7d4         |
+
+Quality gates: `cargo fmt`, `cargo clippy -D warnings`, `cargo test --workspace` — all passing.
+
+---
+
+## 2026-04-19 Session A (commits f2e3d15 → aa2cdd6)
 
 ### Phase 1: devpilot-sandbox
 
@@ -66,7 +149,7 @@
 
 ---
 
-### Workspace Totals After This Session
+### Workspace Totals After Session A
 
 | Metric   | Before  | After   |
 | -------- | ------- | ------- |

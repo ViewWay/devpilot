@@ -2,11 +2,53 @@
 
 All notable changes to DevPilot will be documented in this file.
 
+## [0.2.0] — 2026-04-19
+
+### Added — Backend Crates
+
+#### devpilot-bridge (799 lines, 12 tests)
+
+- `BridgeManager`: register, remove, enable, disable bridges
+- `PlatformSender` trait: `send()`, `validate_config()`, `platform_name()`
+- Built-in platforms: Telegram (Bot API), Discord (Webhook), Feishu (Bot)
+- `BridgeConfig` with URL validation, rate limiting, retry with backoff
+- Rich payloads: title, metadata, color per platform
+- Message templating with `{title}`, `{content}`, `{metadata}` placeholders
+
+#### devpilot-media (544 lines, 8 tests)
+
+- `MediaManager`: orchestrates multi-provider image generation
+- `ImageGenerator` trait with async `generate()`
+- Providers: OpenAI DALL-E 3, Stability AI (Stable Diffusion), Generic OpenAI-compatible
+- `ImageSize` presets: 256x256 to 1792x1024
+- `GenerateRequest` / `GenerateResponse` / `ImageData` types
+- Provider registration (custom generators pluggable at runtime)
+
+### Changed
+
+- Workspace now has 10 crate members (up from 8)
+- devpilot-store types restructured:
+  - `ProviderInfo` renamed to `ProviderRecord` (field: `api_key_encrypted` → `api_key_set: bool`, added `created_at`)
+  - `SessionInfo`: added `reasoning_effort`, `archived_at`, `message_count` fields
+  - `MessageInfo`: added `token_cache_read`, `token_cache_write` fields
+  - `UsageRecord`: restructured from per-session to daily aggregated records
+  - SQL migrations, queries, and row mappers updated to match
+- src-tauri: removed `get_session_usage` command (method no longer exists)
+
+### Fixed
+
+- devpilot-store: 11 compile errors due to type sync drift (see Changed above)
+- src-tauri `lib.rs`: removed reference to deleted `get_session_usage` IPC handler
+- devpilot-media: `ImageProvider` missing `Hash` derive — needed for `HashMap` key
+- devpilot-media: test `use crate::ImageSize` not imported in providers.rs test module
+
+---
+
 ## [0.1.0] — 2026-04-19
 
 ### Added — Backend Crates
 
-#### devpilot-protocol (470 lines, 6 tests)
+#### devpilot-protocol (470 lines, 34 tests)
 
 - Shared types: `ChatRequest`, `ChatResponse`, `Message`, `MessageRole`
 - `ProviderConfig` with API key management

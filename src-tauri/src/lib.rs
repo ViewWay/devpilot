@@ -1,8 +1,14 @@
 use std::sync::{Arc, Mutex};
 
+use devpilot_bridge::BridgeManager;
+use devpilot_media::MediaManager;
 use devpilot_store::Store;
 use devpilot_tools::{ToolExecutor, ToolRegistry};
 use tokio::sync::Mutex as AsyncMutex;
+
+use crate::commands::media::MediaState;
+use crate::commands::scheduler::SchedulerState;
+use devpilot_scheduler::Scheduler;
 
 pub mod commands;
 
@@ -43,6 +49,27 @@ pub fn run() {
             commands::tools::execute_tool,
             commands::tools::resolve_tool_approval,
             commands::tools::pending_approvals,
+            // Sandbox
+            commands::sandbox::sandbox_execute,
+            commands::sandbox::sandbox_default_policy,
+            // Search
+            commands::search::search_files,
+            // Scheduler
+            commands::scheduler::scheduler_create_task,
+            commands::scheduler::scheduler_list_tasks,
+            commands::scheduler::scheduler_remove_task,
+            commands::scheduler::scheduler_pause_task,
+            commands::scheduler::scheduler_resume_task,
+            // Bridge
+            commands::bridge::bridge_create,
+            commands::bridge::bridge_list,
+            commands::bridge::bridge_remove,
+            commands::bridge::bridge_send,
+            commands::bridge::bridge_enable,
+            commands::bridge::bridge_disable,
+            // Media
+            commands::media::media_generate,
+            commands::media::media_providers,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -55,6 +82,12 @@ pub struct AppState {
     pub tool_registry: Arc<ToolRegistry>,
     /// Tool executor — handles tool execution with approval flow.
     pub tool_executor: Arc<AsyncMutex<ToolExecutor>>,
+    /// Scheduler state — cron task management.
+    pub scheduler_state: SchedulerState,
+    /// Bridge manager — IM/notification integrations.
+    pub bridge_manager: Arc<AsyncMutex<BridgeManager>>,
+    /// Media state — image generation.
+    pub media_state: MediaState,
 }
 
 impl AppState {
@@ -73,10 +106,19 @@ impl AppState {
         let registry_arc: Arc<ToolRegistry> = Arc::new(registry);
         let executor = ToolExecutor::new(Arc::clone(&registry_arc));
 
+        let scheduler = Scheduler::new();
+
         Ok(Self {
             db: Arc::new(Mutex::new(db)),
             tool_registry: registry_arc,
             tool_executor: Arc::new(AsyncMutex::new(executor)),
+            scheduler_state: SchedulerState {
+                scheduler: Arc::new(AsyncMutex::new(scheduler)),
+            },
+            bridge_manager: Arc::new(AsyncMutex::new(BridgeManager::new())),
+            media_state: MediaState {
+                manager: MediaManager::new(),
+            },
         })
     }
 }

@@ -18,6 +18,12 @@ devpilot-protocol = { path = "../crates/devpilot-protocol" }
 devpilot-llm = { path = "../crates/devpilot-llm" }
 devpilot-store = { path = "../crates/devpilot-store" }
 devpilot-tools = { path = "../crates/devpilot-tools" }
+devpilot-core = { path = "../crates/devpilot-core" }
+devpilot-sandbox = { path = "../crates/devpilot-sandbox" }
+devpilot-search = { path = "../crates/devpilot-search" }
+devpilot-scheduler = { path = "../crates/devpilot-scheduler" }
+devpilot-bridge = { path = "../crates/devpilot-bridge" }
+devpilot-media = { path = "../crates/devpilot-media" }
 tauri = { version = "2", features = [] }
 tauri-plugin-log = "2"
 tauri-plugin-shell = "2"

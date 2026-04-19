@@ -2,7 +2,12 @@ use crate::AppState;
 use devpilot_store::{MessageInfo, PingResponse, SessionInfo, SettingEntry, UsageRecord};
 use tauri::State;
 
+pub mod bridge;
 pub mod llm;
+pub mod media;
+pub mod sandbox;
+pub mod scheduler;
+pub mod search;
 pub mod tools;
 
 /// Health check / ping command.
