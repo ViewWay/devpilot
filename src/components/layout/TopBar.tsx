@@ -1,10 +1,44 @@
 import { useThemeCycle, resolveTheme } from "../../hooks/useTheme";
 import { useI18n } from "../../i18n";
 import { useUIStore } from "../../stores/uiStore";
+import { useProviderStore } from "../../stores/providerStore";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Sun, Moon, Monitor, PanelLeftClose, PanelLeft, ChevronDown, Settings, FolderOpen, Terminal, Eye, SlidersHorizontal } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { cn } from "../../lib/utils";
+import type { ModelInfo } from "../../types";
+
+/** Provider name → tailwind color class for the model dot. */
+const PROVIDER_COLOR_MAP: Record<string, string> = {
+  Anthropic: "bg-orange-500",
+  OpenAI: "bg-emerald-500",
+  "智谱 AI": "bg-blue-500",
+  智谱: "bg-blue-500",
+  DeepSeek: "bg-violet-500",
+  "Google AI": "bg-red-500",
+  Google: "bg-red-500",
+  OpenRouter: "bg-cyan-500",
+  "通义千问 (Qwen)": "bg-purple-500",
+  通义千问: "bg-purple-500",
+  "Ollama (Local)": "bg-gray-500",
+  Ollama: "bg-gray-500",
+};
+
+const FALLBACK_COLORS = [
+  "bg-sky-500",
+  "bg-pink-500",
+  "bg-teal-500",
+  "bg-amber-500",
+  "bg-lime-500",
+  "bg-indigo-500",
+];
+
+function getProviderColor(name: string, index: number): string {
+  if (PROVIDER_COLOR_MAP[name]) {
+    return PROVIDER_COLOR_MAP[name];
+  }
+  return FALLBACK_COLORS[index % FALLBACK_COLORS.length] ?? "bg-sky-500";
+}
 
 const MODES = ["code", "plan", "ask"] as const;
 
@@ -18,13 +52,66 @@ export function TopBar() {
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const selectedModel = useUIStore((s) => s.selectedModel);
   const setSelectedModel = useUIStore((s) => s.setSelectedModel);
-  const models = useUIStore((s) => s.models);
   const activeMode = useUIStore((s) => s.activeMode);
   const setActiveMode = useUIStore((s) => s.setActiveMode);
   const rightPanel = useUIStore((s) => s.rightPanel);
   const toggleRightPanel = useUIStore((s) => s.toggleRightPanel);
   const reasoningEffort = useUIStore((s) => s.reasoningEffort);
   const setReasoningEffort = useUIStore((s) => s.setReasoningEffort);
+
+  // Subscribe to provider store
+  const providers = useProviderStore((s) => s.providers);
+
+  // Derive model list dynamically from enabled providers
+  const dynamicModels: ModelInfo[] = useMemo(() => {
+    const result: ModelInfo[] = [];
+    providers.forEach((provider, providerIndex) => {
+      if (!provider.enabled) {
+        return;
+      }
+      // Filter out providers with no apiKey (except local/Ollama)
+      const isLocal =
+        provider.baseUrl.includes("localhost") ||
+        provider.baseUrl.includes("127.0.0.1");
+      if (!isLocal && !provider.apiKey) {
+        return;
+      }
+      const color = getProviderColor(provider.name, providerIndex);
+      for (const model of provider.models) {
+        result.push({
+          id: model.id,
+          name: model.name,
+          provider: provider.name,
+          color,
+        });
+      }
+    });
+    return result;
+  }, [providers]);
+
+  // Group models by provider for the dropdown
+  const groupedModels = useMemo(() => {
+    const groups: { provider: string; color: string; models: ModelInfo[] }[] = [];
+    for (const m of dynamicModels) {
+      let group = groups.find((g) => g.provider === m.provider);
+      if (!group) {
+        group = { provider: m.provider, color: m.color, models: [] };
+        groups.push(group);
+      }
+      group.models.push(m);
+    }
+    return groups;
+  }, [dynamicModels]);
+
+  // Auto-select first model if selected model no longer exists in dynamic list
+  useEffect(() => {
+    if (dynamicModels.length > 0) {
+      const exists = dynamicModels.some((m) => m.id === selectedModel.id);
+      if (!exists) {
+        setSelectedModel(dynamicModels[0]!);
+      }
+    }
+  }, [dynamicModels, selectedModel.id, setSelectedModel]);
 
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [effortOpen, setEffortOpen] = useState(false);
@@ -65,22 +152,38 @@ export function TopBar() {
         </button>
 
         {modelDropdownOpen && (
-          <div className="absolute left-0 top-full z-50 mt-1 w-64 rounded-lg border border-border bg-popover p-1 shadow-lg">
-            {models.map((m) => (
-              <button
-                key={m.id}
-                onClick={() => { setSelectedModel(m); setModelDropdownOpen(false); }}
-                className={cn(
-                  "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-accent",
-                  selectedModel.id === m.id && "bg-accent",
-                )}
-              >
-                <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", m.color)} />
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium">{m.name}</div>
-                  <div className="text-[10px] text-muted-foreground">{m.provider}</div>
+          <div className="absolute left-0 top-full z-50 mt-1 w-72 max-h-80 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-lg">
+            {groupedModels.length === 0 && (
+              <div className="px-2.5 py-3 text-xs text-muted-foreground text-center">
+                No models available — configure providers in Settings
+              </div>
+            )}
+            {groupedModels.map((group, gi) => (
+              <div key={group.provider}>
+                {gi > 0 && <div className="my-1 border-t border-border" />}
+                <div className="flex items-center gap-2 px-2.5 py-1">
+                  <span className={cn("h-2 w-2 rounded-full shrink-0", group.color)} />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {group.provider}
+                  </span>
+                  <span className="flex-1 border-b border-border" />
                 </div>
-              </button>
+                {group.models.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => { setSelectedModel(m); setModelDropdownOpen(false); }}
+                    className={cn(
+                      "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-accent",
+                      selectedModel.id === m.id && "bg-accent",
+                    )}
+                  >
+                    <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", m.color)} />
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium">{m.name}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
             ))}
           </div>
         )}

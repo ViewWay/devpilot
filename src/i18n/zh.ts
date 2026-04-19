@@ -161,6 +161,18 @@ const zh: Record<string, string> = {
   commandPaletteTogglePreview: "切换预览",
   commandPaletteSwitchTheme: "切换主题",
   commandPaletteOpenSettingsDesc: "打开应用设置",
+
+  // --- Model Management ---
+  addModel: "添加模型",
+  editModel: "编辑模型",
+  modelId: "模型 ID",
+  modelName: "模型名称",
+  maxTokens: "最大 Token 数",
+  visionSupport: "视觉支持",
+  inputPrice: "输入价格",
+  outputPrice: "输出价格",
+  deleteModel: "删除模型",
+  pricePerMillion: "每百万 Token (USD)",
 };
 
 export default zh;

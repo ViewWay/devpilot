@@ -161,6 +161,18 @@ const en: Record<string, string> = {
   commandPaletteTogglePreview: "Toggle Preview",
   commandPaletteSwitchTheme: "Switch Theme",
   commandPaletteOpenSettingsDesc: "Open application settings",
+
+  // --- Model Management ---
+  addModel: "Add Model",
+  editModel: "Edit Model",
+  modelId: "Model ID",
+  modelName: "Model Name",
+  maxTokens: "Max Tokens",
+  visionSupport: "Vision Support",
+  inputPrice: "Input Price",
+  outputPrice: "Output Price",
+  deleteModel: "Delete Model",
+  pricePerMillion: "per 1M tokens (USD)",
 };
 
 export default en;

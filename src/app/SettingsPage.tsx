@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useI18n } from "../i18n";
-import { useProviderStore, type Provider } from "../stores/providerStore";
+import { useProviderStore, type Provider, type ModelConfig } from "../stores/providerStore";
 import { useUIStore } from "../stores/uiStore";
 import { useUsageStore } from "../stores/usageStore";
 import { cn } from "../lib/utils";
@@ -20,6 +20,7 @@ import {
   ToggleRight,
   Plus,
   BarChart3,
+  Pencil,
 } from "lucide-react";
 
 type TabId = "providers" | "appearance" | "shortcuts" | "usage";
@@ -128,6 +129,7 @@ function ProvidersTab() {
           onSetEnabled={(enabled) => updateProvider(provider.id, { enabled })}
           onSetApiKey={(key) => updateProvider(provider.id, { apiKey: key })}
           onSetBaseUrl={(url) => updateProvider(provider.id, { baseUrl: url })}
+          onSetModels={(models) => updateProvider(provider.id, { models })}
           onTest={() => handleTest(provider.id)}
           onRemove={() => removeProvider(provider.id)}
           isTesting={testingId === provider.id}
@@ -202,6 +204,7 @@ function ProviderCard({
   onSetEnabled,
   onSetApiKey,
   onSetBaseUrl,
+  onSetModels,
   onTest,
   onRemove,
   isTesting,
@@ -214,11 +217,84 @@ function ProviderCard({
   onSetEnabled: (enabled: boolean) => void;
   onSetApiKey: (key: string) => void;
   onSetBaseUrl: (url: string) => void;
+  onSetModels: (models: ModelConfig[]) => void;
   onTest: () => void;
   onRemove: () => void;
   isTesting: boolean;
 }) {
   const { t } = useI18n();
+  const [editingModelId, setEditingModelId] = useState<string | null>(null);
+  const [showAddModel, setShowAddModel] = useState(false);
+  const [modelDraft, setModelDraft] = useState<Partial<ModelConfig>>({});
+
+  const resetModelDraft = () => {
+    setModelDraft({
+      id: "",
+      name: "",
+      maxTokens: 4096,
+      supportsStreaming: true,
+      supportsVision: false,
+      inputPrice: undefined,
+      outputPrice: undefined,
+    });
+  };
+
+  const handleAddModel = () => {
+    if (!modelDraft.id || !modelDraft.name) { return; }
+    const newModel: ModelConfig = {
+      id: modelDraft.id!,
+      name: modelDraft.name!,
+      maxTokens: modelDraft.maxTokens ?? 4096,
+      supportsStreaming: modelDraft.supportsStreaming ?? true,
+      supportsVision: modelDraft.supportsVision ?? false,
+      inputPrice: modelDraft.inputPrice,
+      outputPrice: modelDraft.outputPrice,
+    };
+    onSetModels([...provider.models, newModel]);
+    setShowAddModel(false);
+    resetModelDraft();
+  };
+
+  const handleUpdateModel = () => {
+    if (!modelDraft.id || !modelDraft.name) { return; }
+    const updated: ModelConfig = {
+      id: modelDraft.id!,
+      name: modelDraft.name!,
+      maxTokens: modelDraft.maxTokens ?? 4096,
+      supportsStreaming: modelDraft.supportsStreaming ?? true,
+      supportsVision: modelDraft.supportsVision ?? false,
+      inputPrice: modelDraft.inputPrice,
+      outputPrice: modelDraft.outputPrice,
+    };
+    onSetModels(provider.models.map((m) => (m.id === editingModelId ? updated : m)));
+    setEditingModelId(null);
+    resetModelDraft();
+  };
+
+  const handleDeleteModel = (modelId: string) => {
+    onSetModels(provider.models.filter((m) => m.id !== modelId));
+  };
+
+  const startEdit = (model: ModelConfig) => {
+    setEditingModelId(model.id);
+    setShowAddModel(false);
+    setModelDraft({ ...model });
+  };
+
+  const startAdd = () => {
+    setEditingModelId(null);
+    setShowAddModel(true);
+    resetModelDraft();
+  };
+
+  const cancelEdit = () => {
+    setEditingModelId(null);
+    setShowAddModel(false);
+    resetModelDraft();
+  };
+
+  const isEditing = editingModelId !== null || showAddModel;
+
   return (
     <div className="rounded-lg border border-border bg-card">
       <div className="flex items-center justify-between px-4 py-3">
@@ -288,13 +364,131 @@ function ProviderCard({
           {/* Models */}
           <div>
             <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{t("models")} ({provider.models.length})</label>
-            <div className="mt-1 flex flex-wrap gap-1.5">
+            <div className="mt-1 space-y-1">
               {provider.models.map((model) => (
-                <span key={model.id} className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/50 px-2 py-0.5 text-[10px] text-muted-foreground">
-                  {model.name}
-                  {model.supportsVision && <span className="text-[9px] text-primary">👁</span>}
-                </span>
+                <div key={model.id} className="flex items-center justify-between rounded-md border border-border bg-muted/30 px-2.5 py-1.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs font-medium text-foreground truncate">{model.name}</span>
+                    <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground">{model.maxTokens.toLocaleString()}</span>
+                    {model.supportsVision && <span className="shrink-0 text-[9px] text-primary">👁</span>}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => startEdit(model)}
+                      className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    >
+                      <Pencil size={11} />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteModel(model.id)}
+                      className="rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  </div>
+                </div>
               ))}
+
+              {provider.models.length === 0 && !isEditing && (
+                <div className="text-[10px] text-muted-foreground py-2 text-center">{t("models")} —</div>
+              )}
+
+              {/* Add / Edit Model Form */}
+              {isEditing && (
+                <div className="mt-2 space-y-2 rounded-md border border-border bg-card p-3">
+                  <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    {showAddModel ? t("addModel") : t("editModel")}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[9px] text-muted-foreground">{t("modelId")}</label>
+                      <input
+                        value={modelDraft.id ?? ""}
+                        onChange={(e) => setModelDraft((d) => ({ ...d, id: e.target.value }))}
+                        className="mt-0.5 w-full rounded-md border border-input bg-background px-2 py-1 text-[11px] text-foreground outline-none focus:border-ring"
+                        placeholder="model-id"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] text-muted-foreground">{t("modelName")}</label>
+                      <input
+                        value={modelDraft.name ?? ""}
+                        onChange={(e) => setModelDraft((d) => ({ ...d, name: e.target.value }))}
+                        className="mt-0.5 w-full rounded-md border border-input bg-background px-2 py-1 text-[11px] text-foreground outline-none focus:border-ring"
+                        placeholder="Model Name"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] text-muted-foreground">{t("maxTokens")}</label>
+                      <input
+                        type="number"
+                        value={modelDraft.maxTokens ?? 4096}
+                        onChange={(e) => setModelDraft((d) => ({ ...d, maxTokens: Number(e.target.value) || 4096 }))}
+                        className="mt-0.5 w-full rounded-md border border-input bg-background px-2 py-1 text-[11px] text-foreground outline-none focus:border-ring"
+                      />
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <label className="flex items-center gap-1.5 cursor-pointer py-1.5">
+                        <input
+                          type="checkbox"
+                          checked={modelDraft.supportsVision ?? false}
+                          onChange={(e) => setModelDraft((d) => ({ ...d, supportsVision: e.target.checked }))}
+                          className="accent-primary"
+                        />
+                        <span className="text-[9px] text-muted-foreground">{t("visionSupport")}</span>
+                      </label>
+                    </div>
+                    <div>
+                      <label className="text-[9px] text-muted-foreground">{t("inputPrice")} ({t("pricePerMillion")})</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={modelDraft.inputPrice ?? ""}
+                        onChange={(e) => setModelDraft((d) => ({ ...d, inputPrice: e.target.value ? Number(e.target.value) : undefined }))}
+                        className="mt-0.5 w-full rounded-md border border-input bg-background px-2 py-1 text-[11px] text-foreground outline-none focus:border-ring"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9px] text-muted-foreground">{t("outputPrice")} ({t("pricePerMillion")})</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={modelDraft.outputPrice ?? ""}
+                        onChange={(e) => setModelDraft((d) => ({ ...d, outputPrice: e.target.value ? Number(e.target.value) : undefined }))}
+                        className="mt-0.5 w-full rounded-md border border-input bg-background px-2 py-1 text-[11px] text-foreground outline-none focus:border-ring"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={showAddModel ? handleAddModel : handleUpdateModel}
+                      disabled={!modelDraft.id || !modelDraft.name}
+                      className="rounded-md bg-primary px-3 py-1 text-[10px] text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                    >
+                      {showAddModel ? t("addModel") : t("editModel")}
+                    </button>
+                    <button
+                      onClick={cancelEdit}
+                      className="rounded-md border border-border px-3 py-1 text-[10px] text-muted-foreground hover:bg-accent transition-colors"
+                    >
+                      {t("cancel")}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Add Model Button */}
+              {!isEditing && (
+                <button
+                  onClick={startAdd}
+                  className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border px-2 py-1.5 text-[10px] text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+                >
+                  <Plus size={12} />
+                  {t("addModel")}
+                </button>
+              )}
             </div>
           </div>
 
