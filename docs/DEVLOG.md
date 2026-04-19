@@ -1,18 +1,148 @@
 # DevPilot Development Log
 
-## 2026-04-19 Session D — Frontend Panels (commit 2d0328f →)
+## 2026-04-19 Session F — Phase 1 Agent Loop 集成 (P0-1 ~ P0-3)
 
 ### Goal
 
-Build out SchedulerPanel and GalleryPanel — the two stub pages need real functionality.
+将后端 Agent Loop 与前端 Chat 串联，实现 LLM→工具执行→审批→结果的完整闭环。
 
-### Phase 8: SchedulerPanel + GalleryPanel
+### P0-1: 数据库持久化路径验证 ✅
 
-**Goal:** Full CRUD panels for scheduler tasks and media gallery.
+**分析:**
+
+- `Store::open_default()` 使用 `dirs::data_dir()` 获取路径
+- macOS 上 `dirs::data_dir()` = `~/Library/Application Support/`
+- Tauri 的 `app_data_dir()` 也解析到相同路径
+- 结论: 无需修改，路径天然兼容
+
+### P0-2: Agent Loop 集成 ✅
 
 **Implementation:**
 
-- (in progress)
+1. **AppState 扩展** (`src-tauri/src/lib.rs`)
+   - 新增 `Agent` 和 `EventBus` 到 `AppState`
+   - 添加 `start_event_bridge()` 函数，在 setup 中 spawn tokio task
+   - EventBus broadcast → Tauri `app.emit()` 事件桥接
+
+2. **CoreEvent → Tauri 事件映射:**
+   | CoreEvent | Tauri Event | 前端用途 |
+   |-----------|-------------|----------|
+   | `StreamDelta` | `stream-chunk` | 流式文本追加 |
+   | `StreamDone` | `stream-done` | 流式完成 |
+   | `StreamError` | `stream-error` | 错误处理 |
+   | `ToolCallStarted` | `stream-tool-start` | 工具调用开始 |
+   | `ToolCallCompleted` | `stream-tool-result` | 工具调用结果 |
+   | `ApprovalRequested` | `stream-approval` | 审批请求 |
+   | `ThinkingDelta` | `stream-thinking` | 思维链 |
+
+3. **send_message_stream 重写** (`src-tauri/src/commands/llm.rs`)
+   - 从直接调用 LLM provider 改为调用 `Agent::run()`
+   - 接受 `user_message` + `working_dir` 参数
+   - spawn 为 tokio 异步任务
+
+4. **CoreEvent re-export** (`crates/devpilot-core/src/lib.rs`)
+   - `pub use event_bus::{CoreEvent, EventBus, EventBusReceiver};`
+
+### P0-3: Tool Approval 前端 (进行中)
+
+**已完成:**
+
+- `chatStore.ts` 添加 `stream-approval` 事件监听
+- `chatStore.ts` 添加 `stream-tool-start` / `stream-tool-result` 事件监听
+- `activeToolCalls` Map 追踪活跃工具调用
+- `ipc.ts` 修正 `resolve_tool_approval` 类型为 `{ request: { requestId, approved } }`
+- 当前实现为自动批准 (`approved: true`)，等待 UI 集成
+
+**待完成:**
+
+- ApprovalOverlay 组件已存在但未集成到 ChatPanel
+- 需要实现用户手动审批/拒绝的 UI 交互
+
+### Issues & Fixes
+
+1. **IPC resolve_tool_approval 参数不匹配** — 前端发送 `{ callId, approved }`，后端期望 `{ request: { requestId, approved } }`。修正前端 ipc.ts 和 chatStore.ts。
+2. **ProviderType::Qwen 不存在** — devpilot-protocol 中只有 `OpenAi`, `Anthropic`, `Google`, `Ollama` 四种变体。
+3. **多个未使用 import** — 连续 patch 修复 clippy 警告。
+
+### Quality Gates
+
+- `cargo build` ✅
+- `cargo test --workspace` 155/155 ✅
+- TypeScript lint: TS5112 (pre-existing, non-blocking)
+
+### Modified Files
+
+| 文件                              | 变更                                          |
+| --------------------------------- | --------------------------------------------- |
+| `src-tauri/src/lib.rs`            | AppState + Agent/EventBus + event bridge task |
+| `src-tauri/src/commands/llm.rs`   | Agent::run() 替代直接 LLM 调用                |
+| `crates/devpilot-core/src/lib.rs` | CoreEvent re-export                           |
+| `src/stores/chatStore.ts`         | 工具事件监听 + IPC 参数修正                   |
+| `src/lib/ipc.ts`                  | resolve_tool_approval 类型修正                |
+| `TODO.md`                         | 进度更新                                      |
+
+---
+
+## 2026-04-19 Session E — Hermes优化 + 文档更新 (commit 6b8e263)
+
+### Hermes 上下文压缩优化
+
+**问题:** Hermes 上下文管理频繁丢失关键信息，压缩过于激进。
+
+**分析:**
+
+- 阅读 `context_compressor.py` (1,163行)、`context_engine.py` (184行)、`auxiliary_client.py` 核心代码
+- 发现 config 中 `compression.summary_model` 被硬编码 `summary_model_override=None` 无视，实际走 `auxiliary.compression` 段
+- `auxiliary.compression.model` 为空 → fallback 到主模型 GLM，不存在跨 provider 开销
+- threshold 0.50 对 GLM 200K 上下文窗口过于激进
+
+**修复 (config.yaml):**
+
+| 配置项                          | 旧值 | 新值 | 效果                |
+| ------------------------------- | ---- | ---- | ------------------- |
+| `compression.threshold`         | 0.50 | 0.70 | 上下文用到70%才压缩 |
+| `auxiliary.compression.timeout` | 120  | 180  | 压缩LLM调用多60秒   |
+
+**注意:** `compression.summary_model: google/gemini-3-flash-preview` 在 config 中存在但实际无效（run_agent.py:1541 硬编码 None）。无需修改，当前自动用主模型。
+
+---
+
+## 2026-04-19 Session D — Frontend Panels (commit 2d0328f → 6b8e263)
+
+### Phase 8: SchedulerPanel + GalleryPanel + Bridge
+
+**Goal:** 完成 Phase 3 所有前端面板。
+
+**Implementation:**
+
+- SchedulerPage: 定时任务CRUD面板
+- GalleryPage: 图片画廊管理
+- Bridge设置标签: IM平台集成配置 (Telegram/Discord/Feishu)
+- IPC层完善: scheduler/gallery/bridge IPC调用
+- i18n补全: 所有新页面中英文
+- streaming修复: 竞态条件 + 中止支持
+- 动态模型选择器: 从 providerStore 读取
+
+**Issues & Fixes:**
+
+1. **流式竞态** — stream listener 注册在 invoke 之后，丢失早期 chunk。重构为先注册再 invoke。
+2. **中止支持** — 添加 `chatStore.abortStreaming()`，清除 listener + 标记消息完成。
+3. **Sidebar导航死按钮** — scheduler/gallery/settings 无 onClick，改用 `navigate()`。
+4. **Mock流提前中止** — mock 循环检查 `isLoading` flag。
+
+**Result:** commit `a6397e8` → `6b8e263`
+
+---
+
+### Phase 3 Complete Summary
+
+| 维度       | 数据                                |
+| ---------- | ----------------------------------- |
+| 后端       | 10 crate, 11,848 行 Rust, 155 tests |
+| IPC        | 21 commands, 7 modules, 1,264 行    |
+| 前端       | 49 files, 9,001 行 TypeScript       |
+| 总代码     | 20,849 行                           |
+| 最新commit | `6b8e263`                           |
 
 ---
 

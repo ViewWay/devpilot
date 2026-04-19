@@ -1,5 +1,6 @@
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
+import { ApprovalQueue } from "./ApprovalOverlay";
 import { useChatStore } from "../../stores/chatStore";
 import { useUIStore } from "../../stores/uiStore";
 import { SplitView } from "../layout/SplitView";
@@ -14,6 +15,9 @@ function ChatContent() {
   const isLoading = useChatStore((s) => s.isLoading);
   const streamingMessageId = useChatStore((s) => s.streamingMessageId);
   const error = useChatStore((s) => s.error);
+  const pendingApprovals = useChatStore((s) => s.pendingApprovals);
+  const resolveApproval = useChatStore((s) => s.resolveApproval);
+  const approveAll = useChatStore((s) => s.approveAll);
   const { t } = useI18n();
 
   return (
@@ -31,6 +35,16 @@ function ChatContent() {
         </div>
       )}
       <MessageList />
+      {pendingApprovals.length > 0 && (
+        <div className="border-t border-border px-4 py-2 max-h-[40vh] overflow-y-auto">
+          <ApprovalQueue
+            requests={pendingApprovals}
+            onApprove={(id) => resolveApproval(id, true)}
+            onDeny={(id) => resolveApproval(id, false)}
+            onAllowAll={approveAll}
+          />
+        </div>
+      )}
       <MessageInput />
     </div>
   );

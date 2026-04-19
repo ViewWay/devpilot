@@ -15,5 +15,5 @@ pub mod session;
 pub use agent::{Agent, AgentConfig};
 pub use compact::CompactStrategy;
 pub use error::CoreError;
-pub use event_bus::{EventBus, EventBusReceiver};
+pub use event_bus::{CoreEvent, EventBus, EventBusReceiver};
 pub use session::{Session, SessionConfig, SessionState};

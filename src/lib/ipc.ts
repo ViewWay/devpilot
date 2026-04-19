@@ -223,7 +223,9 @@ export interface IPCCommands {
   send_message_stream: {
     provider: ProviderConfigIPC;
     chatRequest: ChatRequestIPC;
-    sessionId?: string;
+    sessionId: string;
+    userMessage: string;
+    workingDir?: string;
   };
   check_provider: { config: ProviderConfigIPC };
   list_provider_models: { config: ProviderConfigIPC };
@@ -245,7 +247,7 @@ export interface IPCCommands {
     sessionId: string;
     workingDir: string;
   };
-  resolve_tool_approval: { request: ResolveApprovalRequestIPC };
+  resolve_tool_approval: { request: { requestId: string; approved: boolean } };
   pending_approvals: void;
 
   // Scheduler

@@ -2,10 +2,16 @@
 //!
 //! Provides invoke handlers for sending messages (streaming and non-streaming),
 //! listing models, and checking provider connectivity.
+//!
+//! The streaming path goes through the Agent engine (devpilot-core), which
+//! orchestrates the full LLM <-> tool calling loop.
 
 use crate::AppState;
+use std::sync::Arc;
+
+use devpilot_core::{CoreEvent, Session, SessionConfig};
 use devpilot_llm::create_provider;
-use devpilot_protocol::{ChatRequest, ChatResponse, ProviderConfig, StreamEvent, Usage};
+use devpilot_protocol::{ChatRequest, ChatResponse, Message, MessageRole, ProviderConfig, Usage};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 use tracing::{error, info, warn};
@@ -38,8 +44,12 @@ pub struct StreamMessageRequest {
     pub provider: ProviderConfig,
     /// Chat request details (stream field is forced to true).
     pub chat_request: ChatRequest,
-    /// Optional session ID for tracking the stream.
-    pub session_id: Option<String>,
+    /// Session ID for tracking the stream.
+    pub session_id: String,
+    /// User message content to send.
+    pub user_message: String,
+    /// Optional working directory for tool execution.
+    pub working_dir: Option<String>,
 }
 
 /// Result of a streaming send_message_stream call (emitted at the end).
@@ -89,86 +99,226 @@ pub async fn send_message(
     Ok(SendMessageResult { response, cost_usd })
 }
 
-/// Send a streaming chat message.
+/// Send a streaming chat message through the Agent engine.
 ///
-/// Emits `stream-chunk`, `stream-done`, or `stream-error` events
-/// to the frontend via Tauri's event system.
+/// The Agent engine runs the full LLM <-> tool calling loop:
+/// 1. Send user message + history to LLM (streaming)
+/// 2. If LLM requests tool calls → execute tools → send results back
+/// 3. Repeat until LLM finishes (no more tool calls)
+///
+/// All events are forwarded to the frontend via Tauri's event system:
+/// - `stream-chunk` — text delta from LLM
+/// - `stream-tool-start` — tool call started
+/// - `stream-tool-result` — tool call completed
+/// - `stream-approval` — tool approval requested
+/// - `stream-done` — agent loop finished
+/// - `stream-error` — error occurred
 #[tauri::command(rename_all = "camelCase")]
 pub async fn send_message_stream(
     app: AppHandle,
+    state: State<'_, AppState>,
     request: StreamMessageRequest,
 ) -> Result<StreamResult, String> {
     let provider = create_provider(request.provider.clone()).map_err(|e| e.display_message())?;
-    let mut chat_req = request.chat_request;
-    chat_req.stream = true;
-    let model_id = chat_req.model.clone();
-
-    // Generate or extract session ID
-    let session_id = request
-        .session_id
-        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let session_id = request.session_id.clone();
+    let model_id = request.chat_request.model.clone();
 
     info!(
-        "Streaming message to {} (model: {}, session: {})",
+        "Agent streaming to {} (model: {}, session: {})",
         provider.name(),
         model_id,
         session_id
     );
 
-    let mut stream = provider
-        .chat_stream(chat_req, session_id.clone())
-        .await
-        .map_err(|e| e.display_message())?;
+    // Build session config from request
+    let session_config = SessionConfig {
+        id: Some(session_id.clone()),
+        model: model_id.clone(),
+        provider_type: request.provider.provider_type,
+        mode: devpilot_protocol::SessionMode::Code,
+        reasoning_effort: devpilot_protocol::ReasoningEffort::Medium,
+        working_dir: request.working_dir.clone(),
+        system_prompt: request.chat_request.system.clone(),
+        temperature: request.chat_request.temperature,
+    };
 
-    // Track accumulated state
+    // Create session and load history from DB
+    let mut session = Session::new(session_config);
+
+    // Load existing messages from DB for context continuity
+    {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        if let Ok(messages) = db.get_session_messages(&session_id) {
+            for msg_info in &messages {
+                let role = match msg_info.role.as_str() {
+                    "user" => MessageRole::User,
+                    "assistant" => MessageRole::Assistant,
+                    "system" => MessageRole::System,
+                    "tool" => MessageRole::Tool,
+                    _ => continue,
+                };
+                // Parse tool_calls JSON if present
+                let content = if let Some(ref tc_json) = msg_info.tool_calls {
+                    if let Ok(blocks) =
+                        serde_json::from_str::<Vec<devpilot_protocol::ContentBlock>>(tc_json)
+                    {
+                        blocks
+                    } else {
+                        vec![devpilot_protocol::ContentBlock::Text {
+                            text: msg_info.content.clone(),
+                        }]
+                    }
+                } else {
+                    vec![devpilot_protocol::ContentBlock::Text {
+                        text: msg_info.content.clone(),
+                    }]
+                };
+                session.add_message(Message {
+                    role,
+                    content,
+                    name: None,
+                    tool_call_id: msg_info.tool_call_id.clone(),
+                });
+            }
+        }
+    }
+
+    // Subscribe to event bus BEFORE starting the agent
+    let mut event_rx = state.event_bus.subscribe();
+
+    // Spawn the agent run in a separate task
+    let agent = Arc::clone(&state.agent);
+    let user_message = request.user_message.clone();
+
+    let mut agent_handle =
+        tokio::spawn(async move { agent.run(&mut session, &*provider, user_message).await });
+
+    // Bridge EventBus events → Tauri emit
     let mut total_input: u32 = 0;
     let mut total_output: u32 = 0;
     let mut finish_reason = "stop".to_string();
 
-    use futures::StreamExt;
-
-    while let Some(event_result) = stream.next().await {
-        match event_result {
-            Ok(event) => {
-                match &event {
-                    StreamEvent::Chunk { .. } => {
-                        // Forward the chunk to the frontend
-                        if let Err(e) = app.emit("stream-chunk", &event) {
-                            warn!("Failed to emit stream chunk: {}", e);
+    // Forward events until agent is done or error
+    loop {
+        tokio::select! {
+            event = event_rx.recv() => {
+                match event {
+                    Ok(core_event) => match core_event {
+                        CoreEvent::Chunk { session_id: sid, delta } => {
+                            let payload = serde_json::json!({
+                                "type": "chunk",
+                                "sessionId": sid,
+                                "delta": delta,
+                            });
+                            let _ = app.emit("stream-chunk", &payload);
                         }
+                        CoreEvent::ToolCallStarted { session_id: sid, call_id, tool_name, input } => {
+                            let payload = serde_json::json!({
+                                "type": "tool-start",
+                                "sessionId": sid,
+                                "callId": call_id,
+                                "toolName": tool_name,
+                                "input": input,
+                            });
+                            let _ = app.emit("stream-tool-start", &payload);
+                        }
+                        CoreEvent::ToolCallResult { session_id: sid, call_id, output, is_error } => {
+                            let payload = serde_json::json!({
+                                "type": "tool-result",
+                                "sessionId": sid,
+                                "callId": call_id,
+                                "output": output,
+                                "isError": is_error,
+                            });
+                            let _ = app.emit("stream-tool-result", &payload);
+                        }
+                        CoreEvent::ApprovalRequired { session_id: sid, call_id, tool_name, input, risk_level } => {
+                            let payload = serde_json::json!({
+                                "type": "approval",
+                                "sessionId": sid,
+                                "callId": call_id,
+                                "toolName": tool_name,
+                                "input": input,
+                                "riskLevel": risk_level,
+                            });
+                            let _ = app.emit("stream-approval", &payload);
+                        }
+                        CoreEvent::TurnDone { session_id: sid, usage, finish_reason: fr } => {
+                            total_input += usage.input_tokens;
+                            total_output += usage.output_tokens;
+                            finish_reason = format!("{:?}", fr).to_lowercase();
+                            let payload = serde_json::json!({
+                                "type": "turn-done",
+                                "sessionId": sid,
+                                "usage": usage,
+                                "finishReason": finish_reason,
+                            });
+                            let _ = app.emit("stream-turn-done", &payload);
+                        }
+                        CoreEvent::AgentDone { session_id: sid, total_turns, total_usage } => {
+                            total_input = total_usage.input_tokens;
+                            total_output = total_usage.output_tokens;
+                            let payload = serde_json::json!({
+                                "type": "done",
+                                "sessionId": sid,
+                                "totalTurns": total_turns,
+                                "usage": total_usage,
+                            });
+                            let _ = app.emit("stream-done", &payload);
+                            // Agent loop finished — break out of event forwarding
+                            break;
+                        }
+                        CoreEvent::Error { session_id: sid, message } => {
+                            error!("Agent error for session {}: {}", sid, message);
+                            let payload = serde_json::json!({
+                                "type": "error",
+                                "sessionId": sid,
+                                "message": message,
+                            });
+                            let _ = app.emit("stream-error", &payload);
+                            break;
+                        }
+                        CoreEvent::Compacted { session_id: sid, messages_removed, summary_added } => {
+                            let payload = serde_json::json!({
+                                "type": "compacted",
+                                "sessionId": sid,
+                                "messagesRemoved": messages_removed,
+                                "summaryAdded": summary_added,
+                            });
+                            let _ = app.emit("stream-compacted", &payload);
+                        }
+                    },
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(count)) => {
+                        warn!("Event bus lagged by {} events", count);
+                        continue;
                     }
-                    StreamEvent::Done {
-                        session_id: _,
-                        usage,
-                        finish_reason: reason,
-                    } => {
-                        total_input = usage.input_tokens;
-                        total_output = usage.output_tokens;
-                        finish_reason = format!("{:?}", reason).to_lowercase();
-                        if let Err(e) = app.emit("stream-done", &event) {
-                            warn!("Failed to emit stream done: {}", e);
-                        }
-                    }
-                    StreamEvent::Error {
-                        session_id: _,
-                        message,
-                        code,
-                    } => {
-                        error!("Stream error: {} (code: {:?})", message, code);
-                        if let Err(e) = app.emit("stream-error", &event) {
-                            warn!("Failed to emit stream error: {}", e);
-                        }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                        break;
                     }
                 }
             }
-            Err(e) => {
-                let error_event = StreamEvent::Error {
-                    session_id: session_id.clone(),
-                    message: e.display_message(),
-                    code: None,
-                };
-                let _ = app.emit("stream-error", &error_event);
-                return Err(e.display_message());
+            result = &mut agent_handle => {
+                // Agent task finished
+                match result {
+                    Ok(Ok(())) => {
+                        info!("Agent completed successfully for session {}", session_id);
+                    }
+                    Ok(Err(e)) => {
+                        error!("Agent error for session {}: {}", session_id, e);
+                        let payload = serde_json::json!({
+                            "type": "error",
+                            "sessionId": session_id,
+                            "message": e.to_string(),
+                        });
+                        let _ = app.emit("stream-error", &payload);
+                        return Err(e.to_string());
+                    }
+                    Err(e) => {
+                        error!("Agent task panicked for session {}: {}", session_id, e);
+                        return Err(format!("Agent task failed: {}", e));
+                    }
+                }
+                break;
             }
         }
     }

@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use devpilot_bridge::BridgeManager;
+use devpilot_core::{Agent, AgentConfig, EventBus};
 use devpilot_media::MediaManager;
 use devpilot_store::Store;
 use devpilot_tools::{ToolExecutor, ToolRegistry};
@@ -83,6 +84,10 @@ pub struct AppState {
     pub tool_registry: Arc<ToolRegistry>,
     /// Tool executor — handles tool execution with approval flow.
     pub tool_executor: Arc<AsyncMutex<ToolExecutor>>,
+    /// Agent engine — orchestrates LLM <-> tool calling loop.
+    pub agent: Arc<Agent>,
+    /// Event bus — broadcasts agent events to the Tauri frontend.
+    pub event_bus: EventBus,
     /// Scheduler state — cron task management.
     pub scheduler_state: SchedulerState,
     /// Bridge manager — IM/notification integrations.
@@ -92,7 +97,7 @@ pub struct AppState {
 }
 
 impl AppState {
-    /// Create a new AppState, initializing the database and tool subsystem.
+    /// Create a new AppState, initializing the database and all subsystems.
     pub fn new() -> anyhow::Result<Self> {
         let db = Store::open_default()?;
 
@@ -106,13 +111,24 @@ impl AppState {
 
         let registry_arc: Arc<ToolRegistry> = Arc::new(registry);
         let executor = ToolExecutor::new(Arc::clone(&registry_arc));
+        let executor_arc = Arc::new(AsyncMutex::new(executor));
+
+        // Create event bus and agent engine
+        let event_bus = EventBus::new();
+        let agent = Agent::new(
+            AgentConfig::default(),
+            event_bus.clone(),
+            Arc::clone(&executor_arc),
+        );
 
         let scheduler = Scheduler::new();
 
         Ok(Self {
             db: Arc::new(Mutex::new(db)),
             tool_registry: registry_arc,
-            tool_executor: Arc::new(AsyncMutex::new(executor)),
+            tool_executor: executor_arc,
+            agent: Arc::new(agent),
+            event_bus,
             scheduler_state: SchedulerState {
                 scheduler: Arc::new(AsyncMutex::new(scheduler)),
             },

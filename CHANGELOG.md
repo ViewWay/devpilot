@@ -17,19 +17,33 @@ All notable changes to DevPilot will be documented in this file.
 - i18n keys: archived/unarchive, model management (10 keys), scheduler/gallery labels
 - Abort streaming support — `chatStore.abortStreaming()` + stop button in MessageInput
 
+### Added — Agent Loop Integration (Session F)
+
+- `AppState` extended with `Agent` + `EventBus` instances
+- `start_event_bridge()` — tokio task bridging EventBus broadcast → Tauri `app.emit()`
+- CoreEvent → Tauri event mapping: StreamDelta→stream-chunk, ToolCallStarted→stream-tool-start, etc.
+- `send_message_stream` IPC command now calls `Agent::run()` instead of direct LLM provider call
+- chatStore: listeners for `stream-tool-start`, `stream-tool-result`, `stream-approval` events
+- `activeToolCalls` tracking in chatStore for real-time tool call display
+- CoreEvent re-exported from `devpilot-core`
+
 ### Changed
 
+- `send_message_stream` now accepts `user_message` + `working_dir` params (agent loop inputs)
 - Streaming listener registration moved BEFORE `invoke()` call to prevent race condition
 - TopBar model selector: now dynamic (from providerStore) instead of hardcoded DEFAULT_MODELS
 - SettingsPage: expanded ProviderCard with full model CRUD form
 - Sidebar settings button: now uses `navigate('/settings')` instead of `setActiveView`
 - Removed DemoApproval overlay from production chat rendering
+- Tool approval currently auto-approves (pending UI integration)
 
 ### Fixed
 
+- **IPC resolve_tool_approval mismatch** — frontend sent `{ callId, approved }` but backend expected `{ request: { requestId, approved } }`. Corrected both ipc.ts and chatStore.ts.
 - **Stream race condition** — early stream events missed because listeners registered after `invoke()`. Moved listener setup before the invoke call.
 - **Sidebar navigation** — settings/scheduler/gallery buttons had no navigation handlers. Wired to `useNavigate()`.
 - **Model disappear** — switching providers could leave invalid model selected. Auto-select first available model.
+- **Unused imports** — multiple clippy warnings from stale imports after refactoring.
 
 ---
 

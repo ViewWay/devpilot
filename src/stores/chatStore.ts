@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Session, Message } from "../types";
+import type { Session, Message, ApprovalRequest } from "../types";
 import { useUsageStore } from "./usageStore";
 import { useProviderStore } from "./providerStore";
 import { useUIStore } from "./uiStore";
@@ -367,6 +367,12 @@ interface ChatState {
   abortStreaming: () => void;
   /** Hydrate store from Tauri backend (SQLite). No-op in browser dev mode. */
   hydrateFromBackend: () => Promise<void>;
+  /** Pending tool approval requests from the agent loop. */
+  pendingApprovals: ApprovalRequest[];
+  /** Resolve a pending approval (approve or deny). Calls backend IPC. */
+  resolveApproval: (requestId: string, approved: boolean) => void;
+  /** Approve all pending approvals at once. */
+  approveAll: () => void;
 
   // Internal
   _streamCleanup: (() => void) | null;
@@ -390,6 +396,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isLoading: false,
   error: null,
   streamingMessageId: null,
+  pendingApprovals: [],
   _streamCleanup: null,
 
   activeSession: () => {
@@ -542,19 +549,31 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
         // Register listeners BEFORE invoking to avoid missing early events.
         // Backend emits globally:
-        //   "stream-chunk"  → StreamEvent::Chunk { sessionId, delta, ... }
-        //   "stream-done"   → StreamEvent::Done  { sessionId, usage, ... }
-        //   "stream-error"  → StreamEvent::Error { sessionId, message, ... }
+        //   "stream-chunk"        → text delta
+        //   "stream-tool-start"   → tool call started (name, input)
+        //   "stream-tool-result"  → tool call completed (output)
+        //   "stream-approval"     → tool approval requested
+        //   "stream-done"         → agent loop finished
+        //   "stream-error"        → error occurred
         // We filter by sessionId in the handler.
         const cleanup = () => {
           unlistenChunk();
+          unlistenToolStart();
+          unlistenToolResult();
+          unlistenApproval();
           unlistenDone();
           unlistenError();
         };
 
         let unlistenChunk = () => {};
+        let unlistenToolStart = () => {};
+        let unlistenToolResult = () => {};
+        let unlistenApproval = () => {};
         let unlistenDone = () => {};
         let unlistenError = () => {};
+
+        // Track active tool calls for this session
+        const activeToolCalls: Record<string, { msgId: string; startTime: number }> = {};
 
         unlistenChunk = await listen<{
           event: "chunk"; sessionId: string; delta?: string;
@@ -573,8 +592,85 @@ export const useChatStore = create<ChatState>((set, get) => ({
             );
           },
         );
+        // Tool call started — create a tool message
+        unlistenToolStart = await listen<{
+          sessionId: string; callId: string; toolName: string; input: unknown;
+        }>(
+          "stream-tool-start",
+          (payload) => {
+            if (payload.sessionId !== sessionId) {return;}
+            const toolMsgId = addMessage(sessionId, {
+              role: "tool",
+              content: "",
+              toolCalls: [{
+                id: payload.callId,
+                name: payload.toolName,
+                input: typeof payload.input === "string" ? payload.input : JSON.stringify(payload.input, null, 2),
+                status: "running",
+              }],
+            });
+            activeToolCalls[payload.callId] = { msgId: toolMsgId, startTime: Date.now() };
+          },
+        );
+
+        // Tool call result — update the tool message
+        unlistenToolResult = await listen<{
+          sessionId: string; callId: string; output: string; isError: boolean;
+        }>(
+          "stream-tool-result",
+          (payload) => {
+            if (payload.sessionId !== sessionId) {return;}
+            const tc = activeToolCalls[payload.callId];
+            if (!tc) {return;}
+            const duration = Date.now() - tc.startTime;
+            set((s) => ({
+              sessions: s.sessions.map((sess) =>
+                sess.id === sessionId
+                  ? {
+                      ...sess,
+                      messages: sess.messages.map((m) =>
+                        m.id === tc.msgId
+                          ? {
+                              ...m,
+                              content: payload.output,
+                              toolCalls: m.toolCalls?.map((t) =>
+                                t.id === payload.callId
+                                  ? { ...t, output: payload.output, status: payload.isError ? "error" : "done", duration }
+                                  : t,
+                              ),
+                            }
+                          : m,
+                      ),
+                    }
+                  : sess,
+              ),
+            }));
+          },
+        );
+
+        // Tool approval requested — add to pending queue for UI
+        unlistenApproval = await listen<{
+          sessionId: string; callId: string; toolName: string; input: unknown; riskLevel: string;
+        }>(
+          "stream-approval",
+          (payload) => {
+            if (payload.sessionId !== sessionId) {return;}
+            const req: ApprovalRequest = {
+              id: payload.callId,
+              toolCallId: payload.callId,
+              command: `${payload.toolName} ${typeof payload.input === "string" ? payload.input : JSON.stringify(payload.input)}`,
+              description: `Tool: ${payload.toolName}`,
+              riskLevel: (payload.riskLevel as "low" | "medium" | "high") ?? "medium",
+              createdAt: new Date().toISOString(),
+            };
+            set((s) => ({
+              pendingApprovals: [...s.pendingApprovals, req],
+            }));
+          },
+        );
+
         unlistenDone = await listen<{
-          event: "done"; sessionId: string;
+          event: string; sessionId: string;
           usage: { inputTokens: number; outputTokens: number; cacheReadTokens?: number; cacheWriteTokens?: number };
           finishReason: string;
         }>(
@@ -624,6 +720,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           provider: providerConfig,
           chatRequest: { model, messages, stream: true },
           sessionId,
+          userMessage: content,
+          workingDir: undefined,
         });
 
         return; // Tauri handled it
@@ -671,6 +769,27 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   setError: (error) => set({ error }),
+
+  resolveApproval: (requestId, approved) => {
+    // Remove from pending list immediately for responsive UI
+    set((s) => ({
+      pendingApprovals: s.pendingApprovals.filter((r) => r.id !== requestId),
+    }));
+    // Send resolution to backend
+    invoke("resolve_tool_approval", {
+      request: { requestId, approved },
+    }).catch(() => {});
+  },
+
+  approveAll: () => {
+    const { pendingApprovals } = get();
+    for (const req of pendingApprovals) {
+      invoke("resolve_tool_approval", {
+        request: { requestId: req.id, approved: true },
+      }).catch(() => {});
+    }
+    set({ pendingApprovals: [] });
+  },
 
   abortStreaming: () => {
     const cleanup = get()._streamCleanup;
