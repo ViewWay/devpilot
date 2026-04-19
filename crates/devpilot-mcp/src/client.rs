@@ -150,9 +150,7 @@ impl McpClient {
             "arguments": arguments,
         });
 
-        let result = transport
-            .send_request("tools/call", Some(params))
-            .await?;
+        let result = transport.send_request("tools/call", Some(params)).await?;
 
         // MCP tool results have content array
         if let Some(content) = result.get("content").and_then(|c| c.as_array()) {
@@ -160,7 +158,9 @@ impl McpClient {
                 .iter()
                 .filter_map(|item| {
                     if item.get("type").and_then(|t| t.as_str()) == Some("text") {
-                        item.get("text").and_then(|t| t.as_str()).map(|s| s.to_string())
+                        item.get("text")
+                            .and_then(|t| t.as_str())
+                            .map(|s| s.to_string())
                     } else {
                         None
                     }
@@ -220,8 +220,8 @@ mod tests {
     use crate::error::McpResult;
     use async_trait::async_trait;
     use serde_json::Value;
-    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
 
     /// Mock transport for testing — returns pre-configured responses.
     struct MockTransport {
@@ -298,11 +298,8 @@ mod tests {
     #[tokio::test]
     async fn test_client_initialize_and_discover() {
         let transport = Box::new(MockTransport::new());
-        let client = McpClient::with_transport(
-            "test-server".into(),
-            "Test Server".into(),
-            transport,
-        );
+        let client =
+            McpClient::with_transport("test-server".into(), "Test Server".into(), transport);
 
         // Manually trigger initialize
         // (with_transport doesn't auto-initialize, so we test discover_tools separately)
@@ -317,11 +314,7 @@ mod tests {
     #[tokio::test]
     async fn test_tool_definitions() {
         let transport = Box::new(MockTransport::new());
-        let client = McpClient::with_transport(
-            "my-server".into(),
-            "My Server".into(),
-            transport,
-        );
+        let client = McpClient::with_transport("my-server".into(), "My Server".into(), transport);
 
         client.discover_tools().await.unwrap();
         let defs = client.tool_definitions().await;
@@ -334,11 +327,7 @@ mod tests {
     #[tokio::test]
     async fn test_call_tool() {
         let transport = Box::new(MockTransport::new());
-        let client = McpClient::with_transport(
-            "test".into(),
-            "Test".into(),
-            transport,
-        );
+        let client = McpClient::with_transport("test".into(), "Test".into(), transport);
 
         let result = client
             .call_tool("read_file", serde_json::json!({"path": "/tmp/test.txt"}))
@@ -351,14 +340,63 @@ mod tests {
     #[tokio::test]
     async fn test_shutdown() {
         let transport = Box::new(MockTransport::new());
-        let client = McpClient::with_transport(
-            "test".into(),
-            "Test".into(),
-            transport,
-        );
+        let client = McpClient::with_transport("test".into(), "Test".into(), transport);
 
         assert!(client.is_alive().await);
         client.shutdown().await.unwrap();
         assert!(!client.is_alive().await);
+    }
+
+    #[test]
+    fn test_server_capabilities_default() {
+        let caps = ServerCapabilities::default();
+        assert!(caps.tools.is_none());
+    }
+
+    #[test]
+    fn test_server_capabilities_with_tools() {
+        let json = serde_json::json!({
+            "tools": { "list_changed": true }
+        });
+        let caps: ServerCapabilities = serde_json::from_value(json).unwrap();
+        assert!(caps.tools.is_some());
+        assert_eq!(caps.tools.unwrap().list_changed, Some(true));
+    }
+
+    #[test]
+    fn test_mcp_tool_info_serde() {
+        let json = serde_json::json!({
+            "name": "read_file",
+            "description": "Read a file from disk",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "path": { "type": "string" }
+                }
+            }
+        });
+        let info: McpToolInfo = serde_json::from_value(json).unwrap();
+        assert_eq!(info.name, "read_file");
+        assert_eq!(info.description.as_deref(), Some("Read a file from disk"));
+        assert!(info.input_schema.is_object());
+    }
+
+    #[test]
+    fn test_mcp_tool_info_no_description() {
+        let json = serde_json::json!({
+            "name": "ping",
+            "inputSchema": { "type": "object", "properties": {} }
+        });
+        let info: McpToolInfo = serde_json::from_value(json).unwrap();
+        assert_eq!(info.name, "ping");
+        assert!(info.description.is_none());
+    }
+
+    #[test]
+    fn test_accessors() {
+        let transport = Box::new(MockTransport::new());
+        let client = McpClient::with_transport("my-id".into(), "My Server".into(), transport);
+        assert_eq!(client.server_id(), "my-id");
+        assert_eq!(client.server_name(), "My Server");
     }
 }

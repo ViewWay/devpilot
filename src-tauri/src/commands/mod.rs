@@ -220,8 +220,7 @@ pub fn list_checkpoints(
     session_id: String,
 ) -> Result<Vec<CheckpointInfo>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.list_checkpoints(&session_id)
-        .map_err(|e| e.to_string())
+    db.list_checkpoints(&session_id).map_err(|e| e.to_string())
 }
 
 /// Rewind a session to a specific checkpoint.

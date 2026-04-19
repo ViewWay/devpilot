@@ -23,10 +23,7 @@ pub async fn upsert_mcp_server(
 }
 
 #[tauri::command]
-pub async fn delete_mcp_server(
-    state: State<'_, AppState>,
-    id: String,
-) -> Result<(), String> {
+pub async fn delete_mcp_server(state: State<'_, AppState>, id: String) -> Result<(), String> {
     let db = state.db.lock().unwrap();
     db.delete_mcp_server(&id).map_err(|e| e.to_string())
 }
@@ -56,16 +53,10 @@ pub async fn mcp_connect_server(
 }
 
 #[tauri::command]
-pub async fn mcp_disconnect_server(
-    state: State<'_, AppState>,
-    id: String,
-) -> Result<(), String> {
+pub async fn mcp_disconnect_server(state: State<'_, AppState>, id: String) -> Result<(), String> {
     let manager = state.mcp_manager.lock().await;
     match manager.as_ref() {
-        Some(m) => m
-            .disconnect_server(&id)
-            .await
-            .map_err(|e| e.to_string()),
+        Some(m) => m.disconnect_server(&id).await.map_err(|e| e.to_string()),
         None => Err("MCP manager not initialized".into()),
     }
 }

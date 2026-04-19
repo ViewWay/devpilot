@@ -75,3 +75,12 @@ export interface Attachment {
   type: string; // MIME type
   preview?: string; // data URL for images
 }
+
+export interface CheckpointInfo {
+  id: string;
+  sessionId: string;
+  messageId: string;
+  summary: string;
+  tokenCount: number;
+  createdAt: string;
+}

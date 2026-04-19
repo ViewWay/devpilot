@@ -460,3 +460,55 @@ All quality gates passing.
 | Commit   | 1f49ee6 | 852a0d5 |
 
 All quality gates passing: `cargo build`, `cargo test --workspace`, `tsc --noEmit`.
+
+---
+
+## Session I — 2026-04-19 (P2-3 MCP Client + Tests)
+
+**Goal:** Implement MCP (Model Context Protocol) client with stdio/SSE transport, tool discovery, and full test coverage.
+
+### P2-3: MCP Client
+
+**Implementation:**
+
+1. **devpilot-mcp crate** (new, ~730 lines)
+   - `McpTransport` trait: bidirectional JSON-RPC transport abstraction
+   - `StdioTransport`: spawns child process, communicates over stdin/stdout (newline-delimited JSON)
+   - `SseTransport`: connects to remote HTTP endpoint via reqwest
+   - `McpClient`: individual server connection — initialize handshake, tool discovery, tool execution
+   - `McpManager`: manages multiple MCP servers, registers discovered tools into `ToolRegistry`
+   - `McpProxyTool`: adapts MCP tools into devpilot `Tool` trait for agent loop integration
+   - Tool naming convention: `mcp__<server_id>__<tool_name>`
+
+2. **SQLite persistence**
+   - `mcp_servers` table: id, name, transport, command, args, url, env, enabled, created_at
+   - Store: `list_mcp_servers`, `get_mcp_server`, `upsert_mcp_server`, `delete_mcp_server`
+   - `McpServerRecord` type with camelCase serde
+
+3. **Tauri IPC** (6 new commands, 51 total)
+   - `list_mcp_servers`, `upsert_mcp_server`, `delete_mcp_server`
+   - `mcp_connect_server`, `mcp_disconnect_server`, `mcp_list_connected`
+
+4. **AppState integration**
+   - `mcp_manager: Arc<AsyncMutex<Option<McpManager>>>`
+
+5. **32 unit tests**
+   - transport: 10 tests (serde roundtrip, SSE lifecycle, stdio spawn failure, JSON-RPC serialization)
+   - client: 11 tests (MockTransport, initialize/discover, tool definitions, call_tool, serde, accessors)
+   - manager: 6 tests (new/connect/disconnect/shutdown lifecycle)
+   - error: 9 tests (Display trait for all error variants)
+
+6. **Warning fixes**
+   - scheduler: unused `mut` and variable in `duplicate_task_rejected` test
+   - sandbox: unused `ResourceLimits` import in test module
+
+### Stats
+
+| Metric   | Before  | After |
+| -------- | ------- | ----- |
+| Crates   | 10      | 11    |
+| Tests    | 159     | 192   |
+| IPC Cmds | 45      | 51    |
+| Commit   | 852a0d5 | HEAD  |
+
+All quality gates: `cargo build`, `cargo clippy`, `cargo test --workspace` — all passing, zero warnings.

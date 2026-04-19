@@ -252,8 +252,8 @@ mod tests {
     #[tokio::test]
     async fn duplicate_task_rejected() {
         let scheduler = Scheduler::new();
-        let mut task = TaskDef::from_cron("0 * * * * *").unwrap();
-        let id = task.id.clone();
+        let task = TaskDef::from_cron("0 * * * * *").unwrap();
+        let _id = task.id.clone();
         scheduler.add_task(task.clone()).await.unwrap();
 
         // Try adding again with same ID

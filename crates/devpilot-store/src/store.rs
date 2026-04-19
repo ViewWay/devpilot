@@ -600,8 +600,10 @@ impl Store {
 
     /// Delete a checkpoint by ID.
     pub fn delete_checkpoint(&self, id: &str) -> Result<()> {
-        self.conn
-            .execute("DELETE FROM checkpoints WHERE id = ?1", rusqlite::params![id])?;
+        self.conn.execute(
+            "DELETE FROM checkpoints WHERE id = ?1",
+            rusqlite::params![id],
+        )?;
         Ok(())
     }
 
@@ -737,24 +739,26 @@ impl Store {
 
     /// Get a single MCP server by ID.
     pub fn get_mcp_server(&self, id: &str) -> Result<McpServerRecord> {
-        self.conn.query_row(
-            "SELECT id, name, transport, command, args, url, env, enabled, created_at
+        self.conn
+            .query_row(
+                "SELECT id, name, transport, command, args, url, env, enabled, created_at
              FROM mcp_servers WHERE id = ?1",
-            [id],
-            |row| {
-                Ok(McpServerRecord {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                    transport: row.get(2)?,
-                    command: row.get(3)?,
-                    args: row.get(4)?,
-                    url: row.get(5)?,
-                    env: row.get(6)?,
-                    enabled: row.get::<_, i32>(7)? != 0,
-                    created_at: row.get(8)?,
-                })
-            },
-        ).map_err(|e| e.into())
+                [id],
+                |row| {
+                    Ok(McpServerRecord {
+                        id: row.get(0)?,
+                        name: row.get(1)?,
+                        transport: row.get(2)?,
+                        command: row.get(3)?,
+                        args: row.get(4)?,
+                        url: row.get(5)?,
+                        env: row.get(6)?,
+                        enabled: row.get::<_, i32>(7)? != 0,
+                        created_at: row.get(8)?,
+                    })
+                },
+            )
+            .map_err(|e| e.into())
     }
 
     /// Insert or update an MCP server configuration.
@@ -781,7 +785,8 @@ impl Store {
 
     /// Delete an MCP server by ID.
     pub fn delete_mcp_server(&self, id: &str) -> Result<()> {
-        self.conn.execute("DELETE FROM mcp_servers WHERE id = ?1", [id])?;
+        self.conn
+            .execute("DELETE FROM mcp_servers WHERE id = ?1", [id])?;
         Ok(())
     }
 }

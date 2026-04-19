@@ -68,6 +68,26 @@ All notable changes to DevPilot will be documented in this file.
 - Usage persisted to DB after `stream_done` event
 - Daily aggregation via existing `Store::add_usage()` upsert
 
+### Added — MCP Client (P2-3)
+
+- `devpilot-mcp` crate: Model Context Protocol client with stdio + SSE transport
+- `McpTransport` trait: bidirectional JSON-RPC transport abstraction
+- `StdioTransport`: spawns child process, communicates over stdin/stdout
+- `SseTransport`: connects to remote HTTP endpoint via reqwest
+- `McpClient`: individual server connection — initialize handshake, tool discovery, tool execution
+- `McpManager`: manages multiple MCP servers, registers tools into `ToolRegistry`
+- `McpProxyTool`: adapts MCP tools into devpilot `Tool` trait for agent loop integration
+- Tool naming convention: `mcp__<server_id>__<tool_name>`
+- SQLite persistence: `mcp_servers` table (id, name, transport, command, args, url, env, enabled)
+- Tauri IPC: `list_mcp_servers`, `upsert_mcp_server`, `delete_mcp_server`, `mcp_connect_server`, `mcp_disconnect_server`, `mcp_list_connected` (51 total commands)
+- `AppState` extended with `mcp_manager: Arc<AsyncMutex<Option<McpManager>>>`
+- 32 unit tests (transport serde, client mock, manager lifecycle, error display)
+
+### Fixed
+
+- Unused `mut` and variable warnings in scheduler tests
+- Unused `ResourceLimits` import in sandbox tests
+
 ### Changed
 
 - `send_message_stream` now accepts `user_message` + `working_dir` params (agent loop inputs)

@@ -89,11 +89,7 @@ fn default_true() -> bool {
 #[async_trait]
 pub trait McpTransport: Send + Sync {
     /// Send a JSON-RPC request and wait for the response.
-    async fn send_request(
-        &self,
-        method: &str,
-        params: Option<Value>,
-    ) -> McpResult<Value>;
+    async fn send_request(&self, method: &str, params: Option<Value>) -> McpResult<Value>;
 
     /// Send a notification (no response expected).
     async fn send_notification(&self, method: &str, params: Option<Value>) -> McpResult<()>;
@@ -135,16 +131,18 @@ impl StdioTransport {
             cmd.env(k, v);
         }
 
-        let mut child = cmd.spawn().map_err(|e| McpError::Transport(format!(
-            "Failed to spawn '{}': {}", command, e
-        )))?;
+        let mut child = cmd
+            .spawn()
+            .map_err(|e| McpError::Transport(format!("Failed to spawn '{}': {}", command, e)))?;
 
-        let stdin = child.stdin.take().ok_or_else(|| {
-            McpError::Transport("Failed to acquire stdin".into())
-        })?;
-        let stdout = child.stdout.take().ok_or_else(|| {
-            McpError::Transport("Failed to acquire stdout".into())
-        })?;
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| McpError::Transport("Failed to acquire stdin".into()))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| McpError::Transport("Failed to acquire stdout".into()))?;
 
         Ok(Self {
             child: Mutex::new(Some(child)),
@@ -186,7 +184,9 @@ impl McpTransport for StdioTransport {
 
         if response_line.is_empty() {
             self.alive.store(false, Ordering::Relaxed);
-            return Err(McpError::Disconnected("Empty response from MCP server".into()));
+            return Err(McpError::Disconnected(
+                "Empty response from MCP server".into(),
+            ));
         }
 
         let resp: JsonRpcResponse = serde_json::from_str(response_line.trim())?;
@@ -198,7 +198,8 @@ impl McpTransport for StdioTransport {
             });
         }
 
-        resp.result.ok_or_else(|| McpError::Protocol("No result in response".into()))
+        resp.result
+            .ok_or_else(|| McpError::Protocol("No result in response".into()))
     }
 
     async fn send_notification(&self, method: &str, params: Option<Value>) -> McpResult<()> {
@@ -266,16 +267,13 @@ impl McpTransport for SseTransport {
             params,
         };
 
-        let resp = self
-            .http
-            .post(&self.url)
-            .json(&req)
-            .send()
-            .await?;
+        let resp = self.http.post(&self.url).json(&req).send().await?;
 
         if !resp.status().is_success() {
             return Err(McpError::Transport(format!(
-                "HTTP {}: {}", resp.status(), resp.text().await.unwrap_or_default()
+                "HTTP {}: {}",
+                resp.status(),
+                resp.text().await.unwrap_or_default()
             )));
         }
 
@@ -288,7 +286,9 @@ impl McpTransport for SseTransport {
             });
         }
 
-        rpc_resp.result.ok_or_else(|| McpError::Protocol("No result in response".into()))
+        rpc_resp
+            .result
+            .ok_or_else(|| McpError::Protocol("No result in response".into()))
     }
 
     async fn send_notification(&self, method: &str, params: Option<Value>) -> McpResult<()> {
@@ -302,7 +302,8 @@ impl McpTransport for SseTransport {
         let resp = self.http.post(&self.url).json(&req).send().await?;
         if !resp.status().is_success() {
             return Err(McpError::Transport(format!(
-                "HTTP {} on notification", resp.status()
+                "HTTP {} on notification",
+                resp.status()
             )));
         }
         Ok(())
@@ -334,5 +335,122 @@ pub async fn create_transport(config: &TransportType) -> McpResult<Box<dyn McpTr
             let transport = SseTransport::new(url);
             Ok(Box::new(transport))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_transport_type_stdio_serde_roundtrip() {
+        let stdio = TransportType::Stdio {
+            command: "npx".to_string(),
+            args: vec!["-y".to_string(), "@modelcontextprotocol/server".to_string()],
+            env: HashMap::new(),
+        };
+        let json = serde_json::to_string(&stdio).unwrap();
+        assert!(json.contains(r#""type":"stdio""#));
+        assert!(json.contains(r#""command":"npx""#));
+
+        let deserialized: TransportType = serde_json::from_str(&json).unwrap();
+        if let TransportType::Stdio { command, args, .. } = deserialized {
+            assert_eq!(command, "npx");
+            assert_eq!(args.len(), 2);
+        } else {
+            panic!("Expected Stdio variant");
+        }
+    }
+
+    #[test]
+    fn test_transport_type_sse_serde_roundtrip() {
+        let sse = TransportType::Sse {
+            url: "http://localhost:8080/mcp".to_string(),
+        };
+        let json = serde_json::to_string(&sse).unwrap();
+        assert!(json.contains(r#""type":"sse""#));
+
+        let deserialized: TransportType = serde_json::from_str(&json).unwrap();
+        if let TransportType::Sse { url } = deserialized {
+            assert_eq!(url, "http://localhost:8080/mcp");
+        } else {
+            panic!("Expected Sse variant");
+        }
+    }
+
+    #[test]
+    fn test_server_config_serde_roundtrip() {
+        let config = McpServerConfig {
+            id: "test-server".to_string(),
+            name: "Test MCP Server".to_string(),
+            transport: TransportType::Stdio {
+                command: "python".to_string(),
+                args: vec!["mcp_server.py".to_string()],
+                env: HashMap::new(),
+            },
+            enabled: true,
+        };
+
+        let json = serde_json::to_string_pretty(&config).unwrap();
+        let deserialized: McpServerConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.id, "test-server");
+        assert_eq!(deserialized.name, "Test MCP Server");
+        assert!(deserialized.enabled);
+    }
+
+    #[test]
+    fn test_server_config_enabled_defaults_to_true() {
+        let json = r#"{
+            "id": "x",
+            "name": "X",
+            "transport": {"type": "sse", "url": "http://x"}
+        }"#;
+        let config: McpServerConfig = serde_json::from_str(json).unwrap();
+        assert!(config.enabled);
+    }
+
+    #[test]
+    fn test_sse_transport_new_is_alive() {
+        let transport = SseTransport::new("http://localhost:3000/mcp");
+        assert!(transport.is_alive());
+    }
+
+    #[tokio::test]
+    async fn test_sse_transport_shutdown_sets_not_alive() {
+        let transport = SseTransport::new("http://localhost:3000/mcp");
+        assert!(transport.is_alive());
+        transport.shutdown().await.unwrap();
+        assert!(!transport.is_alive());
+    }
+
+    #[test]
+    fn test_stdio_spawn_fails_for_nonexistent_command() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let result = rt.block_on(StdioTransport::spawn(
+            "nonexistent_command_xyz_12345",
+            &[],
+            &HashMap::new(),
+        ));
+        assert!(result.is_err());
+        if let Err(McpError::Transport(msg)) = result {
+            assert!(msg.contains("Failed to spawn"));
+        } else {
+            panic!("Expected Transport error");
+        }
+    }
+
+    #[test]
+    fn test_json_rpc_request_serialization() {
+        let req = JsonRpcRequest {
+            jsonrpc: "2.0",
+            id: 42,
+            method: "tools/list".to_string(),
+            params: Some(serde_json::json!({})),
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        assert!(json.contains(r#""jsonrpc":"2.0""#));
+        assert!(json.contains(r#""id":42"#));
+        assert!(json.contains(r#""method":"tools/list""#));
     }
 }

@@ -211,7 +211,7 @@ fn truncate_output(output: &str, max_bytes: Option<usize>) -> (bool, String) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::policy::{ResourceLimits, SizeLimit};
+    use crate::policy::SizeLimit;
     use std::time::Duration;
 
     #[tokio::test]
