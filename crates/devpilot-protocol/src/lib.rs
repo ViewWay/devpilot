@@ -363,8 +363,10 @@ pub struct ProviderConfig {
 /// How the agent should behave in this session.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum SessionMode {
     /// Full coding agent with tool access.
+    #[default]
     Code,
     /// Plan-only mode (no tool execution).
     Plan,

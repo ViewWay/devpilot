@@ -92,6 +92,11 @@ impl ToolExecutor {
         }
     }
 
+    /// Get a reference to the tool registry.
+    pub fn registry(&self) -> &ToolRegistry {
+        &self.registry
+    }
+
     /// Set the approval request callback.
     pub fn set_approval_callback<F>(&mut self, cb: F)
     where

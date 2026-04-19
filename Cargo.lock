@@ -711,6 +711,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "devpilot-core"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "devpilot-llm",
+ "devpilot-protocol",
+ "devpilot-tools",
+ "futures",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "devpilot-llm"
 version = "0.1.0"
 dependencies = [

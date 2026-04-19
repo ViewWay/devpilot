@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
+    "crates/devpilot-core",
     "crates/devpilot-llm",
     "crates/devpilot-protocol",
     "crates/devpilot-store",
