@@ -1,0 +1,19 @@
+[package]
+name = "devpilot-search"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "File search engine — fuzzy filename matching and regex content search"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["fs", "rt", "macros"] }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+regex = "1"
+walkdir = "2"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tempfile = "3"

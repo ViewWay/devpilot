@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "crates/devpilot-core",
     "crates/devpilot-sandbox",
+    "crates/devpilot-search",
     "crates/devpilot-llm",
     "crates/devpilot-protocol",
     "crates/devpilot-store",
