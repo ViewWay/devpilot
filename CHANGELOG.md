@@ -7,18 +7,26 @@ All notable changes to DevPilot will be documented in this file.
 ### Added — Phase 4 Practical Features
 
 - TerminalPanel: integrate `sandbox_execute` IPC for real command execution with colored stdout/stderr + exit codes
-- FileTree: real directory file tree with expand/collapse, powered by `search_files` IPC
+- FileTree: real directory file tree with expand/collapse + click-to-preview
+- PreviewPanel: real file reading via sandbox_execute, Monaco Editor with lang auto-detection, diff placeholder
 - System Prompt editor: collapsible text area above message input in ChatPanel, injected into message stream
 - Working directory selector: TopBar native folder picker via Tauri dialog API, forwarded to agent
+- Session export: JSON and Markdown format download via Blob, Sidebar export submenu
+- Stream-compacted event listener: auto-reload messages on context compaction during streaming
+- MCP Server management: full SettingsPage MCP tab, mcpStore (Zustand), CRUD + connect/disconnect
+  - McpServerConfig type, mcpStore with 8 actions, 6 IPC mock handlers
+  - Add/edit form with stdio/SSE transport, connect toggle, delete
+  - 18 i18n keys (EN + CN)
 - `Message` role union: added `"system"` variant for system prompt messages
 - uiStore: `previewFile`/`setPreviewFile` state for file preview panel
-- i18n: system prompt, working directory, refresh keys (EN + CN)
+- i18n: system prompt, working directory, refresh, MCP, export keys (EN + CN)
+- tauri.conf.json: version 0.4.0, window title "DevPilot — AI Coding Agent"
 
 ### Fixed — TypeScript & Dead Code Cleanup
 
 - Resolved all TypeScript compilation errors (role union, uiStore missing methods, unused params)
 - Removed dead code: `useTauri.ts` (254 lines), `Header.tsx` (76 lines), duplicate keyboard shortcut registration
-- Updated TODO.md to reflect P4 progress
+- ESLint: proper typing in SettingsPage, useCallback dependency fix
 
 ---
 

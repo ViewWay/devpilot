@@ -16,36 +16,36 @@
 
 ---
 
-## Phase 4: 实用化 (P4) — 进行中
+## Phase 4: 实用化 (P4) — 11/15 完成
 
 ### P4-A: 核心面板真实化 (Critical)
 
 - [x] **P4-1** TerminalPanel: 接入 sandbox_execute IPC, 彩色 stdout/stderr + exit code (556d11c)
-- [x] **P4-2** FileTree: 接入 search_files IPC, 真实目录文件树 + 展开/折叠 (83ef696)
-- [ ] **P4-3** PreviewPanel: 接入真实文件读取 + diff 显示
+- [x] **P4-2** FileTree: 接入 search_files IPC, 真实目录文件树 + 点击预览 (83ef696)
+- [x] **P4-3** PreviewPanel: 真实文件读取 + Monaco Editor + diff 占位 (b5d14e0)
 
 ### P4-B: Agent 事件完整接入 (Critical)
 
-- [ ] **P4-4** useTauri: 监听所有 7 种 stream 事件 (chunk/done/error/tool-start/tool-result/approval/compacted)
-- [ ] **P4-5** chatStore: tool events → Message 对象的 toolCalls/toolResults 字段填充
-- [ ] **P4-6** MessageList: 完善多轮 tool call 可视化
+- [x] **P4-4** chatStore: 监听全部 7 种 stream 事件 (含 stream-compacted) (b8b6a22)
+- [x] **P4-5** chatStore: tool events → Message 的 toolCalls 字段 (已有)
+- [x] **P4-6** MessageList: ToolCallView 多轮 tool call 可视化 (已有)
 
 ### P4-C: 开发者体验 (High)
 
 - [x] **P4-7** 工作目录选择器: TopBar Tauri dialog 原生目录选择器 (556d11c)
 - [x] **P4-8** System Prompt 编辑器: ChatPanel 可折叠区域 (556d11c)
-- [ ] **P4-9** 对话导出: JSON/Markdown 格式导出
+- [x] **P4-9** 对话导出: JSON/Markdown Blob 下载 + Sidebar 导出按钮 (b8b6a22)
 
 ### P4-D: 设置完善 (Medium)
 
-- [ ] **P4-10** MCP Server 管理: SettingsPage 新增 MCP 标签页
+- [x] **P4-10** MCP Server 管理: SettingsPage MCP 标签页 + mcpStore + 18 i18n keys (30affbe)
 - [ ] **P4-11** 字体大小: uiStore + SettingsPage slider 联动
 - [ ] **P4-12** Sandbox 策略选择: SettingsPage 安全性标签页
 
 ### P4-E: 清理 & 配置 (Low)
 
 - [x] **P4-13** 删除 dead Header.tsx, useTauri.ts, 重复快捷键 (2c6d966)
-- [ ] **P4-14** tauri.conf.json: 版本号 + 标题栏 + 图标
+- [x] **P4-14** tauri.conf.json: 版本号 0.4.0 + 标题栏 "DevPilot — AI Coding Agent" (b8b6a22)
 - [ ] **P4-15** i18n 修补: loading/mode keys
 
 ---

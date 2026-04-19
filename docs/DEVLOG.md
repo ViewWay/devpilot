@@ -689,3 +689,64 @@ New test files:
 | tsc --noEmit   | clean            | clean               |
 
 **QA:** `cargo test --workspace` 202 pass, `vitest run` 142 pass, `tsc --noEmit` clean, `cargo clippy` clean
+
+## 2026-04-19 Session I — P4 Practicalization Batch 2 (11/15 → 15/15)
+
+### Goal
+
+完成 P4 剩余实用功能：文件预览、流事件补全、会话导出、MCP 管理、字体大小、沙箱策略、i18n 修补。
+
+### P4-3: PreviewPanel 文件预览 ✅
+
+- PreviewPanel 接入 `sandbox_execute` IPC（`cat` 命令）读取真实文件
+- FileTree 点击文件 → `uiStore.setPreviewFile()` → PreviewPanel 加载
+- Monaco Editor 自动语言检测（根据扩展名映射 20+ 语言）
+- Loading / Error 状态处理
+- Diff 模式占位符（未来 P5）
+
+### P4-4 ~ P4-6: 流事件 + 工具调用渲染 ✅
+
+- chatStore 已覆盖 6/7 流事件，补全 `stream-compacted` 监听
+- context 压缩时自动 `loadMessages()` 重载消息列表
+- ToolCallView 已渲染工具名称 + 参数 + 结果
+
+### P4-9: 会话导出 ✅
+
+- Sidebar 导出按钮 → JSON / Markdown 两种格式
+- Blob 下载方案（不依赖 Tauri 文件对话框）
+- chatStore `exportSession()` 方法
+
+### P4-10: MCP Server 管理 ✅
+
+- 新增 `mcpStore.ts`：Zustand store，8 个 action，6 个 IPC mock handler
+- 新增 `McpServerConfig` 类型（types/index.ts）
+- SettingsPage 新增 MCP 标签页：
+  - Server 列表 + Add/Edit 表单
+  - stdio / SSE 传输模式切换
+  - Connect / Disconnect 按钮
+  - Delete 确认
+- 18 个 i18n key（EN + CN）
+- ESLint 修复：McpServerConfig 类型替代 any，useCallback deps
+
+### P4-13 + P4-14: 版本号 + 窗口标题 ✅
+
+- tauri.conf.json: version `0.1.0` → `0.4.0`, title → `DevPilot — AI Coding Agent`
+- Cargo.toml: version `0.1.0` → `0.4.0`
+
+### P4-11: 字体大小调整 🔄 (下一步)
+
+### P4-12: Sandbox 策略选择 🔄 (下一步)
+
+### P4-15: i18n 修补 🔄 (下一步)
+
+### Stats
+
+| Metric         | Before (556d11c) | Current   |
+| -------------- | ---------------- | --------- |
+| P4 tasks done  | 5/15             | 11/15     |
+| Files changed  | —                | ~30 files |
+| Rust tests     | 202              | 202       |
+| Frontend tests | 142              | 142       |
+| Version        | 0.1.0            | 0.4.0     |
+
+**QA:** `cargo test --workspace` 202 pass, `vitest run` 142 pass, `tsc --noEmit` clean, ESLint clean

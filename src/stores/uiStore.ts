@@ -55,6 +55,12 @@ interface UIState {
 
   previewFile: string;
   setPreviewFile: (path: string) => void;
+
+  fontSize: number; // 12-18, default 14
+  setFontSize: (size: number) => void;
+
+  sandboxPolicy: "default" | "permissive" | "strict";
+  setSandboxPolicy: (policy: "default" | "permissive" | "strict") => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -98,4 +104,10 @@ export const useUIStore = create<UIState>((set) => ({
 
   previewFile: "",
   setPreviewFile: (path: string) => set({ previewFile: path }),
+
+  fontSize: 14,
+  setFontSize: (size: number) => set({ fontSize: Math.max(12, Math.min(18, size)) }),
+
+  sandboxPolicy: "default",
+  setSandboxPolicy: (policy) => set({ sandboxPolicy: policy }),
 }));

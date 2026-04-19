@@ -28,9 +28,10 @@ import {
   Send,
   AlertCircle,
   Wrench,
+  Shield,
 } from "lucide-react";
 
-type TabId = "providers" | "appearance" | "shortcuts" | "usage" | "bridge" | "mcp";
+type TabId = "providers" | "appearance" | "shortcuts" | "usage" | "bridge" | "mcp" | "security";
 
 const TABS: { id: TabId; icon: typeof Settings; labelKey: string }[] = [
   { id: "providers", icon: Plug, labelKey: "providers" },
@@ -39,6 +40,7 @@ const TABS: { id: TabId; icon: typeof Settings; labelKey: string }[] = [
   { id: "usage", icon: BarChart3, labelKey: "usage" },
   { id: "bridge" as const, icon: MessageSquare, labelKey: "bridge" },
   { id: "mcp" as const, icon: Wrench, labelKey: "mcpServers" },
+  { id: "security" as const, icon: Shield, labelKey: "security" },
 ];
 
 export function SettingsPage() {
@@ -523,6 +525,8 @@ function AppearanceTab() {
   const { t } = useI18n();
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
+  const fontSize = useUIStore((s) => s.fontSize);
+  const setFontSize = useUIStore((s) => s.setFontSize);
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -553,13 +557,22 @@ function AppearanceTab() {
         </div>
       </div>
 
-      {/* Font size placeholder */}
+      {/* Font size */}
       <div>
         <label className="text-xs font-medium text-foreground">{t("messageFontSize")}</label>
         <div className="mt-2 flex items-center gap-3">
           <span className="text-[10px] text-muted-foreground">A</span>
-          <input type="range" min="12" max="18" defaultValue={14} className="flex-1 accent-primary" />
+          <input
+            type="range"
+            min={12}
+            max={18}
+            step={1}
+            value={fontSize}
+            onChange={(e) => setFontSize(Number(e.target.value))}
+            className="flex-1 accent-primary"
+          />
           <span className="text-sm text-muted-foreground">A</span>
+          <span className="text-[10px] text-muted-foreground w-6 text-right">{fontSize}px</span>
         </div>
       </div>
     </div>
