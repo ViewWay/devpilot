@@ -809,6 +809,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   hydrateFromBackend: async () => {
+    // Hydrate providers first so they're available for sessions
+    await useProviderStore.getState().hydrateFromBackend();
+
     const data = await hydrateSessions();
     if (!data) { return; } // not in Tauri runtime
 

@@ -1,5 +1,7 @@
 use crate::AppState;
-use devpilot_store::{MessageInfo, PingResponse, SessionInfo, SettingEntry, UsageRecord};
+use devpilot_store::{
+    MessageInfo, PingResponse, ProviderRecord, SessionInfo, SettingEntry, UsageRecord,
+};
 use tauri::State;
 
 pub mod bridge;
@@ -146,4 +148,34 @@ pub fn list_settings(state: State<'_, AppState>) -> Result<Vec<SettingEntry>, St
 pub fn get_total_usage(state: State<'_, AppState>) -> Result<Vec<UsageRecord>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.get_total_usage().map_err(|e| e.to_string())
+}
+
+// ── Providers ─────────────────────────────────────────
+
+/// List all persisted providers.
+#[tauri::command]
+pub fn list_providers(state: State<'_, AppState>) -> Result<Vec<ProviderRecord>, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.list_providers().map_err(|e| e.to_string())
+}
+
+/// Get a single provider by ID.
+#[tauri::command]
+pub fn get_provider(state: State<'_, AppState>, id: String) -> Result<ProviderRecord, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.get_provider(&id).map_err(|e| e.to_string())
+}
+
+/// Create or update a provider configuration.
+#[tauri::command(rename_all = "camelCase")]
+pub fn upsert_provider(state: State<'_, AppState>, provider: ProviderRecord) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.upsert_provider(&provider).map_err(|e| e.to_string())
+}
+
+/// Delete a provider by ID.
+#[tauri::command]
+pub fn delete_provider(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.delete_provider(&id).map_err(|e| e.to_string())
 }

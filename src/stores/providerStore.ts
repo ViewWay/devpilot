@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { invoke, isTauriRuntime } from "../lib/ipc";
+import type { ProviderRecordIPC } from "../lib/ipc";
 
 export interface Provider {
   id: string;
@@ -25,8 +26,10 @@ export interface ModelConfig {
 
 export interface ProviderStore {
   providers: Provider[];
+  hydrated: boolean;
 
   // Actions
+  hydrateFromBackend: () => Promise<void>;
   addProvider: (provider: Omit<Provider, "id">) => string;
   updateProvider: (id: string, partial: Partial<Provider>) => void;
   removeProvider: (id: string) => void;
@@ -152,12 +155,100 @@ function mapProviderType(providerId: string): string {
   return "custom";
 }
 
+/** Persist a provider to SQLite via Tauri IPC. */
+async function persistProvider(provider: Provider): Promise<void> {
+  if (!isTauriRuntime()) { return; }
+  try {
+    const record: ProviderRecordIPC = {
+      id: provider.id,
+      name: provider.name,
+      providerType: mapProviderType(provider.id),
+      baseUrl: provider.baseUrl,
+      apiKeySet: !!provider.apiKey,
+      models: JSON.stringify(
+        provider.models.map((m) => ({
+          id: m.id,
+          name: m.name,
+          provider: mapProviderType(provider.id),
+          maxInputTokens: m.maxTokens,
+          maxOutputTokens: 4096,
+          supportsStreaming: m.supportsStreaming,
+          supportsTools: true,
+          supportsVision: m.supportsVision,
+          inputPricePerMillion: m.inputPrice,
+          outputPricePerMillion: m.outputPrice,
+        })),
+      ),
+      enabled: provider.enabled,
+      createdAt: new Date().toISOString(),
+    };
+    await invoke("upsert_provider", { provider: record });
+  } catch {
+    // Silently fail — persistence is best-effort
+  }
+}
+
+/** Remove a provider from SQLite via Tauri IPC. */
+async function unpersistProvider(id: string): Promise<void> {
+  if (!isTauriRuntime()) { return; }
+  try {
+    await invoke("delete_provider", { id });
+  } catch {
+    // Silently fail
+  }
+}
+
 export const useProviderStore = create<ProviderStore>((set, get) => ({
   providers: DEFAULT_PROVIDERS,
+  hydrated: false,
+
+  hydrateFromBackend: async () => {
+    if (!isTauriRuntime() || get().hydrated) { return; }
+    try {
+      const records = await invoke<ProviderRecordIPC[]>("list_providers");
+      if (records.length > 0) {
+        // Merge persisted records with defaults — persisted takes priority
+        const persisted: Provider[] = records.map((r) => ({
+          id: r.id,
+          name: r.name,
+          baseUrl: r.baseUrl,
+          apiKey: "", // API keys are never sent back from backend
+          enabled: r.enabled,
+          models: r.models ? JSON.parse(r.models).map((m: Record<string, unknown>) => ({
+            id: m.id as string,
+            name: m.name as string,
+            maxTokens: (m.maxInputTokens as number) || 128000,
+            supportsStreaming: (m.supportsStreaming as boolean) ?? true,
+            supportsVision: (m.supportsVision as boolean) ?? false,
+            inputPrice: m.inputPricePerMillion as number | undefined,
+            outputPrice: m.outputPricePerMillion as number | undefined,
+          })) : [],
+        }));
+        // Merge: start with defaults, overlay persisted (keeping API keys empty)
+        const merged = DEFAULT_PROVIDERS.map((d) => {
+          const found = persisted.find((p) => p.id === d.id);
+          return found ? { ...d, ...found, apiKey: d.apiKey } : d;
+        });
+        // Add any persisted providers not in defaults
+        for (const p of persisted) {
+          if (!merged.some((m) => m.id === p.id)) {
+            merged.push(p);
+          }
+        }
+        set({ providers: merged, hydrated: true });
+      } else {
+        set({ hydrated: true });
+      }
+    } catch {
+      set({ hydrated: true });
+    }
+  },
 
   addProvider: (provider) => {
     const id = genId();
     set((s) => ({ providers: [...s.providers, { ...provider, id }] }));
+    const newProvider = { ...provider, id };
+    persistProvider(newProvider);
     return id;
   },
 
@@ -165,10 +256,13 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
     set((s) => ({
       providers: s.providers.map((p) => (p.id === id ? { ...p, ...partial } : p)),
     }));
+    const updated = get().providers.find((p) => p.id === id);
+    if (updated) { persistProvider(updated); }
   },
 
   removeProvider: (id) => {
     set((s) => ({ providers: s.providers.filter((p) => p.id !== id) }));
+    unpersistProvider(id);
   },
 
   testConnection: async (id) => {
@@ -301,6 +395,8 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
     set((s) => ({
       providers: s.providers.map((p) => (p.id === id ? { ...p, apiKey: key } : p)),
     }));
+    const updated = get().providers.find((p) => p.id === id);
+    if (updated) { persistProvider(updated); }
   },
 
   getEnabledProviders: () => get().providers.filter((p) => {

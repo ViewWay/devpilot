@@ -41,6 +41,11 @@ pub fn run() {
             commands::list_settings,
             // Usage
             commands::get_total_usage,
+            // Providers
+            commands::list_providers,
+            commands::get_provider,
+            commands::upsert_provider,
+            commands::delete_provider,
             // LLM
             commands::llm::send_message,
             commands::llm::send_message_stream,

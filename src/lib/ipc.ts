@@ -239,6 +239,12 @@ export interface IPCCommands {
   get_session_usage: { sessionId: string };
   get_total_usage: void;
 
+  // Providers (persistent)
+  list_providers: void;
+  get_provider: { id: string };
+  upsert_provider: { provider: ProviderRecordIPC };
+  delete_provider: { id: string };
+
   // Tools
   list_tools: void;
   execute_tool: {
@@ -451,6 +457,19 @@ export interface UsageRecordIPC {
 export interface SettingEntryIPC {
   key: string;
   value: string;
+}
+
+// ── Provider Types (persistent) ─────────────────────────────────
+
+export interface ProviderRecordIPC {
+  id: string;
+  name: string;
+  providerType: string;
+  baseUrl: string;
+  apiKeySet: boolean;
+  models?: string;
+  enabled: boolean;
+  createdAt: string;
 }
 
 // ── Tool Types ─────────────────────────────────────────────────
