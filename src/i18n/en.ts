@@ -186,7 +186,14 @@ const en: Record<string, string> = {
   customAction: "Custom",
   command: "Command",
   maxExecutions: "Max Executions",
-  maxExecutionsOptional: "Optional (unlimited if empty)",
+  maxExecutionsOptional: "Max Executions (optional)",
+  maxExecutionsUnlimited: "Leave empty for unlimited",
+  httpMethod: "Method",
+  httpHeaders: "Headers (one per line, Key: Value)",
+  httpBody: "Body",
+  customActionId: "Custom Action ID",
+  createTask: "Create Task",
+  creating: "Creating...",
   status: "Status",
   active: "Active",
   paused: "Paused",
@@ -232,7 +239,7 @@ const en: Record<string, string> = {
   test: "Test",
   bridgeError: "Bridge operation failed",
 
-  // Checkpoint
+  // --- Checkpoint ---
   checkpoints: "Checkpoints",
   createCheckpoint: "Create checkpoint",
   noCheckpoints: "No checkpoints yet",
@@ -241,6 +248,13 @@ const en: Record<string, string> = {
   rewindConfirm: "Rewind to this checkpoint? Messages after this point will be deleted.",
   checkpointCreated: "Checkpoint created",
   rewound: "Session rewound",
+
+  // --- Errors ---
+  errorGeneric: "An unexpected error occurred",
+  errorPersistence: "Persistence error",
+  errorStream: "Stream error",
+  errorCompact: "Compaction failed",
+  errorProvider: "Provider error",
 };
 
 export default en;

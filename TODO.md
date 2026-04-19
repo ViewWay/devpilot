@@ -34,11 +34,11 @@
 
 ## Phase 4: 打磨 (P3) — 进行中
 
-- [ ] **P3-1** 前端测试补充: LLM 交互/流式/persistence 测试
-- [ ] **P3-2** i18n 完善: 所有 UI 文本中英文覆盖
-- [ ] **P3-3** 错误处理统一: toast + tracing
+- [ ] **P3-1** 前端测试补充: LLM 交互/流式/persistence 测试 (部分完成: 100 tests / 9 files)
+- [x] **P3-2** i18n 完善: 所有 UI 文本中英文覆盖 (SchedulerPage 已完成)
+- [x] **P3-3** 错误处理统一: toast + tracing (errors.ts + persistence.ts + SchedulerPage)
 - [ ] **P3-4** E2E 测试: Tauri 集成测试
-- [ ] **P3-5** Checkpoint 前端 UI: 历史记录面板 + rewind 操作 ⬅️ 当前
+- [x] **P3-5** Checkpoint 前端 UI: 历史记录面板 + rewind 操作 (commit 7d7d304)
 
 ---
 
@@ -76,7 +76,7 @@
 - [x] Context compaction (1)
 - [x] MCP CRUD+connect/disconnect/list (6)
 
-### 前端 (49+文件, ~9,500行)
+### 前端 (55+文件, ~10,000行)
 
 - [x] ChatPanel + MessageList + MessageInput + CodeBlock + ToolCallView
 - [x] ApprovalOverlay → ApprovalQueue (工具审批 UI)
@@ -88,7 +88,7 @@
 - [x] 流式中止 + 竞态修复
 - [x] Provider 持久化 + 加密 API key 水合
 - [x] 上下文压缩 /compact 命令
-- [ ] Checkpoint 前端面板 + rewind (P3-5)
+- [x] Checkpoint 前端面板 + rewind (P3-5)
 
 ### 开发时间线
 
@@ -102,3 +102,4 @@
 - 2026-04-19 Session H: Checkpoint + Context + Usage P2 (1f49ee6→852a0d5)
 - 2026-04-19 Session I: MCP Client P2-3 (852a0d5→36f82ef)
 - 2026-04-19 Session J: Checkpoint 前端 UI P3-5 (36f82ef→HEAD)
+- 2026-04-19 Session K: P3-2 i18n + P3-3 错误处理 + P3-1 测试补充

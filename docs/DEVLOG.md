@@ -533,4 +533,70 @@ All quality gates: `cargo build`, `cargo clippy`, `cargo test --workspace` — a
 5. `src/components/chat/ChatPanel.tsx` — integrate CheckpointPanel
 6. i18n — checkpoint-related keys
 
-### Status: In Progress
+### Status: Complete — committed as `7d7d304`
+
+**Files created/modified:**
+
+- `src/types/index.ts` — CheckpointInfo interface
+- `src/stores/checkpointStore.ts` — Zustand store (load/create/rewind + error handling)
+- `src/components/chat/CheckpointPanel.tsx` — side panel with timeline + rewind buttons
+- `src/components/chat/ChatPanel.tsx` — History icon toggle + CheckpointPanel integration
+- `src/lib/ipc.ts` — mock for list_checkpoints, create_checkpoint, rewind_checkpoint
+- `src/i18n/en.ts` + `zh.ts` — 8 checkpoint-related keys
+- `TODO.md` — P3-5 marked done, cleaned duplicates
+- `docs/DEVLOG.md` — Session J record
+
+**QA:** tsc --noEmit zero errors, cargo test --workspace all pass, ESLint zero warnings
+
+---
+
+## Session K — 2026-04-19 (P3-2 + P3-3 i18n + Error Handling + Tests)
+
+**Goal:** Polish Phase 4 — unified error handling, i18n coverage for SchedulerPage, frontend tests.
+
+### P3-3: Unified Error Handling
+
+1. `src/lib/errors.ts` — created unified error helpers:
+   - `getErrorMessage(err)` — extract human-readable message from unknown error
+   - `reportError(err, context?)` — console.error + toast.error in one call
+   - `safeAsync(fn, context?)` — wraps async ops with [result, error] tuple
+
+2. `src/lib/persistence.ts` — replaced all 7 `console.error` calls with `reportError()`:
+   - `create_session`, `delete_session`, `update_session_title`, `archive_session`
+   - `add_message`, `update_message_content`, `hydrateSessions`
+
+3. `src/app/SchedulerPage.tsx` — replaced `console.error` with `reportError()`
+
+### P3-2: i18n — SchedulerPage Hardcoded Strings
+
+Replaced all hardcoded English strings in SchedulerPage with `t()` calls:
+
+- "New Task" → `t("newTask")`
+- "Cron Expression" → `t("cronExpression")`
+- "Action Type" → `t("actionType")`
+- "Shell Command" / "HTTP Request" / "Custom" → `t("shellCommand")` / `t("httpRequest")` / `t("customAction")`
+- "Command" → `t("command")`
+- "Max Executions (optional)" → `t("maxExecutionsOptional")`
+- "Creating..." / "Create Task" → `t("creating")` / `t("createTask")`
+- Added new keys: `httpMethod`, `httpHeaders`, `httpBody`, `customActionId`, `maxExecutionsUnlimited`
+- Added error keys: `errorGeneric`, `errorPersistence`, `errorStream`, `errorCompact`, `errorProvider`
+
+### P3-1: Frontend Tests (partial)
+
+New test files:
+
+1. `src/__tests__/lib/errors.test.ts` — 8 tests (getErrorMessage, reportError, safeAsync)
+2. `src/__tests__/stores/schedulerStore.test.ts` — 6 tests (fetchTasks, createTask, removeTask, pauseTask, resumeTask)
+3. `src/__tests__/stores/checkpointStore.test.ts` — 7 tests (loadCheckpoints, createCheckpoint, rewindCheckpoint, clear)
+
+**Total frontend tests: 100 across 9 files, all passing**
+
+### Stats
+
+| Metric         | Before        | After         |
+| -------------- | ------------- | ------------- |
+| Frontend tests | 79 (6 files)  | 100 (9 files) |
+| i18n keys      | 236 (EN + CN) | 249 (EN + CN) |
+| Files          | 52            | 55            |
+
+**QA:** `tsc --noEmit` zero errors, `vitest run` 100/100 pass, `cargo build` + `cargo clippy` clean

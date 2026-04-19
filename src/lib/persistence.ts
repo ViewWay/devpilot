@@ -11,6 +11,7 @@ import type {
   SessionInfoIPC,
   MessageInfoIPC,
 } from "./ipc";
+import { reportError } from "./errors";
 
 // ── Session persistence ──────────────────────────────────────
 
@@ -29,7 +30,7 @@ export async function persistCreateSession(
       provider,
     });
   } catch (err) {
-    console.error("[persistence] create_session failed:", err);
+    reportError(err, "persistence.create_session");
   }
 }
 
@@ -38,7 +39,7 @@ export async function persistDeleteSession(id: string): Promise<void> {
   try {
     await invoke("delete_session", { id });
   } catch (err) {
-    console.error("[persistence] delete_session failed:", err);
+    reportError(err, "persistence.delete_session");
   }
 }
 
@@ -50,7 +51,7 @@ export async function persistUpdateSessionTitle(
   try {
     await invoke("update_session_title", { id, title });
   } catch (err) {
-    console.error("[persistence] update_session_title failed:", err);
+    reportError(err, "persistence.update_session_title");
   }
 }
 
@@ -67,7 +68,7 @@ export async function persistArchiveSession(
       value: _archived ? "true" : "false",
     });
   } catch (err) {
-    console.error("[persistence] archive_session failed:", err);
+    reportError(err, "persistence.archive_session");
   }
 }
 
@@ -90,12 +91,12 @@ export async function persistAddMessage(
       model: model ?? null,
     });
   } catch (err) {
-    console.error("[persistence] add_message failed:", err);
+    reportError(err, "persistence.add_message");
   }
 }
 
 export async function persistUpdateMessageContent(
-  sessionId: string,
+  _sessionId: string,
   messageId: string,
   content: string,
 ): Promise<void> {
@@ -105,7 +106,7 @@ export async function persistUpdateMessageContent(
       content,
     });
   } catch (err) {
-    console.error("[persistence] update_message_content failed:", err, { sessionId, messageId });
+    reportError(err, "persistence.update_message_content");
   }
 }
 
@@ -180,7 +181,7 @@ export async function hydrateSessions(): Promise<HydratedSession[] | null> {
 
     return result;
   } catch (err) {
-    console.error("[persistence] hydrateSessions failed:", err);
+    reportError(err, "persistence.hydrateSessions");
     return null;
   }
 }

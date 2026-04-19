@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useSchedulerStore } from "../stores/schedulerStore";
 import { useI18n } from "../i18n";
 import type { TaskActionIPC } from "../lib/ipc";
+import { reportError } from "../lib/errors";
 
 type ActionType = "shellCommand" | "httpRequest" | "custom";
 
@@ -81,14 +82,14 @@ export function SchedulerPage() {
     setCreating(true);
     try {
       const maxExec = form.maxExecutions ? Number(form.maxExecutions) : undefined;
-      await createTask(form.name || "Untitled", form.cronExpr, action, maxExec);
+      await createTask(form.name || t("newTask"), form.cronExpr, action, maxExec);
       resetForm();
     } catch (err) {
-      console.error("Failed to create task:", err);
+      reportError(err, "SchedulerPage.createTask");
     } finally {
       setCreating(false);
     }
-  }, [form, buildAction, createTask, resetForm]);
+  }, [form, buildAction, createTask, resetForm, t]);
 
   const handleDelete = useCallback(
     async (id: string) => {
@@ -128,12 +129,12 @@ export function SchedulerPage() {
     <div className="max-w-4xl mx-auto p-6 text-gray-100">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">{t("scheduler")}</h1>
+        <h1 className="text-2xl font-bold">{t("taskScheduler")}</h1>
         <button
           onClick={() => setShowForm((v) => !v)}
           className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors"
         >
-          {showForm ? t("cancel") : "New Task"}
+          {showForm ? t("cancel") : t("newTask")}
         </button>
       </div>
 
@@ -150,19 +151,19 @@ export function SchedulerPage() {
           {/* Name & Cron */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="mb-1 block text-sm text-gray-400">{t("name")}</label>
+              <label className="mb-1 block text-sm text-gray-400">{t("taskName")}</label>
               <input
                 className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-blue-500 focus:outline-none"
-                placeholder="My Task"
+                placeholder={t("taskName")}
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm text-gray-400">Cron Expression</label>
+              <label className="mb-1 block text-sm text-gray-400">{t("cronExpression")}</label>
               <input
                 className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-blue-500 focus:outline-none"
-                placeholder="0 * * * *"
+                placeholder={t("cronPlaceholder")}
                 value={form.cronExpr}
                 onChange={(e) => setForm((f) => ({ ...f, cronExpr: e.target.value }))}
               />
@@ -171,22 +172,22 @@ export function SchedulerPage() {
 
           {/* Action Type */}
           <div>
-            <label className="mb-1 block text-sm text-gray-400">Action Type</label>
+            <label className="mb-1 block text-sm text-gray-400">{t("actionType")}</label>
             <select
               className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 focus:border-blue-500 focus:outline-none"
               value={form.actionType}
               onChange={(e) => setForm((f) => ({ ...f, actionType: e.target.value as ActionType }))}
             >
-              <option value="shellCommand">Shell Command</option>
-              <option value="httpRequest">HTTP Request</option>
-              <option value="custom">Custom</option>
+              <option value="shellCommand">{t("shellCommand")}</option>
+              <option value="httpRequest">{t("httpRequest")}</option>
+              <option value="custom">{t("customAction")}</option>
             </select>
           </div>
 
           {/* Action fields */}
           {form.actionType === "shellCommand" && (
             <div>
-              <label className="mb-1 block text-sm text-gray-400">Command</label>
+              <label className="mb-1 block text-sm text-gray-400">{t("command")}</label>
               <input
                 className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-blue-500 focus:outline-none"
                 placeholder="echo hello"
@@ -208,7 +209,7 @@ export function SchedulerPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm text-gray-400">Method</label>
+                <label className="mb-1 block text-sm text-gray-400">{t("httpMethod")}</label>
                 <select
                   className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 focus:border-blue-500 focus:outline-none"
                   value={form.method}
@@ -222,17 +223,17 @@ export function SchedulerPage() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-sm text-gray-400">Headers (one per line, Key: Value)</label>
+                <label className="mb-1 block text-sm text-gray-400">{t("httpHeaders")}</label>
                 <textarea
                   className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-blue-500 focus:outline-none resize-y"
                   rows={2}
-                  placeholder={"Content-Type: application/json\nAuthorization: Bearer token"}
+                  placeholder={"Content-Type: application/json\nAuthorization: Bearer ***"}
                   value={form.headers}
                   onChange={(e) => setForm((f) => ({ ...f, headers: e.target.value }))}
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm text-gray-400">Body</label>
+                <label className="mb-1 block text-sm text-gray-400">{t("httpBody")}</label>
                 <textarea
                   className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-blue-500 focus:outline-none resize-y"
                   rows={3}
@@ -246,7 +247,7 @@ export function SchedulerPage() {
 
           {form.actionType === "custom" && (
             <div>
-              <label className="mb-1 block text-sm text-gray-400">Custom Action ID</label>
+              <label className="mb-1 block text-sm text-gray-400">{t("customActionId")}</label>
               <input
                 className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-blue-500 focus:outline-none"
                 placeholder="my-custom-action"
@@ -258,12 +259,12 @@ export function SchedulerPage() {
 
           {/* Max Executions */}
           <div>
-            <label className="mb-1 block text-sm text-gray-400">Max Executions (optional)</label>
+            <label className="mb-1 block text-sm text-gray-400">{t("maxExecutionsOptional")}</label>
             <input
               type="number"
               min={1}
               className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-blue-500 focus:outline-none"
-              placeholder="Leave empty for unlimited"
+              placeholder={t("maxExecutionsUnlimited")}
               value={form.maxExecutions}
               onChange={(e) => setForm((f) => ({ ...f, maxExecutions: e.target.value }))}
             />
@@ -282,7 +283,7 @@ export function SchedulerPage() {
               disabled={creating || !form.cronExpr.trim() || !buildAction()}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {creating ? "Creating..." : "Create Task"}
+              {creating ? t("creating") : t("createTask")}
             </button>
           </div>
         </div>
@@ -309,8 +310,8 @@ export function SchedulerPage() {
             <circle cx="12" cy="12" r="10" />
             <polyline points="12,6 12,12 16,14" />
           </svg>
-          <p className="text-lg font-medium text-gray-400">No scheduled tasks</p>
-          <p className="text-sm mt-1">Create a new task to automate recurring actions.</p>
+          <p className="text-lg font-medium text-gray-400">{t("noTasks")}</p>
+          <p className="text-sm mt-1">{t("noTasksHint")}</p>
         </div>
       )}
 
@@ -326,7 +327,7 @@ export function SchedulerPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-3 mb-1">
                     <h3 className="font-medium truncate">
-                      {task.name || "Untitled"}
+                      {task.name || t("newTask")}
                     </h3>
                     {statusBadge(task.status)}
                   </div>
@@ -335,7 +336,7 @@ export function SchedulerPage() {
                       {task.cronExpr}
                     </span>
                     <span>
-                      Executions: {task.executionCount}
+                      {t("executionCount")}: {task.executionCount}
                       {task.maxExecutions !== null && task.maxExecutions !== undefined ? ` / ${task.maxExecutions}` : ""}
                     </span>
                   </div>
@@ -351,7 +352,7 @@ export function SchedulerPage() {
                         : "bg-green-900/40 text-green-400 hover:bg-green-900/60"
                     }`}
                   >
-                    {task.status === "Active" ? "Pause" : "Resume"}
+                    {task.status === "Active" ? t("pause") : t("resume")}
                   </button>
 
                   {/* Delete */}
@@ -361,7 +362,7 @@ export function SchedulerPage() {
                         onClick={() => handleDelete(task.id)}
                         className="rounded-lg bg-red-900/50 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-900/70 transition-colors"
                       >
-                        Confirm
+                        {t("confirm")}
                       </button>
                       <button
                         onClick={() => setDeleteConfirmId(null)}

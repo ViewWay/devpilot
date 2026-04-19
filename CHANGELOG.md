@@ -83,6 +83,24 @@ All notable changes to DevPilot will be documented in this file.
 - `AppState` extended with `mcp_manager: Arc<AsyncMutex<Option<McpManager>>>`
 - 32 unit tests (transport serde, client mock, manager lifecycle, error display)
 
+### Added — Checkpoint Frontend UI (P3-5)
+
+- `CheckpointInfo` type in `src/types/index.ts`
+- `checkpointStore` — Zustand store: `loadCheckpoints`, `createCheckpoint`, `rewindCheckpoint`
+- `CheckpointPanel` component — side panel with timeline view, rewind button per checkpoint, create button
+- `ChatPanel` — History icon toggle button, CheckpointPanel integration
+- IPC mock cases for `list_checkpoints`, `create_checkpoint`, `rewind_checkpoint`
+- i18n: 8 checkpoint keys (EN + CN) — checkpoints, createCheckpoint, noCheckpoints, rewindToHere, etc.
+
+### Added — P3 Polish (Error Handling + i18n + Tests)
+
+- `src/lib/errors.ts` — unified error helpers: `getErrorMessage`, `reportError`, `safeAsync`
+- `persistence.ts` — all `console.error` replaced with `reportError()` for consistent toast + logging
+- `SchedulerPage.tsx` — all hardcoded strings replaced with `t()` i18n calls, `reportError` for error handling
+- i18n: 13 new keys (EN + CN) — `creating`, `createTask`, `httpMethod`, `httpHeaders`, `httpBody`, `customActionId`, `maxExecutionsUnlimited`, `errorGeneric`, `errorPersistence`, `errorStream`, `errorCompact`, `errorProvider`
+- Tests: `errors.test.ts` (8 tests), `schedulerStore.test.ts` (6 tests), `checkpointStore.test.ts` (7 tests)
+- Frontend test count: 100 tests across 9 files, all passing
+
 ### Fixed
 
 - Unused `mut` and variable warnings in scheduler tests

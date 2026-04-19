@@ -186,7 +186,14 @@ const zh: Record<string, string> = {
   customAction: "自定义",
   command: "命令",
   maxExecutions: "最大执行次数",
-  maxExecutionsOptional: "可选（留空则不限次数）",
+  maxExecutionsOptional: "最大执行次数（可选）",
+  maxExecutionsUnlimited: "留空则不限次数",
+  httpMethod: "请求方法",
+  httpHeaders: "请求头（每行一个，格式 Key: Value）",
+  httpBody: "请求体",
+  customActionId: "自定义操作 ID",
+  createTask: "创建任务",
+  creating: "创建中...",
   status: "状态",
   active: "运行中",
   paused: "已暂停",
@@ -232,7 +239,7 @@ const zh: Record<string, string> = {
   test: "测试",
   bridgeError: "桥接操作失败",
 
-  // Checkpoint
+  // --- Checkpoint ---
   checkpoints: "检查点",
   createCheckpoint: "创建检查点",
   noCheckpoints: "暂无检查点",
@@ -241,6 +248,13 @@ const zh: Record<string, string> = {
   rewindConfirm: "确定回退到此检查点？之后的消息将被删除。",
   checkpointCreated: "检查点已创建",
   rewound: "已回退",
+
+  // --- Errors ---
+  errorGeneric: "发生意外错误",
+  errorPersistence: "持久化错误",
+  errorStream: "流式传输错误",
+  errorCompact: "压缩失败",
+  errorProvider: "服务商错误",
 };
 
 export default zh;
