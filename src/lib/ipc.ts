@@ -212,6 +212,14 @@ function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
       return null;
     case "mcp_disconnect_server":
       return null;
+    case "export_sessions":
+      return JSON.stringify({
+        version: "0.4.0",
+        exportedAt: new Date().toISOString(),
+        sessions: [],
+      });
+    case "import_sessions":
+      return { sessionsImported: 0, messagesImported: 0 };
     default:
       console.warn(`[IPC mock] Unhandled command: ${cmd}`);
       return null;
@@ -226,10 +234,20 @@ function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
 export const STREAM_EVENTS = {
   /** Incremental content chunk. Payload: StreamEvent::Chunk */
   CHUNK: "stream-chunk",
+  /** Tool call started. Payload: { sessionId, callId, toolName, input } */
+  TOOL_START: "stream-tool-start",
+  /** Tool call completed. Payload: { sessionId, callId, output, isError } */
+  TOOL_RESULT: "stream-tool-result",
+  /** Tool approval requested. Payload: { sessionId, callId, toolName, input, riskLevel } */
+  APPROVAL: "stream-approval",
   /** Stream completed. Payload: StreamEvent::Done */
   DONE: "stream-done",
+  /** Turn completed. Payload: StreamEvent::TurnDone */
+  TURN_DONE: "stream-turn-done",
   /** Stream error. Payload: StreamEvent::Error */
   ERROR: "stream-error",
+  /** Context compaction happened. Payload: { sessionId, messagesRemoved, summaryAdded } */
+  COMPACTED: "stream-compacted",
 } as const;
 
 // ── IPC Command Types ────────────────────────────────────────
@@ -338,6 +356,10 @@ export interface IPCCommands {
     apiBase?: string;
   };
   media_providers: void;
+
+  // Data Import / Export
+  export_sessions: void;
+  import_sessions: { jsonData: string };
 }
 
 export interface ProviderConfigIPC {

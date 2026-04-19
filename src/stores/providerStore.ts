@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { invoke, isTauriRuntime } from "../lib/ipc";
 import type { ProviderRecordIPC } from "../lib/ipc";
+import { mapProviderType } from "../lib/utils";
 
 export interface Provider {
   id: string;
@@ -141,19 +142,6 @@ const DEFAULT_PROVIDERS: Provider[] = [
     enabled: false,
   },
 ];
-
-/** Map provider ID to provider type string matching Rust enum. */
-function mapProviderType(providerId: string): string {
-  if (providerId.includes("anthropic")) { return "anthropic"; }
-  if (providerId.includes("openrouter")) { return "openrouter"; }
-  if (providerId.includes("ollama")) { return "ollama"; }
-  if (providerId.includes("google")) { return "google"; }
-  if (providerId.includes("qwen")) { return "qwen"; }
-  if (providerId.includes("deepseek")) { return "deepseek"; }
-  if (providerId.includes("zhipu") || providerId.includes("glm")) { return "glm"; }
-  if (providerId.includes("openai")) { return "openai"; }
-  return "custom";
-}
 
 /** Persist a provider to SQLite via Tauri IPC. */
 async function persistProvider(provider: Provider): Promise<void> {

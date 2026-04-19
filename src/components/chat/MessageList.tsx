@@ -26,12 +26,22 @@ export function MessageList() {
     return <EmptyState />;
   }
 
+  // Determine the id of the last assistant message in the session
+  let lastAssistantId: string | undefined;
+  for (let i = session.messages.length - 1; i >= 0; i--) {
+    const msg = session.messages[i]!;
+    if (msg.role === "assistant") {
+      lastAssistantId = msg.id;
+      break;
+    }
+  }
+
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="mx-auto max-w-3xl px-4 py-6">
         <div className="space-y-6">
           {session.messages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} />
+            <MessageBubble key={msg.id} message={msg} isLastAssistant={msg.id === lastAssistantId} />
           ))}
           <div ref={bottomRef} />
         </div>
@@ -61,8 +71,15 @@ function EmptyState() {
 }
 
 function SuggestionCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+  const handleClick = () => {
+    const model = useUIStore.getState().selectedModel.id;
+    useChatStore.getState().sendMessage(description, model);
+  };
   return (
-    <button className="flex flex-col items-start gap-2 rounded-lg border border-border bg-card p-3 text-left transition-colors hover:bg-accent hover:border-accent">
+    <button
+      onClick={handleClick}
+      className="flex flex-col items-start gap-2 rounded-lg border border-border bg-card p-3 text-left transition-colors hover:bg-accent hover:border-accent"
+    >
       <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">{icon}</div>
       <div>
         <div className="text-xs font-medium text-foreground">{title}</div>
@@ -104,7 +121,7 @@ function MessageActions({ content, onRegenerate }: { content: string; onRegenera
   );
 }
 
-function MessageBubble({ message }: { message: Message }) {
+function MessageBubble({ message, isLastAssistant }: { message: Message; isLastAssistant?: boolean }) {
   const isUser = message.role === "user";
   const isTool = message.role === "tool";
   const fontSize = useUIStore((s) => s.fontSize);
@@ -238,7 +255,7 @@ function MessageBubble({ message }: { message: Message }) {
           )}
         </div>
         <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-          <MessageActions content={message.content} onRegenerate={() => {}} />
+          <MessageActions content={message.content} onRegenerate={isLastAssistant ? () => useChatStore.getState().regenerateLastResponse() : undefined} />
           {message.model && <span>{message.model}</span>}
           {message.model && <span>·</span>}
           <span>{message.timestamp}</span>

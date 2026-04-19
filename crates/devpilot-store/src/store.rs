@@ -294,6 +294,33 @@ impl Store {
         Ok(())
     }
 
+    /// Import a session with a specific (pre-existing) ID.
+    /// Used during data import to preserve original session identifiers.
+    pub fn import_session_with_id(
+        &self,
+        id: &str,
+        title: &str,
+        model: &str,
+        provider: &str,
+    ) -> Result<()> {
+        let now = chrono::Utc::now().to_rfc3339();
+        self.conn.execute(
+            "INSERT OR IGNORE INTO sessions (id, title, model, provider, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
+            rusqlite::params![id, title, model, provider, now],
+        )?;
+        Ok(())
+    }
+
+    /// Set the working directory for a session.
+    pub fn set_session_working_dir(&self, id: &str, working_dir: &str) -> Result<()> {
+        self.conn.execute(
+            "UPDATE sessions SET working_dir = ?2, updated_at = datetime('now') WHERE id = ?1",
+            rusqlite::params![id, working_dir],
+        )?;
+        Ok(())
+    }
+
     // ── Messages ──────────────────────────────────────
 
     /// Get all messages for a session, ordered chronologically.

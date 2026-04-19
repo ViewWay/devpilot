@@ -14,23 +14,11 @@ import {
 } from "../lib/persistence";
 import { invoke, listen, isTauriRuntime } from "../lib/ipc";
 import { buildSystemPrompt } from "../lib/systemPrompt";
+import { mapProviderType } from "../lib/utils";
 
 let nextId = 100;
 function genId() {
   return String(++nextId);
-}
-
-/** Map provider ID to provider type string matching Rust enum. */
-function mapProviderType(providerId: string): string {
-  if (providerId.includes("anthropic")) { return "anthropic"; }
-  if (providerId.includes("openrouter")) { return "openrouter"; }
-  if (providerId.includes("ollama")) { return "ollama"; }
-  if (providerId.includes("google")) { return "google"; }
-  if (providerId.includes("qwen")) { return "qwen"; }
-  if (providerId.includes("deepseek")) { return "deepseek"; }
-  if (providerId.includes("zhipu") || providerId.includes("glm")) { return "glm"; }
-  if (providerId.includes("openai")) { return "openai"; }
-  return "custom";
 }
 
 const MOCK_SESSIONS: Session[] = [
@@ -376,6 +364,8 @@ interface ChatState {
   approveAll: () => void;
   /** Export a session as JSON or Markdown file (browser download). */
   exportSession: (sessionId: string, format: "json" | "markdown") => void;
+  /** Regenerate the last assistant response by removing it and re-sending the last user message. */
+  regenerateLastResponse: () => void;
 
   // Internal
   _streamCleanup: (() => void) | null;
@@ -900,6 +890,58 @@ export const useChatStore = create<ChatState>((set, get) => ({
     a.download = `${safeTitle}.${extension}`;
     a.click();
     URL.revokeObjectURL(url);
+  },
+
+  regenerateLastResponse: () => {
+    const { activeSessionId, sendMessage } = get();
+    if (!activeSessionId) { return; }
+
+    const session = get().sessions.find((s) => s.id === activeSessionId);
+    if (!session || session.messages.length === 0) { return; }
+
+    // Abort any in-progress streaming first
+    if (get().isLoading) {
+      get().abortStreaming();
+    }
+
+    const messages = session.messages;
+
+    // Find the last assistant message index
+    let lastAssistantIdx = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i]!.role === "assistant") {
+        lastAssistantIdx = i;
+        break;
+      }
+    }
+    if (lastAssistantIdx === -1) { return; }
+
+    // Find the last user message before the assistant message
+    let lastUserIdx = -1;
+    for (let i = lastAssistantIdx - 1; i >= 0; i--) {
+      if (messages[i]!.role === "user") {
+        lastUserIdx = i;
+        break;
+      }
+    }
+    if (lastUserIdx === -1) { return; }
+
+    const userContent = messages[lastUserIdx]!.content;
+
+    // Remove the assistant message and any tool messages after the last user message
+    const trimmedMessages = messages.slice(0, lastUserIdx + 1);
+
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === activeSessionId
+          ? { ...sess, messages: trimmedMessages, updatedAt: new Date().toISOString() }
+          : sess,
+      ),
+    }));
+
+    // Re-send the last user message through sendMessage flow
+    const model = session.model;
+    sendMessage(userContent, model);
   },
 
   abortStreaming: () => {

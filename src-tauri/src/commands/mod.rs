@@ -234,6 +234,128 @@ pub fn rewind_checkpoint(
         .map_err(|e| e.to_string())
 }
 
+// ── Data Import / Export ──────────────────────────────
+
+/// Export all sessions with their messages as a JSON string.
+/// The resulting JSON can be used with `import_sessions` to restore data.
+#[tauri::command]
+pub fn export_sessions(state: State<'_, AppState>) -> Result<String, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let sessions = db.list_sessions().map_err(|e| e.to_string())?;
+
+    let mut export = Vec::with_capacity(sessions.len());
+    for session in &sessions {
+        let messages = db
+            .get_session_messages(&session.id)
+            .map_err(|e| e.to_string())?;
+        export.push(serde_json::json!({
+            "session": session,
+            "messages": messages,
+        }));
+    }
+
+    let result = serde_json::json!({
+        "version": env!("CARGO_PKG_VERSION"),
+        "exported_at": chrono::Utc::now().to_rfc3339(),
+        "sessions": export,
+    });
+
+    serde_json::to_string_pretty(&result).map_err(|e| e.to_string())
+}
+
+/// Import sessions from a JSON string (as produced by `export_sessions`).
+///
+/// - Sessions with existing IDs are skipped (no overwrite).
+/// - Returns the number of sessions and messages imported.
+#[tauri::command(rename_all = "camelCase")]
+pub fn import_sessions(
+    state: State<'_, AppState>,
+    json_data: String,
+) -> Result<ImportResult, String> {
+    let data: serde_json::Value =
+        serde_json::from_str(&json_data).map_err(|e| format!("Invalid JSON: {e}"))?;
+
+    let sessions = data["sessions"]
+        .as_array()
+        .ok_or("Missing 'sessions' array in import data")?;
+
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+
+    // Get existing session IDs to avoid duplicates
+    let existing = db.list_sessions().map_err(|e| e.to_string())?;
+    let existing_ids: std::collections::HashSet<&str> =
+        existing.iter().map(|s| s.id.as_str()).collect();
+
+    let mut sessions_imported = 0usize;
+    let mut messages_imported = 0usize;
+
+    for entry in sessions {
+        let session = entry.get("session").ok_or("Missing 'session' in entry")?;
+        let empty = Vec::new();
+        let messages = entry
+            .get("messages")
+            .and_then(|m| m.as_array())
+            .unwrap_or(&empty);
+
+        let session_id = session["id"].as_str().ok_or("Session missing 'id' field")?;
+
+        // Skip if session already exists
+        if existing_ids.contains(session_id) {
+            continue;
+        }
+
+        // Create the session using store's method
+        let title = session["title"].as_str().unwrap_or("Imported Session");
+        let model = session["model"].as_str().unwrap_or("unknown");
+        let provider = session["provider"].as_str().unwrap_or("unknown");
+
+        // Create with the original ID by using a direct SQL insert
+        db.import_session_with_id(session_id, title, model, provider)
+            .map_err(|e| e.to_string())?;
+
+        // Update session metadata fields
+        if let Some(working_dir) = session["workingDir"].as_str() {
+            let _ = db.set_session_working_dir(session_id, working_dir);
+        }
+
+        // Import messages
+        for msg in messages {
+            let role = msg["role"].as_str().unwrap_or("user");
+            let content = msg["content"].as_str().unwrap_or("");
+            let model_val = msg["model"].as_str();
+            let tool_calls = msg["toolCalls"].as_str();
+            let tool_call_id = msg["toolCallId"].as_str();
+
+            db.add_message(
+                session_id,
+                role,
+                content,
+                model_val,
+                tool_calls,
+                tool_call_id,
+            )
+            .map_err(|e| e.to_string())?;
+
+            messages_imported += 1;
+        }
+
+        sessions_imported += 1;
+    }
+
+    Ok(ImportResult {
+        sessions_imported,
+        messages_imported,
+    })
+}
+
+/// Result of an import operation.
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportResult {
+    pub sessions_imported: usize,
+    pub messages_imported: usize,
+}
+
 // ── Compact ────────────────────────────────────────────
 
 /// Compact (context-compress) a session's messages in the database.

@@ -54,6 +54,9 @@ pub fn run() {
             commands::rewind_checkpoint,
             // Compact
             commands::compact_session,
+            // Data Import / Export
+            commands::export_sessions,
+            commands::import_sessions,
             // LLM
             commands::llm::send_message,
             commands::llm::send_message_stream,
