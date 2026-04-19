@@ -39,6 +39,9 @@ impl ToolRegistry {
         reg.register(Arc::new(crate::ApplyPatchTool::new())).await;
         reg.register(Arc::new(crate::FileSearchTool::new())).await;
         reg.register(Arc::new(crate::WebFetchTool::new())).await;
+        reg.register(Arc::new(crate::ListDirectoryTool::new()))
+            .await;
+        reg.register(Arc::new(crate::GlobTool::new())).await;
         reg
     }
 
@@ -230,5 +233,7 @@ mod tests {
         assert!(names.contains(&"file_read".to_string()));
         assert!(names.contains(&"file_write".to_string()));
         assert!(names.contains(&"apply_patch".to_string()));
+        assert!(names.contains(&"list_directory".to_string()));
+        assert!(names.contains(&"glob".to_string()));
     }
 }

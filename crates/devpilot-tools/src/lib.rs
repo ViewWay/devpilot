@@ -15,7 +15,8 @@ pub use error::{ToolError, ToolResult};
 pub use executor::{ApprovalRequest, ApprovalStatus, ToolExecutor};
 pub use registry::ToolRegistry;
 pub use tools::{
-    ApplyPatchTool, FileReadTool, FileSearchTool, FileWriteTool, ShellExecTool, WebFetchTool,
+    ApplyPatchTool, FileReadTool, FileSearchTool, FileWriteTool, GlobTool, ListDirectoryTool,
+    ShellExecTool, WebFetchTool,
 };
 
 use async_trait::async_trait;
