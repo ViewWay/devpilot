@@ -55,6 +55,15 @@ export function isTauriRuntime(): boolean {
   return isTauri;
 }
 
+/** Get the Tauri app local data directory. Returns empty string in browser dev. */
+export async function getAppDataDir(): Promise<string> {
+  if (!isTauri) {
+    return "/tmp/devpilot-mock-data";
+  }
+  const tauriApi = await import("@tauri-apps/api/path") as any;
+  return tauriApi.appLocalDataDir() as string;
+}
+
 // --- Mock implementations for browser dev mode ---
 
 function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
@@ -222,7 +231,7 @@ function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
       return { sessionsImported: 0, messagesImported: 0 };
     // Memory & Persona
     case "load_persona_files_cmd":
-      return { soul: "", user: "", memory: "" };
+      return { soulMd: null, userMd: null, memoryMd: null, agentsMd: null };
     case "save_persona_file_cmd":
       return null;
     case "list_daily_memories_cmd":
@@ -376,7 +385,7 @@ export interface IPCCommands {
   load_persona_files_cmd: { workspaceDir: string };
   save_persona_file_cmd: { workspaceDir: string; fileType: string; content: string };
   list_daily_memories_cmd: { dataDir: string; limit?: number | null };
-  search_memories_cmd: { dataDir: string; query: string };
+  search_memories_cmd: { workspaceDir: string; dataDir: string; query: string };
   create_daily_memory_cmd: { dataDir: string; date: string; content: string };
 }
 
@@ -630,4 +639,23 @@ export interface ImageResultItemIPC {
   url?: string;
   b64Json?: string;
   revisedPrompt?: string;
+}
+
+// ── Memory & Persona Types ────────────────────────────────────
+
+export interface PersonaFilesIPC {
+  soulMd: string | null;
+  userMd: string | null;
+  memoryMd: string | null;
+  agentsMd: string | null;
+}
+
+export interface DailyEntryIPC {
+  date: string;
+  content: string;
+}
+
+export interface MemorySearchResultIPC {
+  source: string;
+  snippet: string;
 }

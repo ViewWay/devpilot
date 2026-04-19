@@ -4,7 +4,7 @@ import { useProviderStore, type Provider, type ModelConfig } from "../stores/pro
 import { useUIStore } from "../stores/uiStore";
 import { useUsageStore } from "../stores/usageStore";
 import { cn } from "../lib/utils";
-import { invoke, type BridgeInfoIPC } from "../lib/ipc";
+import { invoke, type BridgeInfoIPC, getAppDataDir } from "../lib/ipc";
 import { useMcpStore } from "../stores/mcpStore";
 import type { McpServerConfig } from "../types";
 import {
@@ -29,9 +29,11 @@ import {
   AlertCircle,
   Wrench,
   Shield,
+  BookOpen,
 } from "lucide-react";
+import { PersonaMemoryTab } from "../components/PersonaMemoryTab";
 
-type TabId = "providers" | "appearance" | "shortcuts" | "usage" | "bridge" | "mcp" | "security";
+type TabId = "providers" | "appearance" | "shortcuts" | "usage" | "bridge" | "mcp" | "security" | "persona";
 
 const TABS: { id: TabId; icon: typeof Settings; labelKey: string }[] = [
   { id: "providers", icon: Plug, labelKey: "providers" },
@@ -41,6 +43,7 @@ const TABS: { id: TabId; icon: typeof Settings; labelKey: string }[] = [
   { id: "bridge" as const, icon: MessageSquare, labelKey: "bridge" },
   { id: "mcp" as const, icon: Wrench, labelKey: "mcpServers" },
   { id: "security" as const, icon: Shield, labelKey: "security" },
+  { id: "persona" as const, icon: BookOpen, labelKey: "personaAndMemory" },
 ];
 
 export function SettingsPage() {
@@ -84,6 +87,7 @@ export function SettingsPage() {
         {activeTab === "bridge" && <BridgeTab />}
         {activeTab === "mcp" && <McpTab />}
         {activeTab === "security" && <SecurityTab />}
+        {activeTab === "persona" && <PersonaMemoryTabWrapper />}
       </div>
     </div>
   );
@@ -1356,5 +1360,48 @@ function McpTab() {
         </div>
       )}
     </div>
+  );
+}
+
+// --- Persona & Memory Tab Wrapper ---
+
+function PersonaMemoryTabWrapper() {
+  const { t } = useI18n();
+  const workingDir = useUIStore((s) => s.workingDir);
+  const [dataDir, setDataDir] = useState<string>("");
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const dir = await getAppDataDir();
+        if (!cancelled) { setDataDir(dir); }
+      } catch {
+        if (!cancelled) { setDataDir(""); }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  if (!workingDir && !dataDir) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-4">
+        <div>
+          <h2 className="text-base font-semibold text-foreground">{t("personaAndMemory")}</h2>
+          <p className="mt-1 text-xs text-muted-foreground">{t("personaAndMemoryDesc")}</p>
+        </div>
+        <div className="rounded-lg border border-dashed border-border p-8 text-center">
+          <BookOpen size={24} className="mx-auto text-muted-foreground/40 mb-2" />
+          <p className="text-xs text-muted-foreground">{t("personaNoWorkspace")}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <PersonaMemoryTab
+      workspaceDir={workingDir || dataDir}
+      dataDir={dataDir || workingDir}
+    />
   );
 }
