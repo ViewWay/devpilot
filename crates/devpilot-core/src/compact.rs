@@ -115,6 +115,7 @@ pub fn estimate_message_tokens(messages: &[Message]) -> u32 {
                     total_chars += name.len() + input.to_string().len();
                 }
                 ContentBlock::ToolResult { content, .. } => total_chars += content.len(),
+                ContentBlock::Thinking { thinking, .. } => total_chars += thinking.len(),
             }
         }
     }

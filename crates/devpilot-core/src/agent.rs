@@ -232,6 +232,8 @@ impl Agent {
         session_id: &str,
     ) -> CoreResult<StreamComplete> {
         let mut full_text = String::new();
+        let mut full_thinking = String::new();
+        let mut thinking_signature: Option<String> = None;
         let mut tool_uses: Vec<ContentBlock> = Vec::new();
         let mut current_tool_id: Option<String> = None;
         let mut current_tool_name: Option<String> = current_tool_id.take();
@@ -243,7 +245,10 @@ impl Agent {
             match item {
                 Ok(event) => match event {
                     StreamEvent::Chunk {
-                        delta, tool_use, ..
+                        delta,
+                        tool_use,
+                        thinking,
+                        ..
                     } => {
                         if let Some(text) = delta {
                             full_text.push_str(&text);
@@ -282,6 +287,14 @@ impl Agent {
                                 }
                             }
                         }
+                        if let Some(td) = thinking {
+                            if let Some(think_text) = td.thinking {
+                                full_thinking.push_str(&think_text);
+                            }
+                            if td.signature.is_some() {
+                                thinking_signature = td.signature;
+                            }
+                        }
                     }
                     StreamEvent::Done {
                         usage: u,
@@ -317,6 +330,15 @@ impl Agent {
 
         // Build the complete assistant message
         let mut content: Vec<ContentBlock> = Vec::new();
+
+        // Add thinking block first if present (always before text/tool blocks)
+        if !full_thinking.is_empty() {
+            content.push(ContentBlock::Thinking {
+                thinking: full_thinking,
+                signature: thinking_signature,
+            });
+        }
+
         if !full_text.is_empty() {
             content.push(ContentBlock::Text { text: full_text });
         }
@@ -465,6 +487,7 @@ mod tests {
                     delta: Some(text),
                     role: Some(MessageRole::Assistant),
                     tool_use: None,
+                    thinking: None,
                 })
             })
             .chain(futures::stream::once(async move {
@@ -648,6 +671,7 @@ mod tests {
                         name: Some("read_file".into()),
                         input_json: Some("{\"path\":\"/tmp/test.txt\"}".into()),
                     }),
+                    thinking: None,
                 })
             })
             .chain(futures::stream::once(async move {

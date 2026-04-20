@@ -243,6 +243,10 @@ impl GeminiProvider {
                         })
                     }
                 }
+                ContentBlock::Thinking { .. } => {
+                    // Google doesn't have a native thinking block format for requests
+                    serde_json::Value::Null
+                }
             })
             .collect()
     }
@@ -554,6 +558,7 @@ impl ModelProvider for GeminiProvider {
                             delta,
                             role: None,
                             tool_use,
+                            thinking: None,
                         }))
                     }
                     Err(e) => Some(Err(LlmError::StreamError(e.to_string()))),

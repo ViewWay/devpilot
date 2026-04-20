@@ -356,6 +356,7 @@ impl ModelProvider for OllamaProvider {
                                 },
                                 role: None,
                                 tool_use: None,
+                                thinking: None,
                             }))
                         }
                     }

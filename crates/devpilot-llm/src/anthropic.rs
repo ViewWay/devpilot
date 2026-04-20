@@ -7,7 +7,8 @@
 use async_trait::async_trait;
 use devpilot_protocol::{
     ChatRequest, ChatResponse, ContentBlock, FinishReason, ImageSource, Message, MessageRole,
-    ProviderConfig, ReasoningEffort, StreamEvent, ToolDefinition, ToolUseDelta, Usage,
+    ProviderConfig, ReasoningEffort, StreamEvent, ThinkingDelta, ToolDefinition, ToolUseDelta,
+    Usage,
 };
 use eventsource_stream::Eventsource;
 use futures::StreamExt;
@@ -72,6 +73,10 @@ struct AntContentBlock {
     block_type: String,
     #[serde(default)]
     text: Option<String>,
+    #[serde(default)]
+    thinking: Option<String>,
+    #[serde(default)]
+    signature: Option<String>,
     #[serde(default)]
     id: Option<String>,
     #[serde(default)]
@@ -284,6 +289,10 @@ impl AnthropicProvider {
                     "type": "text",
                     "text": text,
                 }),
+                ContentBlock::Thinking { thinking, .. } => serde_json::json!({
+                    "type": "thinking",
+                    "thinking": thinking,
+                }),
                 ContentBlock::Image { source } => match source {
                     ImageSource::Url { url } => serde_json::json!({
                         "type": "image",
@@ -357,6 +366,10 @@ impl AnthropicProvider {
             .into_iter()
             .filter_map(|block| match block.block_type.as_str() {
                 "text" => block.text.map(|text| ContentBlock::Text { text }),
+                "thinking" => block.thinking.map(|thinking| ContentBlock::Thinking {
+                    thinking,
+                    signature: block.signature,
+                }),
                 "tool_use" => Some(ContentBlock::ToolUse {
                     id: block.id.unwrap_or_default(),
                     name: block.name.unwrap_or_default(),
@@ -594,6 +607,7 @@ impl ModelProvider for AnthropicProvider {
                                     } else {
                                         None
                                     },
+                                    thinking: None,
                                 }))
                             }
                             AntStreamEvent::ContentBlockDelta { delta, .. } => {
@@ -605,6 +619,7 @@ impl ModelProvider for AnthropicProvider {
                                             delta: Some(text),
                                             role: None,
                                             tool_use: None,
+                                            thinking: None,
                                         }))
                                     }
                                     AntStreamDelta::InputJsonDelta { partial_json } => {
@@ -617,16 +632,19 @@ impl ModelProvider for AnthropicProvider {
                                                 name: None,
                                                 input_json: Some(partial_json),
                                             }),
+                                            thinking: None,
                                         }))
                                     }
                                     AntStreamDelta::ThinkingDelta { thinking } => {
-                                        // Emit thinking tokens as regular text deltas
-                                        // so the frontend can display the model's reasoning
                                         Some(Ok(StreamEvent::Chunk {
                                             session_id: sid,
-                                            delta: Some(thinking),
+                                            delta: None,
                                             role: None,
                                             tool_use: None,
+                                            thinking: Some(ThinkingDelta {
+                                                thinking: Some(thinking),
+                                                signature: None,
+                                            }),
                                         }))
                                     }
                                 }
@@ -858,6 +876,8 @@ mod tests {
                 id: None,
                 name: None,
                 input: None,
+                thinking: None,
+                signature: None,
             },
             AntContentBlock {
                 block_type: "tool_use".into(),
@@ -865,6 +885,8 @@ mod tests {
                 id: Some("toolu_123".into()),
                 name: Some("read_file".into()),
                 input: Some(serde_json::json!({"path": "/tmp/a.txt"})),
+                thinking: None,
+                signature: None,
             },
         ];
         let content = AnthropicProvider::convert_response_content(blocks);

@@ -43,13 +43,23 @@ impl std::fmt::Display for MessageRole {
 // ── Content Blocks ─────────────────────────────────────
 
 /// A single block within a message's content array.
-/// Supports text, images, tool calls, and tool results.
+/// Supports text, images, tool calls, tool results, and thinking blocks.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum ContentBlock {
     /// Plain text content.
     #[serde(rename = "text")]
     Text { text: String },
+    /// Thinking/reasoning content (from models with extended thinking).
+    /// e.g. Claude extended thinking, DeepSeek-R1 reasoning, OpenAI o1/o3.
+    #[serde(rename = "thinking")]
+    Thinking {
+        /// The thinking/reasoning text content.
+        thinking: String,
+        /// Optional signature for verifying thinking content (Anthropic).
+        #[serde(skip_serializing_if = "Option::is_none")]
+        signature: Option<String>,
+    },
     /// Image content (URL or base64).
     #[serde(rename = "image")]
     Image {
@@ -246,6 +256,9 @@ pub enum StreamEvent {
         /// Tool-use delta (for streaming tool calls).
         #[serde(skip_serializing_if = "Option::is_none")]
         tool_use: Option<ToolUseDelta>,
+        /// Thinking delta (for models with extended thinking).
+        #[serde(skip_serializing_if = "Option::is_none")]
+        thinking: Option<ThinkingDelta>,
     },
     /// Stream completed successfully.
     #[serde(rename = "done")]
@@ -273,6 +286,18 @@ pub struct ToolUseDelta {
     /// Partial JSON string of tool input arguments.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub input_json: Option<String>,
+}
+
+/// Incremental thinking/reasoning content from a stream.
+/// Used by models with extended thinking (Claude, DeepSeek-R1, o1/o3).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThinkingDelta {
+    /// Incremental thinking text.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thinking: Option<String>,
+    /// Signature for thinking content (Anthropic extended thinking).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
 }
 
 // ── Provider Types ─────────────────────────────────────
@@ -533,9 +558,56 @@ mod tests {
             delta: Some("Hello".into()),
             role: None,
             tool_use: None,
+            thinking: None,
         };
         let json = serde_json::to_string(&ev).unwrap();
         assert!(json.contains("chunk"));
+    }
+
+    #[test]
+    fn thinking_block_serialization() {
+        let block = ContentBlock::Thinking {
+            thinking: "Let me analyze this...".into(),
+            signature: Some("sig_abc123".into()),
+        };
+        let json = serde_json::to_string(&block).unwrap();
+        assert!(json.contains("\"type\":\"thinking\""));
+        assert!(json.contains("Let me analyze this"));
+        let parsed: ContentBlock = serde_json::from_str(&json).unwrap();
+        match parsed {
+            ContentBlock::Thinking {
+                thinking,
+                signature,
+            } => {
+                assert_eq!(thinking, "Let me analyze this...");
+                assert_eq!(signature.unwrap(), "sig_abc123");
+            }
+            _ => panic!("Expected Thinking block"),
+        }
+    }
+
+    #[test]
+    fn thinking_delta_in_chunk() {
+        let ev = StreamEvent::Chunk {
+            session_id: "s1".into(),
+            delta: None,
+            role: None,
+            tool_use: None,
+            thinking: Some(ThinkingDelta {
+                thinking: Some("Hmm...".into()),
+                signature: None,
+            }),
+        };
+        let json = serde_json::to_string(&ev).unwrap();
+        assert!(json.contains("Hmm..."));
+        let parsed: StreamEvent = serde_json::from_str(&json).unwrap();
+        match parsed {
+            StreamEvent::Chunk { thinking, .. } => {
+                assert!(thinking.is_some());
+                assert_eq!(thinking.unwrap().thinking.unwrap(), "Hmm...");
+            }
+            _ => panic!("Expected Chunk"),
+        }
     }
 
     #[test]

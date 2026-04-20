@@ -297,6 +297,14 @@ impl OpenAiProvider {
                     // Tool calls are handled separately in OaiMessage.tool_calls
                     serde_json::Value::Null
                 }
+                ContentBlock::Thinking { thinking, .. } => {
+                    // OpenAI doesn't have a native thinking block format.
+                    // For models like o1/o3 that use reasoning_tokens in the response,
+                    // we skip sending thinking blocks back (they're not part of the API).
+                    // The reasoning content is only in the response, not in the request.
+                    let _ = thinking;
+                    serde_json::Value::Null
+                }
             })
             .filter(|v| !v.is_null())
             .collect();
@@ -596,6 +604,7 @@ impl ModelProvider for OpenAiProvider {
                             delta: delta.content.clone(),
                             role,
                             tool_use,
+                            thinking: None,
                         }))
                     }
                     Err(e) => Some(Err(LlmError::StreamError(e.to_string()))),
