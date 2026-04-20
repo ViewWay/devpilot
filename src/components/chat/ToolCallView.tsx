@@ -30,11 +30,11 @@ function getToolIcon(name: string) {
 function getStatusIcon(status: ToolCall["status"]) {
   switch (status) {
     case "running":
-      return <Loader2 size={11} className="animate-spin text-blue-400" />;
+      return <Loader2 size={11} className="animate-spin text-secondary" />;
     case "done":
-      return <CheckCircle2 size={11} className="text-emerald-400" />;
+      return <CheckCircle2 size={11} className="text-success" />;
     case "error":
-      return <AlertCircle size={11} className="text-red-400" />;
+      return <AlertCircle size={11} className="text-error" />;
   }
 }
 
@@ -73,7 +73,7 @@ export function ToolCallView({ toolCall }: ToolCallViewProps) {
           {toolCall.output && (
             <div className={cn(
               "overflow-x-auto px-3 py-2 text-xs font-mono leading-relaxed",
-              toolCall.status === "error" ? "text-red-400" : "text-muted-foreground",
+              toolCall.status === "error" ? "text-error" : "text-muted-foreground",
             )}>
               <pre className="whitespace-pre-wrap">{toolCall.output}</pre>
             </div>

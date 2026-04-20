@@ -201,16 +201,16 @@ function countChanges(hunks: DiffHunk[]): { added: number; removed: number } {
 function DiffLineView({ line }: { line: DiffLine }) {
   const bgColor =
     line.type === "add"
-      ? "bg-green-500/10"
+      ? "bg-success/10"
       : line.type === "remove"
-        ? "bg-red-500/10"
+        ? "bg-error/10"
         : "";
 
   const textColor =
     line.type === "add"
-      ? "text-green-400"
+      ? "text-success"
       : line.type === "remove"
-        ? "text-red-400"
+        ? "text-error"
         : "text-foreground/70";
 
   const prefix =
@@ -279,15 +279,15 @@ export function DiffView({
         ) : (
           <ChevronRight size={14} className="shrink-0 text-muted-foreground" />
         )}
-        <FileEdit size={14} className="shrink-0 text-blue-400" />
+        <FileEdit size={14} className="shrink-0 text-secondary" />
         <span className="flex-1 truncate text-xs font-medium text-foreground">
           {fileName}
         </span>
         <span className="flex items-center gap-2 text-[10px]">
-          <span className="rounded-full bg-green-500/20 px-1.5 py-0.5 text-green-400">
+          <span className="rounded-full bg-success/20 px-1.5 py-0.5 text-success">
             +{added}
           </span>
-          <span className="rounded-full bg-red-500/20 px-1.5 py-0.5 text-red-400">
+          <span className="rounded-full bg-error/20 px-1.5 py-0.5 text-error">
             -{removed}
           </span>
         </span>
@@ -307,7 +307,7 @@ export function DiffView({
           {hunks.map((hunk, idx) => (
             <div key={idx}>
               {/* Hunk header */}
-              <div className="bg-blue-500/5 px-3 py-1 text-[10px] text-blue-400/70 font-mono">
+              <div className="bg-secondary/5 px-3 py-1 text-[10px] text-secondary/70 font-mono">
                 {hunk.header}
               </div>
               {/* Lines */}
@@ -345,10 +345,10 @@ export function DiffSummary({
 
   return (
     <span className="inline-flex items-center gap-1.5 rounded-md bg-muted/50 px-2 py-0.5 text-[11px]">
-      <FileEdit size={11} className="text-blue-400" />
+      <FileEdit size={11} className="text-secondary" />
       <span className="text-foreground/80">{fileName}</span>
-      <span className="text-green-400">+{added}</span>
-      <span className="text-red-400">-{removed}</span>
+      <span className="text-success">+{added}</span>
+      <span className="text-error">-{removed}</span>
     </span>
   );
 }

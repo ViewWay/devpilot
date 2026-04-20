@@ -17,21 +17,21 @@ const RISK_CONFIG: Record<
   { color: string; bg: string; border: string; icon: typeof Shield }
 > = {
   low: {
-    color: "text-green-400",
-    bg: "bg-green-500/10",
-    border: "border-green-500/30",
+    color: "text-success",
+    bg: "bg-success/10",
+    border: "border-success/30",
     icon: ShieldCheck,
   },
   medium: {
-    color: "text-yellow-400",
-    bg: "bg-yellow-500/10",
-    border: "border-yellow-500/30",
+    color: "text-warning",
+    bg: "bg-warning/10",
+    border: "border-warning/30",
     icon: Shield,
   },
   high: {
-    color: "text-red-400",
-    bg: "bg-red-500/10",
-    border: "border-red-500/30",
+    color: "text-error",
+    bg: "bg-error/10",
+    border: "border-error/30",
     icon: ShieldAlert,
   },
 };
@@ -86,14 +86,14 @@ export function ApprovalOverlay({
       </p>
 
       {/* Command block */}
-      <div className="relative rounded-md bg-black/40 border border-border p-2.5 mb-2">
+      <div className="relative rounded-md bg-inverse-surface/40 border border-border p-2.5 mb-2">
         <div className="flex items-center gap-1.5 mb-1.5">
           <Terminal size={11} className="text-muted-foreground" />
           <span className="text-[10px] text-muted-foreground font-mono">
             shell
           </span>
         </div>
-        <code className="text-xs font-mono text-green-300 break-all whitespace-pre-wrap">
+        <code className="text-xs font-mono text-inverse-on-surface/80 break-all whitespace-pre-wrap">
           {request.command}
         </code>
       </div>
@@ -114,7 +114,7 @@ export function ApprovalOverlay({
           onClick={() => onApprove(request.id)}
           className={cn(
             "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-            "bg-green-600/80 hover:bg-green-600 text-white",
+            "bg-success/80 hover:bg-success text-on-primary",
           )}
         >
           <Check size={12} />
@@ -124,7 +124,7 @@ export function ApprovalOverlay({
           onClick={() => onDeny(request.id)}
           className={cn(
             "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-            "bg-red-600/80 hover:bg-red-600 text-white",
+            "bg-error/80 hover:bg-error text-on-primary",
           )}
         >
           <X size={12} />

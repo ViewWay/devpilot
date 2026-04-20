@@ -11,17 +11,17 @@ const ICONS: Record<ToastType, typeof Info> = {
 };
 
 const TYPE_STYLES: Record<ToastType, string> = {
-  info: "bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200",
-  success: "bg-green-50 dark:bg-green-950/50 border-green-200 dark:border-green-800 text-green-800 dark:text-green-200",
-  warning: "bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200",
-  error: "bg-red-50 dark:bg-red-950/50 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200",
+  info: "bg-secondary/10 border-secondary/30 text-foreground",
+  success: "bg-success/10 border-success/30 text-foreground",
+  warning: "bg-warning/10 border-warning/30 text-foreground",
+  error: "bg-error/10 border-error/30 text-foreground",
 };
 
 const ICON_STYLES: Record<ToastType, string> = {
-  info: "text-blue-500",
-  success: "text-green-500",
-  warning: "text-amber-500",
-  error: "text-red-500",
+  info: "text-secondary",
+  success: "text-success",
+  warning: "text-warning",
+  error: "text-error",
 };
 
 function ToastItem({ id, type, message }: { id: string; type: ToastType; message: string }) {

@@ -533,8 +533,8 @@ export function TerminalPanel() {
               className={cn(
                 "h-1.5 w-1.5 rounded-full",
                 tab.ptySessionId
-                  ? "bg-green-500/70"
-                  : "bg-yellow-500/70",
+                  ? "bg-success/70"
+                  : "bg-warning/70",
               )}
             />
             <span>{tab.title}</span>
