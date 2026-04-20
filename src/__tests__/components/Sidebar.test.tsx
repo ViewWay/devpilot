@@ -1,9 +1,15 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "../helpers/renderWithProviders";
 import { useChatStore } from "../../stores/chatStore";
 import { useUIStore } from "../../stores/uiStore";
+
+// Mock the IPC layer so searchMessages returns empty results
+vi.mock("../../lib/ipc", () => ({
+  isTauriRuntime: () => false,
+  invoke: vi.fn().mockResolvedValue([]),
+}));
 
 describe("Sidebar", () => {
   beforeEach(() => {
@@ -58,7 +64,7 @@ describe("Sidebar", () => {
     expect(searchInput).toBeInTheDocument();
   });
 
-  it("filters sessions when typing in search", async () => {
+  it("filters sessions when typing short search query (local filter)", async () => {
     const { Sidebar } = await import("../../components/layout/Sidebar");
     const user = userEvent.setup();
 
@@ -71,10 +77,24 @@ describe("Sidebar", () => {
     renderWithProviders(<Sidebar />);
 
     const searchInput = screen.getByPlaceholderText(/search/i);
-    await user.type(searchInput, "Rust");
+    // Type "Ru" (2 chars) — stays in local session filter mode (< 3 chars threshold)
+    await user.type(searchInput, "Ru");
 
     // Should show "Rust Project" but not "Python Scripts"
     expect(screen.getByText("Rust Project")).toBeInTheDocument();
     expect(screen.queryByText("Python Scripts")).not.toBeInTheDocument();
+  });
+
+  it("shows clear button when search query is entered", async () => {
+    const { Sidebar } = await import("../../components/layout/Sidebar");
+    const user = userEvent.setup();
+    renderWithProviders(<Sidebar />);
+
+    const searchInput = screen.getByPlaceholderText(/search/i);
+    await user.type(searchInput, "test");
+
+    // Should show the X clear button
+    const clearButton = searchInput.parentElement!.querySelector("button");
+    expect(clearButton).toBeInTheDocument();
   });
 });
