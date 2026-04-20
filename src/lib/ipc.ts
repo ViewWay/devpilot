@@ -229,6 +229,15 @@ function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
       });
     case "import_sessions":
       return { sessionsImported: 0, messagesImported: 0 };
+    // Claude Code Import
+    case "scan_claude_threads_cmd":
+      return [];
+    case "scan_claude_threads_from":
+      return [];
+    case "import_claude_thread":
+      return JSON.stringify({ sessionId: "mock-id", messagesImported: 0 });
+    case "import_claude_threads_batch":
+      return { sessionsImported: 0, messagesImported: 0, messagesSkipped: 0, warnings: [] };
     // Memory & Persona
     case "load_persona_files_cmd":
       return { soulMd: null, userMd: null, memoryMd: null, agentsMd: null };
@@ -386,6 +395,12 @@ export interface IPCCommands {
   // Data Import / Export
   export_sessions: void;
   import_sessions: { jsonData: string };
+
+  // Claude Code Import
+  scan_claude_threads_cmd: void;
+  scan_claude_threads_from: { directory: string };
+  import_claude_thread: { jsonlPath: string };
+  import_claude_threads_batch: { jsonlPaths: string[] };
 
   // Memory & Persona
   load_persona_files_cmd: { workspaceDir: string };
@@ -719,4 +734,45 @@ export async function ptyKill(sessionId: string): Promise<void> {
 
 export async function ptyList(): Promise<string[]> {
   return invoke<string[]>("pty_list");
+}
+
+// ── Claude Code Import Types & Helpers ────────────────────────
+
+export interface ClaudeThreadInfoIPC {
+  path: string;
+  filename: string;
+  messageCount: number;
+  preview: string;
+  sizeBytes: number;
+  modified: string;
+}
+
+export interface ClaudeImportResultIPC {
+  sessionsImported: number;
+  messagesImported: number;
+  messagesSkipped: number;
+  warnings: string[];
+}
+
+export interface ClaudeImportSingleResult {
+  sessionId: string;
+  messagesImported: number;
+}
+
+export async function scanClaudeThreads(): Promise<ClaudeThreadInfoIPC[]> {
+  return invoke<ClaudeThreadInfoIPC[]>("scan_claude_threads_cmd");
+}
+
+export async function scanClaudeThreadsFrom(directory: string): Promise<ClaudeThreadInfoIPC[]> {
+  return invoke<ClaudeThreadInfoIPC[]>("scan_claude_threads_from", { directory });
+}
+
+export async function importClaudeThread(jsonlPath: string): Promise<string> {
+  return invoke<string>("import_claude_thread", { jsonlPath });
+}
+
+export async function importClaudeThreadsBatch(
+  jsonlPaths: string[],
+): Promise<ClaudeImportResultIPC> {
+  return invoke<ClaudeImportResultIPC>("import_claude_threads_batch", { jsonlPaths });
 }

@@ -400,6 +400,24 @@ const zh: Record<string, string> = {
   noErrors: "无错误",
   dataWarning: "警告：导出的备份包含加密的 API 密钥。备份文件仅可在同一机器上恢复。",
 
+  // --- Claude Code Import ---
+  claudeImport: "从 Claude Code 导入",
+  claudeImportDesc: "从 Claude Code 导入对话线程（.jsonl 文件）。",
+  claudeScan: "扫描线程",
+  claudeScanDesc: "自动在默认目录中查找 Claude Code 线程文件。",
+  claudeScanFrom: "选择目录",
+  claudeNoThreadsFound: "未找到 Claude Code 线程。请确保已安装 Claude Code 且存在历史会话。",
+  claudeSelectThreads: "选择要导入的线程",
+  claudeImportSelected: "导入选中",
+  claudeImportAll: "全部导入",
+  claudeImporting: "正在导入 Claude Code 线程...",
+  claudeImportSuccess: "成功导入 {count} 个线程，共 {messages} 条消息。",
+  claudeImportError: "导入 Claude Code 线程失败。",
+  claudeThreadPreview: "预览",
+  claudeThreadMessages: "条消息",
+  claudeThreadSize: "大小",
+  claudeSelectDir: "选择目录",
+
   // --- Accessibility (a11y) ---
   "a11y.skipToMain": "跳到主要内容",
   "a11y.sidebarNav": "会话列表",

@@ -400,6 +400,24 @@ const en: Record<string, string> = {
   noErrors: "No errors",
   dataWarning: "Warning: Exported backups contain encrypted API keys. The backup file is only restorable on the same machine.",
 
+  // --- Claude Code Import ---
+  claudeImport: "Import from Claude Code",
+  claudeImportDesc: "Import conversation threads from Claude Code (.jsonl files).",
+  claudeScan: "Scan for Threads",
+  claudeScanDesc: "Automatically find Claude Code thread files in the default directory.",
+  claudeScanFrom: "Choose Directory",
+  claudeNoThreadsFound: "No Claude Code threads found. Make sure Claude Code is installed and has existing sessions.",
+  claudeSelectThreads: "Select threads to import",
+  claudeImportSelected: "Import Selected",
+  claudeImportAll: "Import All",
+  claudeImporting: "Importing Claude Code threads...",
+  claudeImportSuccess: "Successfully imported {count} thread(s) with {messages} messages.",
+  claudeImportError: "Failed to import Claude Code threads.",
+  claudeThreadPreview: "Preview",
+  claudeThreadMessages: "messages",
+  claudeThreadSize: "Size",
+  claudeSelectDir: "Select Directory",
+
   // --- Accessibility (a11y) ---
   "a11y.skipToMain": "Skip to main content",
   "a11y.sidebarNav": "Sessions",

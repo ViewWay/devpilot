@@ -69,6 +69,11 @@ pub fn run() {
             commands::data::import_data,
             commands::data::export_to_file,
             commands::data::import_from_file,
+            // Claude Code Import
+            commands::data::scan_claude_threads_cmd,
+            commands::data::scan_claude_threads_from,
+            commands::data::import_claude_thread,
+            commands::data::import_claude_threads_batch,
             // LLM
             commands::llm::send_message,
             commands::llm::send_message_stream,
