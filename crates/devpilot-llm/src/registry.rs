@@ -82,6 +82,10 @@ impl ProviderRegistry {
         self.register(ProviderType::VolcEngine, |config| {
             Box::new(OpenAiProvider::new(config))
         });
+        // Custom provider — any OpenAI-compatible endpoint
+        self.register(ProviderType::Custom, |config| {
+            Box::new(OpenAiProvider::new(config))
+        });
     }
 
     /// Register a factory function for a provider type.
@@ -196,6 +200,7 @@ mod tests {
         assert!(registry.has_provider(&ProviderType::Kimi));
         assert!(registry.has_provider(&ProviderType::MiniMax));
         assert!(registry.has_provider(&ProviderType::VolcEngine));
+        assert!(registry.has_provider(&ProviderType::Custom));
     }
 
     #[test]
@@ -251,7 +256,8 @@ mod tests {
         assert!(types.contains(&ProviderType::Kimi));
         assert!(types.contains(&ProviderType::MiniMax));
         assert!(types.contains(&ProviderType::VolcEngine));
-        assert!(types.len() >= 11);
+        assert!(types.contains(&ProviderType::Custom));
+        assert!(types.len() >= 12);
     }
 
     #[test]
@@ -300,5 +306,14 @@ mod tests {
         let config = test_config(ProviderType::VolcEngine);
         let provider = registry.create(config).unwrap();
         assert_eq!(provider.name(), "volcengine Test");
+    }
+
+    #[test]
+    fn create_custom_provider() {
+        let registry = ProviderRegistry::with_defaults();
+        let mut config = test_config(ProviderType::Custom);
+        config.base_url = "https://my-custom-llm.example.com".to_string();
+        let provider = registry.create(config).unwrap();
+        assert_eq!(provider.name(), "custom Test");
     }
 }

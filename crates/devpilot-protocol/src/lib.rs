@@ -204,6 +204,9 @@ pub struct ChatRequest {
     /// Whether to stream the response.
     #[serde(default)]
     pub stream: bool,
+    /// Reasoning effort level (for models that support extended thinking).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning_effort: Option<ReasoningEffort>,
 }
 
 // ── Chat Response ──────────────────────────────────────
@@ -504,6 +507,7 @@ mod tests {
             stop: None,
             tools: None,
             stream: false,
+            reasoning_effort: None,
         };
         let json = serde_json::to_string(&req).unwrap();
         let parsed: ChatRequest = serde_json::from_str(&json).unwrap();

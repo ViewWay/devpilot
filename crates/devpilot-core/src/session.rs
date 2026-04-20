@@ -163,6 +163,7 @@ impl Session {
             stop: None,
             tools: resolved_tools,
             stream: true,
+            reasoning_effort: Some(self.config.reasoning_effort),
         }
     }
 

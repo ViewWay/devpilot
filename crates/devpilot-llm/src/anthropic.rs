@@ -7,7 +7,7 @@
 use async_trait::async_trait;
 use devpilot_protocol::{
     ChatRequest, ChatResponse, ContentBlock, FinishReason, ImageSource, Message, MessageRole,
-    ProviderConfig, StreamEvent, ToolDefinition, ToolUseDelta, Usage,
+    ProviderConfig, ReasoningEffort, StreamEvent, ToolDefinition, ToolUseDelta, Usage,
 };
 use eventsource_stream::Eventsource;
 use futures::StreamExt;
@@ -36,6 +36,10 @@ struct AntRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     tools: Option<Vec<AntTool>>,
     stream: bool,
+    /// Extended thinking configuration for models that support it.
+    /// See: https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
+    #[serde(skip_serializing_if = "Option::is_none")]
+    thinking: Option<serde_json::Value>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -145,11 +149,14 @@ struct AntStreamContentBlock {
 
 #[derive(serde::Deserialize)]
 #[serde(tag = "type")]
+#[allow(clippy::enum_variant_names)]
 enum AntStreamDelta {
     #[serde(rename = "text_delta")]
     TextDelta { text: String },
     #[serde(rename = "input_json_delta")]
     InputJsonDelta { partial_json: String },
+    #[serde(rename = "thinking_delta")]
+    ThinkingDelta { thinking: String },
 }
 
 #[derive(serde::Deserialize)]
@@ -359,6 +366,28 @@ impl AnthropicProvider {
             })
             .collect()
     }
+
+    /// Build the extended thinking configuration from `ReasoningEffort`.
+    ///
+    /// Maps effort levels to Anthropic's `thinking.budget_tokens`:
+    /// - `Low` → 4,096 tokens
+    /// - `Medium` → 10,240 tokens
+    /// - `High` → 32,768 tokens
+    ///
+    /// When extended thinking is enabled, `temperature` must be omitted (or 1.0).
+    fn thinking_config(effort: Option<ReasoningEffort>) -> Option<serde_json::Value> {
+        effort.map(|e| {
+            let budget = match e {
+                ReasoningEffort::Low => 4_096,
+                ReasoningEffort::Medium => 10_240,
+                ReasoningEffort::High => 32_768,
+            };
+            serde_json::json!({
+                "type": "enabled",
+                "budget_tokens": budget,
+            })
+        })
+    }
 }
 
 #[async_trait]
@@ -392,6 +421,7 @@ impl ModelProvider for AnthropicProvider {
             stop_sequences: request.stop,
             tools,
             stream: false,
+            thinking: Self::thinking_config(request.reasoning_effort),
         };
 
         debug!(model = %request.model, "Sending non-streaming Anthropic request to {}", url);
@@ -485,6 +515,7 @@ impl ModelProvider for AnthropicProvider {
             stop_sequences: request.stop.clone(),
             tools,
             stream: true,
+            thinking: Self::thinking_config(request.reasoning_effort),
         };
 
         debug!(model = %request.model, %session_id, "Sending streaming Anthropic request to {}", url);
@@ -586,6 +617,16 @@ impl ModelProvider for AnthropicProvider {
                                                 name: None,
                                                 input_json: Some(partial_json),
                                             }),
+                                        }))
+                                    }
+                                    AntStreamDelta::ThinkingDelta { thinking } => {
+                                        // Emit thinking tokens as regular text deltas
+                                        // so the frontend can display the model's reasoning
+                                        Some(Ok(StreamEvent::Chunk {
+                                            session_id: sid,
+                                            delta: Some(thinking),
+                                            role: None,
+                                            tool_use: None,
                                         }))
                                     }
                                 }
@@ -857,5 +898,23 @@ mod tests {
         assert_eq!(content.len(), 2);
         assert_eq!(content[0]["type"], "text");
         assert_eq!(content[1]["type"], "image");
+    }
+
+    #[test]
+    fn thinking_config_none_when_no_effort() {
+        assert!(AnthropicProvider::thinking_config(None).is_none());
+    }
+
+    #[test]
+    fn thinking_config_budget_tokens() {
+        let low = AnthropicProvider::thinking_config(Some(ReasoningEffort::Low)).unwrap();
+        assert_eq!(low["type"], "enabled");
+        assert_eq!(low["budget_tokens"], 4_096);
+
+        let medium = AnthropicProvider::thinking_config(Some(ReasoningEffort::Medium)).unwrap();
+        assert_eq!(medium["budget_tokens"], 10_240);
+
+        let high = AnthropicProvider::thinking_config(Some(ReasoningEffort::High)).unwrap();
+        assert_eq!(high["budget_tokens"], 32_768);
     }
 }

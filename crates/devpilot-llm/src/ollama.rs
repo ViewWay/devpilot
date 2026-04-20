@@ -470,6 +470,7 @@ mod tests {
             stop: None,
             tools: None,
             stream: false,
+            reasoning_effort: None,
         };
 
         let ollama_req = provider.build_request(&req, false);
@@ -497,6 +498,7 @@ mod tests {
             stop: None,
             tools: None,
             stream: true,
+            reasoning_effort: None,
         };
 
         let ollama_req = provider.build_request(&req, true);
@@ -525,6 +527,7 @@ mod tests {
             stop: None,
             tools: None,
             stream: false,
+            reasoning_effort: None,
         };
 
         let ollama_req = provider.build_request(&req, false);
