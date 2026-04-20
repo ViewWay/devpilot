@@ -11,6 +11,7 @@ use devpilot_protocol::{
 use eventsource_stream::Eventsource;
 use futures::StreamExt;
 use reqwest::Client;
+use std::sync::{Arc, Mutex};
 use tracing::{debug, warn};
 
 use crate::error::LlmError;
@@ -511,13 +512,38 @@ impl ModelProvider for OpenAiProvider {
 
         let stream = resp.bytes_stream().eventsource();
 
+        /// Shared state tracked across stream chunks for the final Done event.
+        struct StreamState {
+            finish_reason: Option<FinishReason>,
+            usage: Option<Usage>,
+        }
+
+        let state = Arc::new(Mutex::new(StreamState {
+            finish_reason: None,
+            usage: None,
+        }));
+
         let event_stream = stream.filter_map(move |result| {
             let sid = session_id.clone();
+            let st = state.clone();
             async move {
                 match result {
                     Ok(event) => {
+                        // [DONE] is the standard OpenAI stream termination marker
                         if event.data == "[DONE]" {
-                            return Some(Err(LlmError::StreamError("Unexpected [DONE]".into())));
+                            let s = st.lock().unwrap();
+                            let finish = s.finish_reason.unwrap_or(FinishReason::Stop);
+                            let usage = s.usage.clone().unwrap_or(Usage {
+                                input_tokens: 0,
+                                output_tokens: 0,
+                                cache_read_tokens: None,
+                                cache_write_tokens: None,
+                            });
+                            return Some(Ok(StreamEvent::Done {
+                                session_id: sid,
+                                usage,
+                                finish_reason: finish,
+                            }));
                         }
                         let chunk: OaiStreamChunk = match serde_json::from_str(&event.data) {
                             Ok(c) => c,
@@ -527,7 +553,29 @@ impl ModelProvider for OpenAiProvider {
                             }
                         };
 
-                        let choice = chunk.choices.first()?;
+                        // Track usage from any chunk that includes it
+                        if let Some(u) = &chunk.usage {
+                            let mut s = st.lock().unwrap();
+                            s.usage = Some(Usage {
+                                input_tokens: u.prompt_tokens,
+                                output_tokens: u.completion_tokens,
+                                cache_read_tokens: None,
+                                cache_write_tokens: None,
+                            });
+                        }
+
+                        let choice = match chunk.choices.first() {
+                            Some(c) => c,
+                            None => return None,
+                        };
+
+                        // Track finish_reason from the last chunk
+                        if let Some(reason) = &choice.finish_reason {
+                            let mut s = st.lock().unwrap();
+                            s.finish_reason =
+                                Some(Self::parse_finish_reason(Some(reason.as_str())));
+                        }
+
                         let delta = &choice.delta;
 
                         let role = delta.role.as_deref().and_then(|r| match r {
