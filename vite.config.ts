@@ -37,9 +37,21 @@ export default defineConfig({
             if (id.includes("@xterm") || id.includes("xterm")) {
               return "xterm-vendor";
             }
-            // Shiki + grammars/themes
-            if (id.includes("shiki")) {
-              return "shiki-core";
+            // Shiki core engine (small)
+            if (id.includes("@shikijs/core") || id.includes("shiki/wasm") || id.includes("shiki/engine")) {
+              return "shiki-engine";
+            }
+            // Shiki themes (loaded lazily)
+            if (id.includes("shiki/themes/")) {
+              return undefined; // let rollup create natural chunks
+            }
+            // Shiki language grammars (loaded lazily per-language)
+            if (id.includes("shiki/langs/")) {
+              return undefined; // let rollup create natural chunks
+            }
+            // Shiki runtime glue (index, bundle, etc.)
+            if (id.includes("shiki") && !id.includes("shiki-wrapper")) {
+              return "shiki-runtime";
             }
             // Marked / Markdown
             if (id.includes("marked") || id.includes("remarkable") || id.includes("unified") || id.includes("rehype") || id.includes("remark")) {

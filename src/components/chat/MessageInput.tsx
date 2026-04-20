@@ -203,6 +203,40 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
     }
   }, [processFiles]);
 
+  // Clipboard paste — capture images pasted from clipboard (Ctrl+V / Cmd+V)
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) {
+      return;
+    }
+
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) {
+        return;
+      }
+
+      const imageFiles: File[] = [];
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i]!;
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) {
+            imageFiles.push(file);
+          }
+        }
+      }
+
+      if (imageFiles.length > 0) {
+        // Don't prevent default — let text paste through if mixed
+        processFiles(imageFiles);
+      }
+    };
+
+    el.addEventListener("paste", handlePaste);
+    return () => el.removeEventListener("paste", handlePaste);
+  }, [processFiles]);
+
   const handleSend = useCallback(async () => {
     const trimmed = input.trim();
     if ((!trimmed && attachments.length === 0) || isLoading) {return;}
