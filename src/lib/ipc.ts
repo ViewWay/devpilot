@@ -240,6 +240,8 @@ function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
       return [];
     case "create_daily_memory_cmd":
       return null;
+    case "searchFiles":
+      return [];
     default:
       console.warn(`[IPC mock] Unhandled command: ${cmd}`);
       return null;

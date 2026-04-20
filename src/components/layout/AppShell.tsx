@@ -2,6 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { CommandPalette } from "../CommandPalette";
+import { QuickFileSearch } from "../QuickFileSearch";
 import { ToastContainer } from "../ToastContainer";
 import { UpdateChecker } from "../UpdateChecker";
 import { useUIStore } from "../../stores/uiStore";
@@ -80,6 +81,7 @@ export function AppShell() {
         </main>
       </div>
       <CommandPalette />
+      <QuickFileSearch />
       <ToastContainer />
     </div>
   );

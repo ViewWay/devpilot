@@ -22,7 +22,8 @@ export type ShortcutAction =
   | "sendMessage"
   | "escape"
   | "toggleTerminal"
-  | "toggleFiles";
+  | "toggleFiles"
+  | "quickFileSearch";
 
 /** Metadata for each shortcut action. */
 export interface ShortcutDefinition {
@@ -44,6 +45,7 @@ export const SHORTCUT_DEFINITIONS: ShortcutDefinition[] = [
   { action: "escape",          defaultCombo: "Escape",                labelKey: "scStopGeneration",    worksInInput: true },
   { action: "toggleTerminal",  defaultCombo: "ctrlOrCmd+j",           labelKey: "scToggleTerminal",    worksInInput: false },
   { action: "toggleFiles",     defaultCombo: "ctrlOrCmd+e",           labelKey: "scToggleFiles",       worksInInput: false },
+  { action: "quickFileSearch", defaultCombo: "ctrlOrCmd+p",           labelKey: "scQuickFileSearch",   worksInInput: false },
 ];
 
 const SETTING_KEY = "keyboardShortcuts";
