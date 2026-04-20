@@ -5,6 +5,7 @@ import { ToastContainer } from "../ToastContainer";
 import { UpdateChecker } from "../UpdateChecker";
 import { CommandPalette } from "../CommandPalette";
 import { QuickFileSearch } from "../QuickFileSearch";
+import { OnboardingWizard } from "../OnboardingWizard";
 import { useUIStore } from "../../stores/uiStore";
 import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
 import { useShortcutStore } from "../../stores/shortcutStore";
@@ -12,6 +13,10 @@ import { useI18n } from "../../i18n";
 import { TabBar } from "./TabBar";
 import { useTabStore } from "../../stores/tabStore";
 import { useChatStore } from "../../stores/chatStore";
+import {
+  useOnboardingStore,
+  checkOnboardingStatus,
+} from "../../stores/onboardingStore";
 
 export function AppShell() {
   const { t } = useI18n();
@@ -29,12 +34,15 @@ export function AppShell() {
     hydrateShortcuts();
   }, [hydrateShortcuts]);
 
-  // Bootstrap: restore tabs and activate session
+  // Bootstrap: restore tabs, check onboarding, activate session
   useEffect(() => {
     let cancelled = false;
 
     const bootstrap = async () => {
       try {
+        // Check if onboarding has been completed
+        await checkOnboardingStatus();
+
         // Restore tabs from localStorage
         await useTabStore.getState().restoreTabs();
         const activeId = useTabStore.getState().activeTabId;
@@ -88,6 +96,12 @@ export function AppShell() {
         {t("loading")}
       </div>
     );
+  }
+
+  // Show onboarding wizard for first-time users
+  const onboardingCompleted = useOnboardingStore.getState().completed;
+  if (!onboardingCompleted) {
+    return <OnboardingWizard />;
   }
 
   return (
