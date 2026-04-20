@@ -164,7 +164,7 @@ export function SandboxRenderer({
             sandbox="allow-scripts"
             onLoad={handleLoad}
             title={title ?? t("sandboxPreview")}
-            className="h-full w-full border-0 bg-white"
+            className="h-full w-full border-0 bg-[var(--color-surface-container-lowest)]"
           />
         </div>
 

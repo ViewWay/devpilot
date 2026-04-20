@@ -33,11 +33,11 @@ function getFileIcon(name: string) {
   switch (ext) {
     case "tsx":
     case "ts":
-      return <FileCode size={13} className="text-blue-400" />;
+      return <FileCode size={13} className="text-[var(--color-brand)]" />;
     case "json":
       return <FileJson size={13} className="text-yellow-400" />;
     case "md":
-      return <FileText size={13} className="text-gray-400" />;
+      return <FileText size={13} className="text-[var(--color-text-tertiary)]" />;
     case "png":
     case "jpg":
     case "svg":

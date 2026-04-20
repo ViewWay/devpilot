@@ -155,8 +155,8 @@ export function BridgePage() {
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/10">
-            <Radio size={18} className="text-blue-400" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--color-brand)]/10">
+            <Radio size={18} className="text-[var(--color-brand)]" />
           </div>
           <div>
             <h1 className="text-base font-semibold text-foreground">

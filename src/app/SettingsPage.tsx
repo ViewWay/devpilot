@@ -590,7 +590,7 @@ function AppearanceTab() {
                 theme === t ? "border-primary bg-primary/5" : "border-border hover:border-accent",
               )}
             >
-              <div className={cn("h-16 w-full rounded-md", t === "dark" ? "bg-[#0f0f0f]" : t === "light" ? "bg-white border" : "bg-gradient-to-r from-white to-[#0f0f0f]")} />
+              <div className={cn("h-16 w-full rounded-md", t === "dark" ? "bg-[#0f0f0f]" : t === "light" ? "bg-[var(--color-surface-container-lowest)] border" : "bg-gradient-to-r from-[var(--color-surface-container-lowest)] to-[#0f0f0f]")} />
               <span className={cn("text-xs capitalize", theme === t ? "text-primary font-medium" : "text-muted-foreground")}>
                 {t}
               </span>
@@ -1598,7 +1598,7 @@ function McpTab() {
                   <span className={cn(
                     "rounded px-1.5 py-0.5 text-[10px] font-medium",
                     srv.transport === "stdio"
-                      ? "bg-blue-500/10 text-blue-500"
+                      ? "bg-[var(--color-brand)]/10 text-[var(--color-brand)]"
                       : "bg-green-500/10 text-green-500",
                   )}>
                     {srv.transport === "stdio" ? t("mcpStdio") : t("mcpSse")}
@@ -2846,7 +2846,7 @@ function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: (v: b
     >
       <span
         className={cn(
-          "inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform",
+          "inline-block h-3.5 w-3.5 rounded-full bg-[var(--color-surface-container-lowest)] shadow transition-transform",
           checked ? "translate-x-4.5" : "translate-x-0.5",
         )}
       />

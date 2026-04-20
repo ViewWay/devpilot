@@ -366,7 +366,7 @@ export function PersonaMemoryTab({ workspaceDir, dataDir }: PersonaMemoryTabProp
                   <span className={cn(
                     "rounded px-1.5 py-0.5 text-[9px] font-medium",
                     result.source.endsWith(".md")
-                      ? "bg-blue-500/10 text-blue-500"
+                      ? "bg-[var(--color-brand)]/10 text-[var(--color-brand)]"
                       : "bg-green-500/10 text-green-500",
                   )}>
                     {result.source}
