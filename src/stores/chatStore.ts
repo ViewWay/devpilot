@@ -8,6 +8,7 @@ import {
   persistDeleteSession,
   persistUpdateSessionTitle,
   persistArchiveSession,
+  persistSetSessionWorkingDir,
   persistAddMessage,
   hydrateSessions,
   type HydratedSession,
@@ -368,6 +369,8 @@ interface ChatState {
   regenerateLastResponse: () => void;
   /** Search messages across all sessions via backend. */
   searchMessages: (query: string) => Promise<MessageSearchResult[]>;
+  /** Set the working directory for a specific session (persists to backend). */
+  setSessionWorkingDir: (sessionId: string, workingDir: string) => void;
 
   // Internal
   _streamCleanup: (() => void) | null;
@@ -454,7 +457,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
     return id;
   },
 
-  setActiveSession: (id) => set({ activeSessionId: id }),
+  setActiveSession: (id) => {
+    set((s) => {
+      // Sync the session's workingDir to the global uiStore on switch
+      const session = s.sessions.find((sess) => sess.id === id);
+      if (session?.workingDir) {
+        useUIStore.getState().setWorkingDir(session.workingDir);
+      }
+      return { activeSessionId: id };
+    });
+  },
 
   deleteSession: (id) => {
     set((s) => {
@@ -518,6 +530,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
       console.error("searchMessages failed:", err);
       return [];
     }
+  },
+
+  setSessionWorkingDir: (sessionId, workingDir) => {
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === sessionId ? { ...sess, workingDir } : sess,
+      ),
+    }));
+    // Sync to global uiStore so all components pick it up
+    useUIStore.getState().setWorkingDir(workingDir);
+    persistSetSessionWorkingDir(sessionId, workingDir);
   },
 
   sendMessage: (content, model, attachments) => {
@@ -1060,6 +1083,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     if (data.length > 0) {
       const sessions: Session[] = data.map(convertHydratedSession);
+      // Sync the first (active) session's workingDir to the global uiStore
+      if (sessions[0]?.workingDir) {
+        useUIStore.getState().setWorkingDir(sessions[0].workingDir);
+      }
       set({
         sessions,
         activeSessionId: sessions[0]?.id ?? null,
@@ -1076,6 +1103,7 @@ function convertHydratedSession(hs: HydratedSession): Session {
     model: hs.model,
     provider: hs.provider,
     archived: hs.archived,
+    workingDir: hs.workingDir,
     createdAt: hs.createdAt,
     updatedAt: hs.updatedAt,
     messages: hs.messages.map((hm) => ({

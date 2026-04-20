@@ -1,13 +1,28 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Terminal as TerminalIcon, Plus, X, Trash2 } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { isTauriRuntime, invoke } from "../../lib/ipc";
+import { isTauriRuntime } from "../../lib/ipc";
+import {
+  ptyCreate,
+  ptyWrite,
+  ptyResize,
+  ptyKill,
+  listen,
+  type PtyCreateResultIPC,
+  type PtyOutputEventIPC,
+  type PtyExitEventIPC,
+} from "../../lib/ipc";
 import { useUIStore } from "../../stores/uiStore";
+import type { Terminal as XtermTerminal } from "@xterm/xterm";
+
+// ── Demo mode data (browser fallback) ────────────────────────
 
 interface TerminalTab {
   id: string;
   title: string;
   cwd: string;
+  /** Backend PTY session ID (set when using real PTY) */
+  ptySessionId?: string;
 }
 
 const DEMO_COMMANDS: Record<string, string> = {
@@ -19,8 +34,10 @@ const DEMO_COMMANDS: Record<string, string> = {
   "cargo --version": "cargo 1.82.0 (8f40fc1f3 2024-08-21)",
   "node --version": "v22.11.0",
   "rustc --version": "rustc 1.82.0 (f6e511eec 2024-10-15)",
-  "git status": "On branch main\nYour branch is up to date with 'origin/main'.\n\nnothing to commit, working tree clean",
-  "git log --oneline -3": "a1b2c3d feat: add terminal panel\ne4f5g6h fix: streaming message rendering\n7i8j9k0 chore: update dependencies",
+  "git status":
+    "On branch main\nYour branch is up to date with 'origin/main'.\n\nnothing to commit, working tree clean",
+  "git log --oneline -3":
+    "a1b2c3d feat: add terminal panel\ne4f5g6h fix: streaming message rendering\n7i8j9k0 chore: update dependencies",
   "npm run build":
     "\x1b[32m> devpilot@0.1.0 build\x1b[0m\n> tsc -b && vite build\n\nvite v6.0.0 building for production...\n\u2713 2416 modules transformed.\ndist/index.html          0.45 kB │ gzip:  0.29 kB\ndist/assets/index.js    811.19 kB │ gzip: 248.87 kB\n\u2713 built in 388ms",
   "cargo build --release":
@@ -33,8 +50,10 @@ const DEMO_COMMANDS: Record<string, string> = {
   npm run build, cargo build --release
   clear, help, echo <text>
 
-  In production, this will connect to a real PTY backend.`,
+  In production, this connects to a real PTY backend.`,
 };
+
+// ── xterm.js lazy loader ────────────────────────────────────
 
 let xtermLoaded: {
   // eslint-disable-next-line @typescript-eslint/consistent-type-imports
@@ -57,51 +76,37 @@ async function loadXterm() {
   return xtermLoaded;
 }
 
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
-function writePrompt(term: import("@xterm/xterm").Terminal) {
+ 
+function writePrompt(term: XtermTerminal) {
   term.write("\x1b[32m\u276f\x1b[0m ");
 }
 
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
-async function processCommand(term: import("@xterm/xterm").Terminal, cmd: string) {
-  if (isTauriRuntime()) {
-    try {
-      const workingDir = useUIStore.getState().workingDir || undefined;
-      const result = await invoke<{
-        stdout: string;
-        stderr: string;
-        exitCode: number | null;
-        denied: boolean;
-        denialReason: string | null;
-        durationMs: number;
-      }>("sandbox_execute", {
-        request: { command: cmd, workingDir, policy: useUIStore.getState().sandboxPolicy },
-      });
-      if (result.denied) {
-        term.writeln(`\x1b[31mDenied: ${result.denialReason ?? "policy restriction"}\x1b[0m`);
-      } else {
-        if (result.stdout) {
-          for (const line of result.stdout.split("\n")) {
-            term.writeln(line);
-          }
-        }
-        if (result.stderr) {
-          for (const line of result.stderr.split("\n")) {
-            term.writeln(`\x1b[31m${line}\x1b[0m`);
-          }
-        }
-        if (result.exitCode !== 0 && result.exitCode !== null) {
-          term.writeln(`\x1b[33mexit code: ${result.exitCode}\x1b[0m`);
-        }
-      }
-    } catch (err) {
-      term.writeln(`\x1b[31mError: ${err instanceof Error ? err.message : String(err)}\x1b[0m`);
-    }
-    writePrompt(term);
-    return;
-  }
+// ── Base64 helpers ───────────────────────────────────────────
 
-  // Demo mode fallback
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]!);
+  }
+  return btoa(binary);
+}
+
+function base64ToBytes(b64: string): Uint8Array {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+// ── Demo mode command processing ─────────────────────────────
+
+ 
+async function processDemoCommand(
+  term: XtermTerminal,
+  cmd: string,
+) {
   if (cmd.startsWith("echo ")) {
     term.writeln(cmd.slice(5));
     writePrompt(term);
@@ -129,10 +134,157 @@ async function processCommand(term: import("@xterm/xterm").Terminal, cmd: string
   }
 }
 
+// ── PTY-backed tab manager ──────────────────────────────────
+
+function usePtyTerminal(
+  _termContainerRef: React.RefObject<HTMLDivElement | null>,
+   
+  termRef: React.MutableRefObject<XtermTerminal | null>,
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
+  _fitAddonRef: React.MutableRefObject<import("@xterm/addon-fit").FitAddon | null>,
+  activeTab: TerminalTab | undefined,
+  onPtyCreated: (tabId: string, ptySessionId: string) => void,
+) {
+  const ptySessionRef = useRef<string | null>(null);
+  const unlistenRef = useRef<(() => void)[]>([]);
+
+  // Create a PTY session for the active tab
+  const createPty = useCallback(
+    async (tabId: string) => {
+      const term = termRef.current;
+      if (!term || !isTauriRuntime()) {return;}
+
+      const workingDir =
+        useUIStore.getState().workingDir || undefined;
+      const cols = term.cols;
+      const rows = term.rows;
+
+      try {
+        const result: PtyCreateResultIPC = await ptyCreate({
+          workingDir,
+          cols,
+          rows,
+        });
+        ptySessionRef.current = result.sessionId;
+        onPtyCreated(tabId, result.sessionId);
+      } catch (err) {
+        term.writeln(
+          `\x1b[31mPTY error: ${err instanceof Error ? err.message : String(err)}\x1b[0m`,
+        );
+      }
+    },
+    [termRef, onPtyCreated],
+  );
+
+  // Listen for PTY output events
+  useEffect(() => {
+    if (!isTauriRuntime() || !termRef.current) {return;}
+
+    const term = termRef.current;
+
+    const setup = async () => {
+      const unlistenOutput = await listen<PtyOutputEventIPC>(
+        "pty-output",
+        (payload) => {
+          if (
+            ptySessionRef.current &&
+            payload.sessionId === ptySessionRef.current
+          ) {
+            const bytes = base64ToBytes(payload.data);
+            const decoder = new TextDecoder();
+            term.write(decoder.decode(bytes));
+          }
+        },
+      );
+
+      const unlistenExit = await listen<PtyExitEventIPC>(
+        "pty-exit",
+        (payload) => {
+          if (
+            ptySessionRef.current &&
+            payload.sessionId === ptySessionRef.current
+          ) {
+            term.writeln(
+              `\x1b[90m[Process exited with code ${payload.exitCode}]\x1b[0m`,
+            );
+            ptySessionRef.current = null;
+            writePrompt(term);
+          }
+        },
+      );
+
+      unlistenRef.current = [unlistenOutput, unlistenExit];
+    };
+
+    setup();
+
+    return () => {
+      unlistenRef.current.forEach((fn) => fn());
+      unlistenRef.current = [];
+    };
+  }, [termRef]);
+
+  // When active tab changes, connect PTY or create new one
+  useEffect(() => {
+    if (!isTauriRuntime()) {return;}
+    if (!activeTab) {return;}
+
+    if (activeTab.ptySessionId) {
+      // Reconnect to existing session
+      ptySessionRef.current = activeTab.ptySessionId;
+    } else {
+      // Create new PTY session
+      ptySessionRef.current = null;
+      createPty(activeTab.id);
+    }
+
+    return () => {
+      // Don't kill PTY on tab switch — just disconnect listener
+      ptySessionRef.current = null;
+    };
+  }, [activeTab, createPty]);
+
+  // Send data to PTY
+  const sendToPty = useCallback(
+    (data: string) => {
+      if (!ptySessionRef.current) {return;}
+      const encoder = new TextEncoder();
+      const bytes = encoder.encode(data);
+      const b64 = bytesToBase64(bytes);
+      ptyWrite(ptySessionRef.current, b64).catch(() => {
+        /* ignore write errors */
+      });
+    },
+    [],
+  );
+
+  // Resize PTY
+  const resizePty = useCallback(
+    (cols: number, rows: number) => {
+      if (!ptySessionRef.current) {return;}
+      ptyResize(ptySessionRef.current, cols, rows).catch(() => {
+        /* ignore */
+      });
+    },
+    [],
+  );
+
+  // Kill PTY
+  const killPty = useCallback(async (sessionId: string) => {
+    await ptyKill(sessionId).catch(() => {
+      /* ignore */
+    });
+  }, []);
+
+  return { sendToPty, resizePty, killPty };
+}
+
+// ── Main TerminalPanel Component ─────────────────────────────
+
 export function TerminalPanel() {
   const termContainerRef = useRef<HTMLDivElement>(null);
-  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-  const termRef = useRef<import("@xterm/xterm").Terminal | null>(null);
+   
+  const termRef = useRef<XtermTerminal | null>(null);
   // eslint-disable-next-line @typescript-eslint/consistent-type-imports
   const fitAddonRef = useRef<import("@xterm/addon-fit").FitAddon | null>(null);
   const [tabs, setTabs] = useState<TerminalTab[]>([
@@ -140,6 +292,28 @@ export function TerminalPanel() {
   ]);
   const [activeTabId, setActiveTabId] = useState("tab-1");
 
+  const activeTab = tabs.find((t) => t.id === activeTabId);
+
+  const handlePtyCreated = useCallback(
+    (tabId: string, ptySessionId: string) => {
+      setTabs((prev) =>
+        prev.map((t) =>
+          t.id === tabId ? { ...t, ptySessionId } : t,
+        ),
+      );
+    },
+    [],
+  );
+
+  const { sendToPty, resizePty, killPty } = usePtyTerminal(
+    termContainerRef,
+    termRef,
+    fitAddonRef,
+    activeTab,
+    handlePtyCreated,
+  );
+
+  // Initialize xterm.js terminal
   useEffect(() => {
     let cancelled = false;
     let observer: ResizeObserver | undefined;
@@ -149,10 +323,11 @@ export function TerminalPanel() {
       const { XTerm, FitAddon, WebLinksAddon } = await loadXterm();
       if (cancelled || !termContainerRef.current) {return;}
 
-      // Read theme colors from CSS variables to follow app theme
+      // Read theme colors from CSS variables
       const cs = getComputedStyle(document.documentElement);
-      const themeBg = cs.getPropertyValue("--background").trim() || "#1a1b26";
-      const isDark = themeBg.includes("0.1"); // oklch lightness < 0.2
+      const themeBg =
+        cs.getPropertyValue("--background").trim() || "#1a1b26";
+      const isDark = themeBg.includes("0.1");
 
       const term = new XTerm.Terminal({
         theme: {
@@ -195,21 +370,37 @@ export function TerminalPanel() {
       fit.fit();
 
       if (isTauriRuntime()) {
+        term.writeln(
+          "\x1b[1;34m  DevPilot Terminal\x1b[0m \x1b[90m(PTY mode)\x1b[0m",
+        );
         const workDir = useUIStore.getState().workingDir;
-        term.writeln("\x1b[1;34m  DevPilot Terminal\x1b[0m \x1b[90m(sandbox mode)\x1b[0m");
         if (workDir) {
           term.writeln(`\x1b[90m  cwd: ${workDir}\x1b[0m`);
         }
-        term.writeln("\x1b[90m  Commands run via sandbox_execute IPC.\x1b[0m");
+        term.writeln(
+          "\x1b[90m  Interactive shell via embedded PTY.\x1b[0m",
+        );
       } else {
-        term.writeln("\x1b[1;34m  DevPilot Terminal\x1b[0m \x1b[90m(v0.4.0 — demo mode)\x1b[0m");
-        term.writeln("\x1b[90m  Type 'help' for available commands.\x1b[0m");
+        term.writeln(
+          "\x1b[1;34m  DevPilot Terminal\x1b[0m \x1b[90m(v0.4.0 — demo mode)\x1b[0m",
+        );
+        term.writeln(
+          "\x1b[90m  Type 'help' for available commands.\x1b[0m",
+        );
       }
       term.writeln("");
       writePrompt(term);
 
+      // Input handling
       let currentLine = "";
       term.onData((data) => {
+        if (isTauriRuntime()) {
+          // In PTY mode, forward ALL data directly to the PTY
+          sendToPty(data);
+          return;
+        }
+
+        // Demo mode: line-by-line command processing
         if (data === "\r") {
           term.writeln("");
           const cmd = currentLine.trim();
@@ -218,7 +409,7 @@ export function TerminalPanel() {
             term.clear();
             writePrompt(term);
           } else if (cmd) {
-            processCommand(term, cmd);
+            processDemoCommand(term, cmd);
           } else {
             writePrompt(term);
           }
@@ -238,7 +429,9 @@ export function TerminalPanel() {
           );
           if (matches.length === 1) {
             const prefix = currentLine.split(" ").slice(0, -1).join(" ");
-            currentLine = prefix ? `${prefix} ${matches[0]}` : matches[0]!;
+            currentLine = prefix
+              ? `${prefix} ${matches[0]}`
+              : matches[0]!;
             term.write(matches[0]!.slice(partial.length));
           } else if (matches.length > 1) {
             term.writeln("");
@@ -255,8 +448,16 @@ export function TerminalPanel() {
       termRef.current = term;
       fitAddonRef.current = fit;
 
+      // Auto-resize + forward to PTY
       observer = new ResizeObserver(() => {
-        try { fit.fit(); } catch { /* ignore */ }
+        try {
+          fit.fit();
+          if (isTauriRuntime()) {
+            resizePty(term.cols, term.rows);
+          }
+        } catch {
+          /* ignore */
+        }
       });
       observer.observe(termContainerRef.current);
     })();
@@ -267,6 +468,7 @@ export function TerminalPanel() {
       termRef.current?.dispose();
       termRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleFocus = useCallback(() => {
@@ -279,9 +481,14 @@ export function TerminalPanel() {
     setActiveTabId(id);
   };
 
-  const closeTab = (id: string) => {
+  const closeTab = (tab: TerminalTab) => {
+    // Kill PTY session if it exists
+    if (tab.ptySessionId) {
+      killPty(tab.ptySessionId);
+    }
+
     setTabs((prev) => {
-      const next = prev.filter((t) => t.id !== id);
+      const next = prev.filter((t) => t.id !== tab.id);
       if (next.length === 0) {
         const newId = `tab-${Date.now()}`;
         return [{ id: newId, title: "bash", cwd: "~" }];
@@ -289,8 +496,8 @@ export function TerminalPanel() {
       return next;
     });
     setActiveTabId((cur) => {
-      if (cur === id) {
-        const remaining = tabs.filter((t) => t.id !== id);
+      if (cur === tab.id) {
+        const remaining = tabs.filter((t) => t.id !== tab.id);
         return remaining[0]?.id ?? `tab-${Date.now()}`;
       }
       return cur;
@@ -300,7 +507,9 @@ export function TerminalPanel() {
   const clearTerminal = () => {
     if (termRef.current) {
       termRef.current.clear();
-      writePrompt(termRef.current);
+      if (!isTauriRuntime()) {
+        writePrompt(termRef.current);
+      }
     }
   };
 
@@ -320,16 +529,25 @@ export function TerminalPanel() {
                 : "text-muted-foreground hover:text-foreground hover:bg-accent",
             )}
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-green-500/70" />
+            <span
+              className={cn(
+                "h-1.5 w-1.5 rounded-full",
+                tab.ptySessionId
+                  ? "bg-green-500/70"
+                  : "bg-yellow-500/70",
+              )}
+            />
             <span>{tab.title}</span>
-            <span className="text-[10px] text-muted-foreground/60">{tab.cwd}</span>
+            <span className="text-[10px] text-muted-foreground/60">
+              {tab.cwd}
+            </span>
             {tabs.length > 1 && (
               <X
                 size={10}
                 className="ml-0.5 text-muted-foreground/50 hover:text-foreground"
                 onClick={(e) => {
                   e.stopPropagation();
-                  closeTab(tab.id);
+                  closeTab(tab);
                 }}
               />
             )}

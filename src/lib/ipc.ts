@@ -660,3 +660,58 @@ export interface MemorySearchResultIPC {
   source: string;
   snippet: string;
 }
+
+// ── PTY (Embedded Terminal) Types ────────────────────────────
+
+export interface PtyCreateRequestIPC {
+  workingDir?: string;
+  shell?: string;
+  cols?: number;
+  rows?: number;
+}
+
+export interface PtyCreateResultIPC {
+  sessionId: string;
+  shell: string;
+}
+
+export interface PtyOutputEventIPC {
+  sessionId: string;
+  data: string; // base64-encoded raw bytes
+}
+
+export interface PtyExitEventIPC {
+  sessionId: string;
+  exitCode: number;
+}
+
+// ── PTY IPC Commands ──────────────────────────────────────────
+
+export async function ptyCreate(
+  req: PtyCreateRequestIPC,
+): Promise<PtyCreateResultIPC> {
+  return invoke<PtyCreateResultIPC>("pty_create", { req });
+}
+
+export async function ptyWrite(
+  sessionId: string,
+  data: string,
+): Promise<void> {
+  return invoke("pty_write", { sessionId, data });
+}
+
+export async function ptyResize(
+  sessionId: string,
+  cols: number,
+  rows: number,
+): Promise<void> {
+  return invoke("pty_resize", { sessionId, cols, rows });
+}
+
+export async function ptyKill(sessionId: string): Promise<void> {
+  return invoke("pty_kill", { sessionId });
+}
+
+export async function ptyList(): Promise<string[]> {
+  return invoke<string[]>("pty_list");
+}

@@ -2,6 +2,7 @@ import { useThemeCycle, resolveTheme } from "../../hooks/useTheme";
 import { useI18n } from "../../i18n";
 import { useUIStore } from "../../stores/uiStore";
 import { useProviderStore } from "../../stores/providerStore";
+import { useChatStore } from "../../stores/chatStore";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Sun, Moon, Monitor, PanelLeftClose, PanelLeft, ChevronDown, Settings, FolderOpen, Terminal, Eye, SlidersHorizontal, FolderCog, Columns2 } from "lucide-react";
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
@@ -370,6 +371,8 @@ function WorkingDirSelector() {
   const { t } = useI18n();
   const workingDir = useUIStore((s) => s.workingDir);
   const setWorkingDir = useUIStore((s) => s.setWorkingDir);
+  const activeSessionId = useChatStore((s) => s.activeSessionId);
+  const setSessionWorkingDir = useChatStore((s) => s.setSessionWorkingDir);
 
   const handlePickFolder = useCallback(async () => {
     if (!isTauriRuntime()) {
@@ -377,6 +380,9 @@ function WorkingDirSelector() {
       const path = window.prompt("Enter working directory path:", workingDir || "~"); // eslint-disable-line no-alert
       if (path) {
         setWorkingDir(path.trim());
+        if (activeSessionId) {
+          setSessionWorkingDir(activeSessionId, path.trim());
+        }
       }
       return;
     }
@@ -386,11 +392,14 @@ function WorkingDirSelector() {
       const selected = await open({ directory: true, multiple: false, title: "Select Working Directory" });
       if (selected && typeof selected === "string") {
         setWorkingDir(selected);
+        if (activeSessionId) {
+          setSessionWorkingDir(activeSessionId, selected);
+        }
       }
     } catch {
       // User cancelled or dialog not available — ignore
     }
-  }, [workingDir, setWorkingDir]);
+  }, [workingDir, setWorkingDir, activeSessionId, setSessionWorkingDir]);
 
   // Shorten display path
   const displayDir = workingDir

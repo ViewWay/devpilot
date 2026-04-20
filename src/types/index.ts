@@ -25,6 +25,7 @@ export interface Session {
   createdAt: string;
   updatedAt: string;
   archived?: boolean;
+  workingDir?: string;
   messages: Message[];
 }
 

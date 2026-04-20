@@ -11,6 +11,7 @@ pub mod llm;
 pub mod mcp;
 pub mod media;
 pub mod memory;
+pub mod pty;
 pub mod sandbox;
 pub mod scheduler;
 pub mod search;

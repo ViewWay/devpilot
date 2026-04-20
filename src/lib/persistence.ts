@@ -72,6 +72,18 @@ export async function persistArchiveSession(
   }
 }
 
+export async function persistSetSessionWorkingDir(
+  sessionId: string,
+  workingDir: string,
+): Promise<void> {
+  if (!isTauriRuntime()) { return; }
+  try {
+    await invoke("set_session_working_dir", { id: sessionId, workingDir });
+  } catch (err) {
+    reportError(err, "persistence.set_session_working_dir");
+  }
+}
+
 // ── Message persistence ──────────────────────────────────────
 
 export async function persistAddMessage(
@@ -118,6 +130,7 @@ export interface HydratedSession {
   model: string;
   provider: string;
   archived: boolean;
+  workingDir?: string;
   createdAt: string;
   updatedAt: string;
   messages: HydratedMessage[];
@@ -167,6 +180,7 @@ export async function hydrateSessions(): Promise<HydratedSession[] | null> {
         model: session.model,
         provider: session.provider,
         archived,
+        workingDir: session.workingDir ?? undefined,
         createdAt: session.createdAt,
         updatedAt: session.updatedAt,
         messages: messages.map((m) => ({

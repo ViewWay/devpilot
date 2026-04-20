@@ -9,6 +9,7 @@ use devpilot_tools::{ToolExecutor, ToolRegistry};
 use tokio::sync::Mutex as AsyncMutex;
 
 use crate::commands::media::MediaState;
+use crate::commands::pty::PtyManager;
 use crate::commands::scheduler::SchedulerState;
 use devpilot_scheduler::Scheduler;
 
@@ -137,6 +138,12 @@ pub fn run() {
             commands::skills::uninstall_skill,
             commands::skills::toggle_skill,
             commands::skills::search_skills,
+            // PTY
+            commands::pty::pty_create,
+            commands::pty::pty_write,
+            commands::pty::pty_resize,
+            commands::pty::pty_kill,
+            commands::pty::pty_list,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -161,6 +168,8 @@ pub struct AppState {
     pub media_state: MediaState,
     /// MCP manager — Model Context Protocol server connections.
     pub mcp_manager: Arc<AsyncMutex<Option<McpManager>>>,
+    /// PTY manager — embedded terminal sessions.
+    pub pty_manager: Arc<Mutex<PtyManager>>,
 }
 
 impl AppState {
@@ -204,6 +213,7 @@ impl AppState {
                 manager: MediaManager::new(),
             },
             mcp_manager: Arc::new(AsyncMutex::new(None)),
+            pty_manager: Arc::new(Mutex::new(PtyManager::new())),
         })
     }
 }
