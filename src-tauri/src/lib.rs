@@ -81,6 +81,7 @@ pub fn run() {
             // Search
             commands::search::search_files,
             commands::search::search_messages,
+            commands::search::list_directory,
             // Scheduler
             commands::scheduler::scheduler_create_task,
             commands::scheduler::scheduler_list_tasks,

@@ -1,8 +1,8 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import {
   ChevronRight, ChevronDown, File, Folder, FolderOpen,
   FileText, FileCode, FileJson, FileImage, FileCog,
-  Search, RefreshCw,
+  Search, RefreshCw, Loader2, Home,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useI18n } from "../../i18n";
@@ -14,54 +14,19 @@ export interface FileNode {
   path: string;
   type: "file" | "directory";
   children?: FileNode[];
+  /** Lazy-loaded: true if children have been fetched. */
+  loaded?: boolean;
   gitStatus?: "modified" | "added" | "deleted" | "untracked";
 }
 
-/** Demo file tree — in production this comes from the backend */
-const DEMO_TREE: FileNode[] = [
-  {
-    name: "src",
-    path: "src",
-    type: "directory",
-    children: [
-      {
-        name: "components",
-        path: "src/components",
-        type: "directory",
-        children: [
-          { name: "chat", path: "src/components/chat", type: "directory", children: [
-            { name: "ChatPanel.tsx", path: "src/components/chat/ChatPanel.tsx", type: "file", gitStatus: "modified" },
-            { name: "MessageList.tsx", path: "src/components/chat/MessageList.tsx", type: "file" },
-            { name: "MessageInput.tsx", path: "src/components/chat/MessageInput.tsx", type: "file" },
-            { name: "CodeBlock.tsx", path: "src/components/chat/CodeBlock.tsx", type: "file" },
-          ]},
-          { name: "layout", path: "src/components/layout", type: "directory", children: [
-            { name: "AppShell.tsx", path: "src/components/layout/AppShell.tsx", type: "file", gitStatus: "modified" },
-            { name: "Sidebar.tsx", path: "src/components/layout/Sidebar.tsx", type: "file" },
-            { name: "TopBar.tsx", path: "src/components/layout/TopBar.tsx", type: "file", gitStatus: "modified" },
-            { name: "SplitView.tsx", path: "src/components/layout/SplitView.tsx", type: "file", gitStatus: "added" },
-          ]},
-          { name: "panels", path: "src/components/panels", type: "directory", children: [
-            { name: "FilesPanel.tsx", path: "src/components/panels/FilesPanel.tsx", type: "file", gitStatus: "added" },
-            { name: "TerminalPanel.tsx", path: "src/components/panels/TerminalPanel.tsx", type: "file", gitStatus: "added" },
-            { name: "PreviewPanel.tsx", path: "src/components/panels/PreviewPanel.tsx", type: "file", gitStatus: "added" },
-          ]},
-        ],
-      },
-      { name: "stores", path: "src/stores", type: "directory", children: [
-        { name: "chatStore.ts", path: "src/stores/chatStore.ts", type: "file" },
-        { name: "uiStore.ts", path: "src/stores/uiStore.ts", type: "file", gitStatus: "modified" },
-      ]},
-      { name: "App.tsx", path: "src/App.tsx", type: "file", gitStatus: "modified" },
-      { name: "main.tsx", path: "src/main.tsx", type: "file" },
-    ],
-  },
-  { name: "package.json", path: "package.json", type: "file" },
-  { name: "tsconfig.json", path: "tsconfig.json", type: "file" },
-  { name: "vite.config.ts", path: "vite.config.ts", type: "file" },
-  { name: "AGENTS.md", path: "AGENTS.md", type: "file" },
-  { name: "README.md", path: "README.md", type: "file" },
-];
+/** Directory entry returned by the Rust `list_directory` command. */
+interface DirEntry {
+  name: string;
+  path: string;
+  entryType: "file" | "directory";
+  size: number;
+  modified: number | null;
+}
 
 function getFileIcon(name: string) {
   const ext = name.split(".").pop()?.toLowerCase();
@@ -76,55 +41,69 @@ function getFileIcon(name: string) {
     case "png":
     case "jpg":
     case "svg":
+    case "gif":
       return <FileImage size={13} className="text-purple-400" />;
     case "toml":
     case "yaml":
     case "yml":
       return <FileCog size={13} className="text-orange-400" />;
+    case "rs":
+      return <FileCode size={13} className="text-orange-500" />;
+    case "css":
+    case "scss":
+      return <FileCode size={13} className="text-pink-400" />;
+    case "html":
+      return <FileCode size={13} className="text-red-400" />;
     default:
       return <File size={13} className="text-muted-foreground" />;
   }
 }
 
-function getGitColor(status?: string) {
-  switch (status) {
-    case "modified":
-      return "text-yellow-400";
-    case "added":
-      return "text-green-400";
-    case "deleted":
-      return "text-red-400";
-    case "untracked":
-      return "text-muted-foreground";
-    default:
-      return "";
+/** Fetch directory entries from the backend. */
+async function fetchDirEntries(dirPath: string): Promise<FileNode[]> {
+  if (!isTauriRuntime()) {
+    return [];
   }
+  const entries = await invoke<DirEntry[]>("listDirectory", {
+    path: dirPath,
+    showHidden: false,
+  });
+  return entries.map((e) => ({
+    name: e.name,
+    path: e.path,
+    type: e.entryType,
+    children: e.entryType === "directory" ? [] : undefined,
+    loaded: e.entryType !== "directory",
+  }));
 }
 
 interface TreeNodeProps {
   node: FileNode;
   depth: number;
   defaultExpanded?: boolean;
+  onExpand: (node: FileNode) => Promise<void>;
+  onFileClick: (node: FileNode) => void;
 }
 
-function TreeNode({ node, depth, defaultExpanded = false }: TreeNodeProps) {
-  const [expanded, setExpanded] = useState(defaultExpanded || depth < 1);
+function TreeNode({ node, depth, defaultExpanded = false, onExpand, onFileClick }: TreeNodeProps) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const [loading, setLoading] = useState(false);
   const isDir = node.type === "directory";
-  const gitColor = getGitColor(node.gitStatus);
-  const setPreviewFile = useUIStore((s) => s.setPreviewFile);
-  const setRightPanel = useUIStore((s) => s.setRightPanel);
-  const workingDir = useUIStore((s) => s.workingDir);
 
-  const handleClick = () => {
+  const handleClick = async () => {
     if (isDir) {
-      setExpanded(!expanded);
+      const next = !expanded;
+      setExpanded(next);
+      if (next && !node.loaded) {
+        setLoading(true);
+        try {
+          await onExpand(node);
+        } finally {
+          setLoading(false);
+        }
+      }
     } else {
-      // Build absolute path if workingDir is set and path is relative
-      const fullPath = workingDir && !node.path.startsWith("/")
-        ? `${workingDir.replace(/\/+$/, "")}/${node.path}`
-        : node.path;
-      setPreviewFile(fullPath);
-      setRightPanel("preview");
+      onFileClick(node);
     }
   };
 
@@ -135,159 +114,171 @@ function TreeNode({ node, depth, defaultExpanded = false }: TreeNodeProps) {
         className={cn(
           "flex w-full items-center gap-1.5 rounded-sm px-1 py-[3px] text-[12px] transition-colors hover:bg-accent",
           depth === 0 && "font-medium",
-          !isDir && "cursor-pointer",
         )}
         style={{ paddingLeft: `${depth * 12 + 4}px` }}
       >
         {isDir ? (
-          expanded ? <ChevronDown size={12} className="shrink-0 text-muted-foreground" /> : <ChevronRight size={12} className="shrink-0 text-muted-foreground" />
+          loading ? (
+            <Loader2 size={12} className="shrink-0 animate-spin text-muted-foreground" />
+          ) : expanded ? (
+            <ChevronDown size={12} className="shrink-0 text-muted-foreground" />
+          ) : (
+            <ChevronRight size={12} className="shrink-0 text-muted-foreground" />
+          )
         ) : (
           <span className="w-3 shrink-0" />
         )}
         {isDir ? (
-          expanded ? <FolderOpen size={13} className="shrink-0 text-yellow-400" /> : <Folder size={13} className="shrink-0 text-yellow-400" />
+          expanded ? (
+            <FolderOpen size={13} className="shrink-0 text-yellow-400" />
+          ) : (
+            <Folder size={13} className="shrink-0 text-yellow-400" />
+          )
         ) : (
           getFileIcon(node.name)
         )}
-        <span className={cn("truncate text-foreground/90", gitColor)}>{node.name}</span>
-        {node.gitStatus && (
-          <span className={cn("ml-auto shrink-0 text-[9px] font-medium uppercase", gitColor)}>
-            {node.gitStatus === "modified" ? "M" : node.gitStatus === "added" ? "A" : node.gitStatus === "deleted" ? "D" : "?"}
-          </span>
-        )}
+        <span className="truncate text-foreground/90">{node.name}</span>
       </button>
       {isDir && expanded && node.children?.map((child) => (
-        <TreeNode key={child.path} node={child} depth={depth + 1} />
+        <TreeNode
+          key={child.path}
+          node={child}
+          depth={depth + 1}
+          onExpand={onExpand}
+          onFileClick={onFileClick}
+        />
       ))}
     </div>
   );
 }
 
-/** Parse `find` output into a tree structure. */
-function buildTreeFromFind(lines: string[], _rootPath: string): FileNode[] {
-  const root: FileNode[] = [];
-  const dirMap = new Map<string, FileNode>();
-
-  for (const line of lines) {
-    if (!line || line.startsWith(".")) {
-      continue;
-    }
-    const clean = line.startsWith("./") ? line.slice(2) : line;
-    if (!clean) {
-      continue;
-    }
-    const parts = clean.split("/");
-    const name = parts.pop()!;
-
-    // Ensure parent directories exist
-    let parentPath = "";
-    const parentParts = [...parts];
-    for (let i = 0; i < parentParts.length; i++) {
-      const dirName = parentParts[i]!;
-      const dirPath = parentParts.slice(0, i + 1).join("/");
-      const existingParent = dirMap.get(parentPath);
-      const children = existingParent ? existingParent.children! : root;
-
-      if (!dirMap.has(dirPath)) {
-        const dir: FileNode = { name: dirName, path: dirPath, type: "directory", children: [] };
-        dirMap.set(dirPath, dir);
-        children.push(dir);
-      }
-      parentPath = dirPath;
-    }
-
-    const file: FileNode = { name, path: clean, type: "file" };
-    const parent = dirMap.get(parentPath);
-    if (parent) {
-      parent.children!.push(file);
-    } else {
-      root.push(file);
-    }
-  }
-
-  // Sort: directories first, then alphabetical
-  const sortNodes = (nodes: FileNode[]) => {
-    nodes.sort((a, b) => {
-      if (a.type !== b.type) {
-        return a.type === "directory" ? -1 : 1;
-      }
-      return a.name.localeCompare(b.name);
-    });
-    for (const n of nodes) {
-      if (n.children) {
-        sortNodes(n.children);
-      }
-    }
-  };
-  sortNodes(root);
-
-  return root;
+/** Get the user's home directory as default. */
+function getHomeDir(): string {
+  // In Tauri (webview), we can't access process.env directly.
+  // The user should set workingDir in settings. Return "." as fallback.
+  return ".";
 }
 
 export function FileTree() {
   const [filter, setFilter] = useState("");
-  const [tree, setTree] = useState<FileNode[]>(DEMO_TREE);
+  const [tree, setTree] = useState<FileNode[]>([]);
   const [loading, setLoading] = useState(false);
+  const [rootPath] = useState("");
   const { t } = useI18n();
   const workingDir = useUIStore((s) => s.workingDir);
+  const setPreviewFile = useUIStore((s) => s.setPreviewFile);
+  const setRightPanel = useUIStore((s) => s.setRightPanel);
+  const inputRef = useRef<HTMLInputElement>(null);
 
+  // Resolve effective root path
+  const effectiveRoot = workingDir || rootPath || getHomeDir();
+
+  /** Load the root directory. */
   const fetchTree = useCallback(async () => {
-    if (!isTauriRuntime() || !workingDir) {
-      setTree(DEMO_TREE);
+    if (!isTauriRuntime()) {
       return;
     }
-
     setLoading(true);
     try {
-      const result = await invoke<{
-        stdout: string;
-        stderr: string;
-        exitCode: number | null;
-        denied: boolean;
-      }>("sandbox_execute", {
-        request: {
-          command: "find . -maxdepth 3 -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/target/*' -not -path '*/dist/*'",
-          workingDir,
-          policy: "permissive",
-        },
-      });
-
-      if (result.stdout) {
-        const lines = result.stdout.trim().split("\n").filter(Boolean);
-        setTree(buildTreeFromFind(lines, workingDir));
-      }
-    } catch {
-      // Fall back to demo tree
-      setTree(DEMO_TREE);
+      const children = await fetchDirEntries(effectiveRoot);
+      setTree(children);
+    } catch (err) {
+      console.error("Failed to load directory:", err);
+      setTree([]);
     } finally {
       setLoading(false);
     }
-  }, [workingDir]);
+  }, [effectiveRoot]);
 
+  /** Lazily expand a directory node. */
+  const handleExpand = useCallback(async (node: FileNode) => {
+    try {
+      const children = await fetchDirEntries(node.path);
+      // Update the tree by finding and replacing the node
+      setTree((prev) => {
+        const update = (nodes: FileNode[]): FileNode[] =>
+          nodes.map((n) => {
+            if (n.path === node.path) {
+              return { ...n, children, loaded: true };
+            }
+            if (n.children) {
+              return { ...n, children: update(n.children) };
+            }
+            return n;
+          });
+        return update(prev);
+      });
+    } catch (err) {
+      console.error("Failed to expand:", node.path, err);
+    }
+  }, []);
+
+  /** Handle file click: open in preview panel. */
+  const handleFileClick = useCallback(
+    (node: FileNode) => {
+      setPreviewFile(node.path);
+      setRightPanel("preview");
+    },
+    [setPreviewFile, setRightPanel],
+  );
+
+  // Load tree on mount and when working dir changes
   useEffect(() => {
     fetchTree();
   }, [fetchTree]);
 
+  // Filter tree
   const filteredTree = useMemo(() => {
-    if (!filter.trim()) {return tree;}
-
+    if (!filter.trim()) {
+      return tree;
+    }
     const lower = filter.toLowerCase();
     function matches(node: FileNode): boolean {
-      if (node.name.toLowerCase().includes(lower)) {return true;}
-      if (node.children) {return node.children.some(matches);}
+      if (node.name.toLowerCase().includes(lower)) {
+        return true;
+      }
+      if (node.children) {
+        return node.children.some(matches);
+      }
       return false;
     }
     return tree.filter(matches);
   }, [filter, tree]);
 
+  // Keyboard shortcut: focus filter with /
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
+        const active = document.activeElement;
+        if (active?.tagName === "INPUT" || active?.tagName === "TEXTAREA") {
+          return;
+        }
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
+
   return (
     <div className="flex h-full flex-col">
+      {/* Header with path breadcrumb */}
+      <div className="border-b border-border px-3 py-1.5">
+        <div className="flex items-center gap-1 text-[10px] text-muted-foreground truncate" title={effectiveRoot}>
+          <Home size={10} className="shrink-0" />
+          <span className="truncate">{effectiveRoot}</span>
+        </div>
+      </div>
+
+      {/* Filter bar */}
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <div className="flex h-6 flex-1 items-center gap-1.5 rounded-md border border-border bg-muted/50 px-2">
           <Search size={11} className="text-muted-foreground" />
           <input
+            ref={inputRef}
             type="text"
-            placeholder={t("filterFiles")}
+            placeholder={`${t("filterFiles") ?? "Filter files"} (/)`}
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             className="h-full flex-1 bg-transparent text-[11px] text-foreground outline-none placeholder:text-muted-foreground"
@@ -297,18 +288,37 @@ export function FileTree() {
           onClick={fetchTree}
           disabled={loading}
           className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
-          title={t("refresh")}
+          title={t("refresh") ?? "Refresh"}
         >
           <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
         </button>
       </div>
+
+      {/* File tree */}
       <div className="flex-1 overflow-y-auto py-1">
-        {filteredTree.map((node) => (
-          <TreeNode key={node.path} node={node} depth={0} defaultExpanded={!!filter} />
-        ))}
-        {filteredTree.length === 0 && (
+        {loading && tree.length === 0 ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 size={16} className="animate-spin text-muted-foreground" />
+          </div>
+        ) : tree.length === 0 ? (
           <div className="px-4 py-6 text-center text-[11px] text-muted-foreground">
-            {t("noMatchingFiles")}
+            {workingDir ? (t("noFiles") ?? "No files found") : (t("setWorkingDir") ?? "Set a working directory to browse files")}
+          </div>
+        ) : (
+          filteredTree.map((node) => (
+            <TreeNode
+              key={node.path}
+              node={node}
+              depth={0}
+              defaultExpanded={!!filter}
+              onExpand={handleExpand}
+              onFileClick={handleFileClick}
+            />
+          ))
+        )}
+        {filteredTree.length === 0 && tree.length > 0 && (
+          <div className="px-4 py-6 text-center text-[11px] text-muted-foreground">
+            {t("noMatchingFiles") ?? "No matching files"}
           </div>
         )}
       </div>

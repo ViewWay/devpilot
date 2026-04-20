@@ -453,6 +453,14 @@ const zh: Record<string, string> = {
   severityError: "错误",
   diagnosticSuggestion: "建议",
   diagnosticNoChecks: "暂无诊断检查。",
+
+  // --- Search ---
+  noResults: "未找到结果",
+  results: "条结果",
+
+  // --- File Tree ---
+  noFiles: "未找到文件",
+  setWorkingDir: "请设置工作目录以浏览文件",
 };
 
 export default zh;

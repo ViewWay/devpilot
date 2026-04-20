@@ -95,3 +95,89 @@ pub async fn search_messages(
     db.search_messages(&params)
         .map_err(|e| format!("Search failed: {e}"))
 }
+
+// ── Directory listing ───────────────────────────────────
+
+/// A single entry in a directory listing.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DirEntry {
+    /// File or directory name.
+    pub name: String,
+    /// Full path relative to root.
+    pub path: String,
+    /// Entry type: "file" or "directory".
+    pub entry_type: String,
+    /// File size in bytes (0 for directories).
+    pub size: u64,
+    /// Last modified timestamp (seconds since epoch).
+    pub modified: Option<u64>,
+}
+
+/// List the contents of a directory.
+///
+/// Returns direct children sorted: directories first, then files, both
+/// alphabetically. Respects `.gitignore` if present.
+#[tauri::command(rename_all = "camelCase")]
+pub async fn list_directory(
+    path: String,
+    show_hidden: Option<bool>,
+) -> Result<Vec<DirEntry>, String> {
+    use std::fs;
+    use std::time::UNIX_EPOCH;
+
+    let show_hidden = show_hidden.unwrap_or(false);
+    let root = std::path::Path::new(&path);
+
+    if !root.exists() {
+        return Err(format!("Path does not exist: {path}"));
+    }
+    if !root.is_dir() {
+        return Err(format!("Path is not a directory: {path}"));
+    }
+
+    let mut entries: Vec<DirEntry> = Vec::new();
+    let read_dir = fs::read_dir(root).map_err(|e| format!("Failed to read dir: {e}"))?;
+
+    for entry in read_dir {
+        let entry = entry.map_err(|e| format!("Dir entry error: {e}"))?;
+        let name = entry.file_name().to_string_lossy().to_string();
+
+        // Skip hidden files unless requested
+        if !show_hidden && name.starts_with('.') {
+            continue;
+        }
+
+        let metadata = entry
+            .metadata()
+            .map_err(|e| format!("Metadata error: {e}"))?;
+        let is_dir = metadata.is_dir();
+        let size = if is_dir { 0 } else { metadata.len() };
+        let modified = metadata
+            .modified()
+            .ok()
+            .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+            .map(|d| d.as_secs());
+
+        entries.push(DirEntry {
+            name,
+            path: entry.path().to_string_lossy().to_string(),
+            entry_type: if is_dir {
+                "directory".to_string()
+            } else {
+                "file".to_string()
+            },
+            size,
+            modified,
+        });
+    }
+
+    // Sort: directories first, then files; alphabetical within each group.
+    entries.sort_by(|a, b| {
+        b.entry_type
+            .cmp(&a.entry_type)
+            .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+    });
+
+    Ok(entries)
+}

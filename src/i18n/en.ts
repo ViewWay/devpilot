@@ -453,6 +453,14 @@ const en: Record<string, string> = {
   severityError: "Error",
   diagnosticSuggestion: "Suggestion",
   diagnosticNoChecks: "No diagnostic checks available.",
+
+  // --- Search ---
+  noResults: "No results found",
+  results: "results",
+
+  // --- File Tree ---
+  noFiles: "No files found",
+  setWorkingDir: "Set a working directory to browse files",
 };
 
 export default en;
