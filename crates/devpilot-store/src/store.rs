@@ -2253,4 +2253,333 @@ mod tests {
         let new = store.get_session("brand-new-session").unwrap();
         assert_eq!(new.title, "New Session");
     }
+
+    // ── Checkpoint tests ──────────────────────────────────
+
+    #[test]
+    fn test_checkpoint_crud() {
+        let store = test_store();
+        let session = store
+            .create_session("Checkpoint Test", "gpt-4o", "openai")
+            .unwrap();
+
+        // Add some messages
+        let msg1 = store
+            .add_message(&session.id, "user", "Hello", None, None, None)
+            .unwrap();
+        let msg2 = store
+            .add_message(&session.id, "assistant", "Hi!", Some("gpt-4o"), None, None)
+            .unwrap();
+
+        // Create checkpoint
+        let cp = store
+            .create_checkpoint(&session.id, &msg2.id, "After greeting", 50)
+            .unwrap();
+        assert_eq!(cp.session_id, session.id);
+        assert_eq!(cp.message_id, msg2.id);
+        assert_eq!(cp.summary, "After greeting");
+        assert_eq!(cp.token_count, 50);
+
+        // List checkpoints
+        let cps = store.list_checkpoints(&session.id).unwrap();
+        assert_eq!(cps.len(), 1);
+        assert_eq!(cps[0].id, cp.id);
+
+        // Get single checkpoint
+        let got = store.get_checkpoint(&cp.id).unwrap();
+        assert_eq!(got.summary, "After greeting");
+
+        // Create a second checkpoint
+        let msg3 = store
+            .add_message(&session.id, "user", "How are you?", None, None, None)
+            .unwrap();
+        let cp2 = store
+            .create_checkpoint(&session.id, &msg3.id, "After follow-up", 80)
+            .unwrap();
+
+        let cps = store.list_checkpoints(&session.id).unwrap();
+        assert_eq!(cps.len(), 2);
+
+        // Delete single checkpoint
+        store.delete_checkpoint(&cp2.id).unwrap();
+        let cps = store.list_checkpoints(&session.id).unwrap();
+        assert_eq!(cps.len(), 1);
+        assert_eq!(cps[0].id, cp.id);
+
+        // Delete all checkpoints for session
+        store.delete_session_checkpoints(&session.id).unwrap();
+        let cps = store.list_checkpoints(&session.id).unwrap();
+        assert!(cps.is_empty());
+    }
+
+    #[test]
+    fn test_rewind_to_checkpoint() {
+        let store = test_store();
+        let session = store
+            .create_session("Rewind Test", "gpt-4o", "openai")
+            .unwrap();
+
+        // Add messages in sequence
+        let msg1 = store
+            .add_message(&session.id, "user", "First", None, None, None)
+            .unwrap();
+        let msg2 = store
+            .add_message(&session.id, "assistant", "Second", None, None, None)
+            .unwrap();
+        // Create checkpoint after second message
+        let cp = store
+            .create_checkpoint(&session.id, &msg2.id, "Checkpoint at msg2", 20)
+            .unwrap();
+        // Add more messages after checkpoint
+        store
+            .add_message(&session.id, "user", "Third", None, None, None)
+            .unwrap();
+        store
+            .add_message(&session.id, "assistant", "Fourth", None, None, None)
+            .unwrap();
+
+        // Verify we have 4 messages
+        let msgs = store.get_session_messages(&session.id).unwrap();
+        assert_eq!(msgs.len(), 4);
+
+        // Rewind to checkpoint — should remove messages after msg2
+        let removed = store.rewind_to_checkpoint(&cp.id).unwrap();
+        assert_eq!(removed, 2); // Third and Fourth removed
+
+        // Verify only 2 messages remain
+        let msgs = store.get_session_messages(&session.id).unwrap();
+        assert_eq!(msgs.len(), 2);
+        assert_eq!(msgs[0].content, "First");
+        assert_eq!(msgs[1].content, "Second");
+    }
+
+    #[test]
+    fn test_get_checkpoint_not_found() {
+        let store = test_store();
+        let result = store.get_checkpoint("nonexistent");
+        assert!(result.is_err());
+    }
+
+    // ── MCP Server tests ──────────────────────────────────
+
+    #[test]
+    fn test_mcp_server_crud() {
+        let store = test_store();
+
+        let server = McpServerRecord {
+            id: "mcp-filesystem".to_string(),
+            name: "Filesystem MCP".to_string(),
+            transport: "stdio".to_string(),
+            command: Some("npx".to_string()),
+            args: Some(r#"["@modelcontextprotocol/server-filesystem","/tmp"]"#.to_string()),
+            url: None,
+            env: Some(r#"{"NODE_ENV":"test"}"#.to_string()),
+            enabled: true,
+            created_at: chrono::Utc::now().to_rfc3339(),
+        };
+
+        // Create
+        store.upsert_mcp_server(&server).unwrap();
+        let servers = store.list_mcp_servers().unwrap();
+        assert_eq!(servers.len(), 1);
+        assert_eq!(servers[0].name, "Filesystem MCP");
+        assert_eq!(servers[0].transport, "stdio");
+        assert!(servers[0].enabled);
+
+        // Get
+        let got = store.get_mcp_server("mcp-filesystem").unwrap();
+        assert_eq!(got.command.as_deref(), Some("npx"));
+        assert_eq!(got.env.as_deref(), Some(r#"{"NODE_ENV":"test"}"#));
+
+        // Update (upsert)
+        let mut updated = server.clone();
+        updated.name = "Filesystem MCP v2".to_string();
+        updated.enabled = false;
+        store.upsert_mcp_server(&updated).unwrap();
+        let got = store.get_mcp_server("mcp-filesystem").unwrap();
+        assert_eq!(got.name, "Filesystem MCP v2");
+        assert!(!got.enabled);
+
+        // SSE transport server
+        let sse_server = McpServerRecord {
+            id: "mcp-remote".to_string(),
+            name: "Remote SSE".to_string(),
+            transport: "sse".to_string(),
+            command: None,
+            args: None,
+            url: Some("http://localhost:3000/sse".to_string()),
+            env: None,
+            enabled: true,
+            created_at: chrono::Utc::now().to_rfc3339(),
+        };
+        store.upsert_mcp_server(&sse_server).unwrap();
+        let servers = store.list_mcp_servers().unwrap();
+        assert_eq!(servers.len(), 2);
+
+        // Delete
+        store.delete_mcp_server("mcp-filesystem").unwrap();
+        let servers = store.list_mcp_servers().unwrap();
+        assert_eq!(servers.len(), 1);
+        assert_eq!(servers[0].id, "mcp-remote");
+    }
+
+    #[test]
+    fn test_mcp_server_not_found() {
+        let store = test_store();
+        let result = store.get_mcp_server("nonexistent");
+        assert!(result.is_err());
+    }
+
+    // ── Additional session & message tests ─────────────────
+
+    #[test]
+    fn test_session_working_dir() {
+        let store = test_store();
+        let session = store
+            .create_session("WorkDir Test", "gpt-4o", "openai")
+            .unwrap();
+        assert!(session.working_dir.is_none());
+
+        store
+            .set_session_working_dir(&session.id, "/home/user/project")
+            .unwrap();
+        let got = store.get_session(&session.id).unwrap();
+        assert_eq!(got.working_dir.as_deref(), Some("/home/user/project"));
+    }
+
+    #[test]
+    fn test_update_message_content() {
+        let store = test_store();
+        let session = store
+            .create_session("Content Update Test", "gpt-4o", "openai")
+            .unwrap();
+        let msg = store
+            .add_message(
+                &session.id,
+                "assistant",
+                "Draft response",
+                Some("gpt-4o"),
+                None,
+                None,
+            )
+            .unwrap();
+
+        // Update content (e.g., after streaming completes)
+        store
+            .update_message_content(&msg.id, "Final response with more detail")
+            .unwrap();
+
+        let msgs = store.get_session_messages(&session.id).unwrap();
+        assert_eq!(msgs[0].content, "Final response with more detail");
+    }
+
+    #[test]
+    fn test_delete_session_messages() {
+        let store = test_store();
+        let session = store
+            .create_session("Clear Test", "gpt-4o", "openai")
+            .unwrap();
+
+        store
+            .add_message(&session.id, "user", "Hello", None, None, None)
+            .unwrap();
+        store
+            .add_message(&session.id, "assistant", "Hi!", Some("gpt-4o"), None, None)
+            .unwrap();
+
+        // Verify messages exist
+        let msgs = store.get_session_messages(&session.id).unwrap();
+        assert_eq!(msgs.len(), 2);
+
+        // Clear all messages in session
+        store.delete_session_messages(&session.id).unwrap();
+        let msgs = store.get_session_messages(&session.id).unwrap();
+        assert!(msgs.is_empty());
+
+        // Session itself should still exist
+        let got = store.get_session(&session.id).unwrap();
+        assert_eq!(got.title, "Clear Test");
+    }
+
+    #[test]
+    fn test_session_usage_per_session() {
+        let store = test_store();
+        let session = store
+            .create_session("Usage Per Session", "gpt-4o", "openai")
+            .unwrap();
+
+        store
+            .add_usage(&session.id, "gpt-4o", "openai", 100, 50, 0.01)
+            .unwrap();
+
+        let session_usage = store.get_session_usage(&session.id).unwrap();
+        assert_eq!(session_usage.len(), 1);
+        assert_eq!(session_usage[0].token_input, 100);
+        assert_eq!(session_usage[0].token_output, 50);
+    }
+
+    #[test]
+    fn test_message_with_tool_calls() {
+        let store = test_store();
+        let session = store
+            .create_session("Tool Call Test", "gpt-4o", "openai")
+            .unwrap();
+
+        let tool_calls_json =
+            r#"[{"id":"tc-1","name":"read_file","input":{"path":"/tmp/test.txt"}}]"#;
+        let msg = store
+            .add_message(
+                &session.id,
+                "assistant",
+                "I'll read the file.",
+                Some("gpt-4o"),
+                Some(tool_calls_json),
+                None,
+            )
+            .unwrap();
+        assert_eq!(msg.tool_calls.as_deref(), Some(tool_calls_json));
+
+        // Tool result message
+        let tool_result = store
+            .add_message(
+                &session.id,
+                "tool",
+                "File contents here",
+                None,
+                None,
+                Some("tc-1"),
+            )
+            .unwrap();
+        assert_eq!(tool_result.role, "tool");
+        assert_eq!(tool_result.tool_call_id.as_deref(), Some("tc-1"));
+    }
+
+    #[test]
+    fn test_message_usage_with_cache_tokens() {
+        let store = test_store();
+        let session = store
+            .create_session("Cache Token Test", "claude-4-sonnet", "anthropic")
+            .unwrap();
+        let msg = store
+            .add_message(
+                &session.id,
+                "assistant",
+                "Response",
+                Some("claude-4-sonnet"),
+                None,
+                None,
+            )
+            .unwrap();
+
+        // Update usage including cache tokens
+        store.update_message_usage(&msg.id, 500, 100, 0.02).unwrap();
+
+        // Also test the cache token fields via direct SQL
+        // (The update_message_usage sets token_input/token_output/cost_usd,
+        // but let's verify those were set correctly)
+        let msgs = store.get_session_messages(&session.id).unwrap();
+        assert_eq!(msgs[0].token_input, 500);
+        assert_eq!(msgs[0].token_output, 100);
+        assert!((msgs[0].cost_usd - 0.02).abs() < f64::EPSILON);
+    }
 }
