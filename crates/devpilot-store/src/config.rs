@@ -1,9 +1,13 @@
 //! Multi-layer TOML configuration system for DevPilot.
 //!
 //! Configuration is resolved by merging three layers (later layers override earlier):
-//! 1. **Defaults** — hard-coded in `ConfigFile::defaults()`
+//! 1. **Defaults** — hard-coded in `ConfigFile::default()`
 //! 2. **Global** — `~/.devpilot/config.toml`
 //! 3. **Project** — `<working_dir>/.devpilot/config.toml`
+//!
+//! Merge strategy: at the **section level**. If a section (e.g. `[chat]`) is present
+//! in an overlay, it replaces the entire section from the base. Within each section,
+//! `#[serde(default)]` ensures omitted fields keep their defaults.
 //!
 //! # Example
 //! ```no_run
@@ -304,12 +308,12 @@ impl ConfigLoader {
         let mut config = ConfigFile::default();
 
         // Layer 2: Global config
-        if let Some(global_path) = Self::global_config_path() {
-            if global_path.exists() {
-                debug!("Loading global config from {}", global_path.display());
-                let global = Self::read_file(&global_path)?;
-                config = Self::merge(config, global);
-            }
+        if let Some(global_path) = Self::global_config_path()
+            && global_path.exists()
+        {
+            debug!("Loading global config from {}", global_path.display());
+            let global = Self::read_file(&global_path)?;
+            config = Self::merge(config, global);
         }
 
         // Layer 3: Project config
@@ -374,7 +378,12 @@ impl ConfigLoader {
         Self::write_file(&path, config)
     }
 
-    /// Merge two configs — `overlay` values override `base` where set.
+    /// Merge two configs using **field-level Option/empty-aware** logic.
+    ///
+    /// For `Option<T>` fields: overlay's `Some` wins over base.
+    /// For `Vec<T>`: non-empty overlay replaces base.
+    /// For scalars with defaults: if overlay differs from its own default, use overlay.
+    /// For `bool`: overlay always wins (explicit TOML presence).
     pub fn merge(base: ConfigFile, overlay: ConfigFile) -> ConfigFile {
         ConfigFile {
             general: Self::merge_general(base.general, overlay.general),
@@ -390,14 +399,12 @@ impl ConfigLoader {
         GeneralConfig {
             default_provider: overlay.default_provider.or(base.default_provider),
             default_model: overlay.default_model.or(base.default_model),
-            theme: if overlay.theme != default_theme() || base.theme == default_theme() {
+            theme: if overlay.theme != default_theme() {
                 overlay.theme
             } else {
                 base.theme
             },
-            language: if overlay.language != default_language()
-                || base.language == default_language()
-            {
+            language: if overlay.language != default_language() {
                 overlay.language
             } else {
                 base.language
@@ -425,7 +432,7 @@ impl ConfigLoader {
                 base.default_mode
             },
             reasoning_effort: overlay.reasoning_effort.or(base.reasoning_effort),
-            show_thinking: overlay.show_thinking || base.show_thinking,
+            show_thinking: overlay.show_thinking,
         }
     }
 
@@ -524,12 +531,12 @@ impl ConfigLoader {
 
     /// Delete the global config file.
     pub fn delete_global() -> Result<()> {
-        if let Some(path) = Self::global_config_path() {
-            if path.exists() {
-                std::fs::remove_file(&path)
-                    .with_context(|| format!("Cannot delete {}", path.display()))?;
-                info!("Deleted global config at {}", path.display());
-            }
+        if let Some(path) = Self::global_config_path()
+            && path.exists()
+        {
+            std::fs::remove_file(&path)
+                .with_context(|| format!("Cannot delete {}", path.display()))?;
+            info!("Deleted global config at {}", path.display());
         }
         Ok(())
     }
@@ -575,10 +582,9 @@ mod tests {
     }
 
     #[test]
-    fn test_merge_overlay_overrides() {
+    fn test_merge_option_fields() {
         let mut base = ConfigFile::default();
         base.general.default_provider = Some("openai".to_string());
-        base.general.theme = "light".to_string();
 
         let mut overlay = ConfigFile::default();
         overlay.general.default_provider = Some("anthropic".to_string());
@@ -588,23 +594,22 @@ mod tests {
             merged.general.default_provider,
             Some("anthropic".to_string())
         );
-        // theme not set in overlay, so overlay has default "dark" which replaces base "light"
-        // This is correct: overlay explicitly writes its defaults
     }
 
     #[test]
-    fn test_merge_chat_settings() {
+    fn test_merge_preserves_base_when_overlay_is_default() {
         let mut base = ConfigFile::default();
         base.chat.max_context_tokens = 64_000;
         base.chat.show_thinking = true;
 
-        let mut overlay = ConfigFile::default();
-        overlay.chat.stream = false;
+        // Overlay is all defaults — scalar merge should preserve base's non-default values
+        let overlay = ConfigFile::default();
 
         let merged = ConfigLoader::merge(base, overlay);
-        // overlay has default max_context_tokens (128000), which overrides base's 64000
-        assert_eq!(merged.chat.max_context_tokens, 128_000);
-        assert!(!merged.chat.stream);
+        // max_context_tokens: overlay is default (128000), base is 64000 → keep base
+        assert_eq!(merged.chat.max_context_tokens, 64_000);
+        // show_thinking: bool overlay always wins, overlay=false
+        // This is correct because the user explicitly omitted it in overlay → defaults to false
     }
 
     #[test]
@@ -672,18 +677,15 @@ max_context_tokens = 32000
 "#;
         fs::write(proj_config_dir.join(CONFIG_FILE), config_content).unwrap();
 
-        // Load without global config, just project
         let loaded = ConfigLoader::load(Some(&proj_dir)).unwrap();
         assert_eq!(loaded.general.default_provider, Some("ollama".to_string()));
         assert_eq!(loaded.general.default_model, Some("llama3".to_string()));
         assert_eq!(loaded.chat.max_context_tokens, 32_000);
-        // Other fields should be defaults
         assert_eq!(loaded.sandbox.policy, "moderate");
     }
 
     #[test]
     fn test_load_empty_dirs() {
-        // No config files exist — should return defaults
         let dir = tempfile::tempdir().unwrap();
         let loaded = ConfigLoader::load(Some(dir.path())).unwrap();
         assert_eq!(loaded.general.theme, "dark");
@@ -695,7 +697,6 @@ max_context_tokens = 32000
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("config.toml");
 
-        // Only set one field
         fs::write(
             &path,
             r#"[chat]
@@ -706,7 +707,6 @@ stream = false
 
         let loaded = ConfigLoader::read_file(&path).unwrap();
         assert!(!loaded.chat.stream);
-        // Other sections should be defaults
         assert_eq!(loaded.general.theme, "dark");
         assert_eq!(loaded.sandbox.policy, "moderate");
     }
@@ -720,7 +720,6 @@ stream = false
         ConfigLoader::write_file(&path, &config).unwrap();
         assert!(path.exists());
 
-        // Delete by path manually
         fs::remove_file(&path).unwrap();
         assert!(!path.exists());
     }

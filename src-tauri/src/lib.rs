@@ -146,6 +146,15 @@ pub fn run() {
             commands::skills::toggle_skill,
             commands::skills::search_skills,
             commands::skills::list_project_skills,
+            // Config
+            commands::config::config_load,
+            commands::config::config_save_global,
+            commands::config::config_save_project,
+            commands::config::config_load_global,
+            commands::config::config_delete_global,
+            commands::config::config_delete_project,
+            commands::config::config_global_exists,
+            commands::config::config_project_exists,
             // PTY
             commands::pty::pty_create,
             commands::pty::pty_write,

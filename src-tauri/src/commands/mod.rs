@@ -6,6 +6,7 @@ use devpilot_store::{
 use tauri::State;
 
 pub mod bridge;
+pub mod config;
 pub mod data;
 pub mod llm;
 pub mod mcp;

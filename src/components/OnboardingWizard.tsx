@@ -51,7 +51,7 @@ function CheckIcon({ className }: { className?: string }) {
 
 function RocketIcon() {
   return (
-    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--color-accent)]">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--color-brand)]">
       <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
       <path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
       <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
@@ -80,7 +80,7 @@ function StepIndicator({ current }: { current: OnboardingStep }) {
           <div
             className={`h-2 rounded-full transition-all duration-300 ${
               idx <= currentIdx
-                ? "w-8 bg-[var(--color-accent)]"
+                ? "w-8 bg-[var(--color-brand)]"
                 : "w-2 bg-[var(--color-border)]"
             }`}
             aria-current={idx === currentIdx ? "step" : undefined}
@@ -173,7 +173,7 @@ function WelcomeStep({
               onClick={() => setLocale(lang.code)}
               className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
                 locale === lang.code
-                  ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
+                  ? "border-[var(--color-brand)] bg-[var(--color-brand)]/10 text-[var(--color-brand)]"
                   : "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]"
               }`}
             >
@@ -199,7 +199,7 @@ function WelcomeStep({
               onClick={() => setTheme(opt.value as "dark" | "light" | "system")}
               className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
                 theme === opt.value
-                  ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
+                  ? "border-[var(--color-brand)] bg-[var(--color-brand)]/10 text-[var(--color-brand)]"
                   : "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]"
               }`}
             >
@@ -299,7 +299,7 @@ function ProviderStep({ t }: { t: (key: string) => string }) {
             }}
             className={`rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
               selectedType === p.type
-                ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
+                ? "border-[var(--color-brand)] bg-[var(--color-brand)]/10 text-[var(--color-brand)]"
                 : "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]"
             }`}
           >
@@ -320,7 +320,7 @@ function ProviderStep({ t }: { t: (key: string) => string }) {
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
             placeholder={`${selected.name} API Key...`}
-            className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--color-accent)] focus:outline-none"
+            className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--color-brand)] focus:outline-none"
           />
         </div>
       )}
@@ -329,7 +329,7 @@ function ProviderStep({ t }: { t: (key: string) => string }) {
       <button
         onClick={handleTestAndSave}
         disabled={testing || (selectedType !== "ollama" && !apiKey.trim())}
-        className="w-full rounded-lg bg-[var(--color-accent)] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+        className="w-full rounded-lg bg-[var(--color-brand)] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
       >
         {testing ? t("onboardingProviderTesting") : t("onboardingProviderSave")}
       </button>
@@ -393,7 +393,7 @@ function PreferencesStep({
               onClick={() => updateOnboardingPreferences({ defaultMode: opt.value })}
               className={`flex-1 rounded-lg border px-3 py-3 text-left transition-colors ${
                 preferences.defaultMode === opt.value
-                  ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10"
+                  ? "border-[var(--color-brand)] bg-[var(--color-brand)]/10"
                   : "border-[var(--color-border)] hover:bg-[var(--color-surface-hover)]"
               }`}
             >
@@ -417,7 +417,7 @@ function PreferencesStep({
         <select
           value={preferences.preferredLanguage}
           onChange={(e) => updateOnboardingPreferences({ preferredLanguage: e.target.value })}
-          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-accent)] focus:outline-none"
+          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-sm text-[var(--color-text-primary)] focus:border-[var(--color-brand)] focus:outline-none"
         >
           <option value="english">English</option>
           <option value="chinese">中文</option>
@@ -434,7 +434,7 @@ function PreferencesStep({
           type="checkbox"
           checked={preferences.showThinking}
           onChange={(e) => updateOnboardingPreferences({ showThinking: e.target.checked })}
-          className="h-4 w-4 rounded border-[var(--color-border)] accent-[var(--color-accent)]"
+          className="h-4 w-4 rounded border-[var(--color-border)] accent-[var(--color-brand)]"
         />
       </label>
 
@@ -445,7 +445,7 @@ function PreferencesStep({
           type="checkbox"
           checked={preferences.autoCompact}
           onChange={(e) => updateOnboardingPreferences({ autoCompact: e.target.checked })}
-          className="h-4 w-4 rounded border-[var(--color-border)] accent-[var(--color-accent)]"
+          className="h-4 w-4 rounded border-[var(--color-border)] accent-[var(--color-brand)]"
         />
       </label>
 
@@ -498,7 +498,7 @@ function DoneStep({
 
       <button
         onClick={() => void completeOnboarding()}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-accent)] px-6 py-3 text-sm font-medium text-white transition-colors hover:opacity-90"
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-brand)] px-6 py-3 text-sm font-medium text-white transition-colors hover:opacity-90"
       >
         {t("onboardingDoneButton")}
         <ArrowRightIcon className="!w-4 !h-4" />
@@ -546,7 +546,7 @@ function NavigationButtons({
         <button
           onClick={nextOnboardingStep}
           disabled={!canContinue}
-          className="flex items-center gap-1 rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+          className="flex items-center gap-1 rounded-lg bg-[var(--color-brand)] px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
         >
           {t("onboardingContinue")}
           <ArrowRightIcon className="!w-4 !h-4" />
