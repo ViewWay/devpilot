@@ -242,17 +242,12 @@ impl SkillLoader {
     /// a skill-context string suitable for injection into the system prompt.
     ///
     /// Returns an empty string if no enabled skills are found.
-    pub async fn load_skill_context(
-        global_dir: PathBuf,
-        project_dir: Option<PathBuf>,
-    ) -> String {
+    pub async fn load_skill_context(global_dir: PathBuf, project_dir: Option<PathBuf>) -> String {
         let global_loader = SkillLoader::with_dir(global_dir);
         let all_skills = match project_dir {
-            Some(pdir) => {
-                Self::list_skills_with_project(global_loader.skills_dir.clone(), pdir)
-                    .await
-                    .unwrap_or_default()
-            }
+            Some(pdir) => Self::list_skills_with_project(global_loader.skills_dir.clone(), pdir)
+                .await
+                .unwrap_or_default(),
             None => global_loader.list_skills().await.unwrap_or_default(),
         };
 

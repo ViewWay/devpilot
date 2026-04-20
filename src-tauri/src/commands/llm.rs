@@ -159,7 +159,9 @@ pub async fn send_message_stream(
             .join(".devpilot")
             .join("skills");
         let project_dir = request.working_dir.as_ref().map(|wd| {
-            std::path::PathBuf::from(wd).join(".devpilot").join("skills")
+            std::path::PathBuf::from(wd)
+                .join(".devpilot")
+                .join("skills")
         });
         SkillLoader::load_skill_context(global_dir, project_dir).await
     };

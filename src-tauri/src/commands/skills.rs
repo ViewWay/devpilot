@@ -69,17 +69,14 @@ pub async fn search_skills(query: String) -> Result<Vec<SkillInfo>, String> {
 /// Project skills (located at `<workspace_path>/.devpilot/skills/`) override
 /// global skills (`~/.devpilot/skills/`) with the same name.
 #[tauri::command]
-pub async fn list_project_skills(
-    workspace_path: Option<String>,
-) -> Result<Vec<SkillInfo>, String> {
+pub async fn list_project_skills(workspace_path: Option<String>) -> Result<Vec<SkillInfo>, String> {
     let global_dir = dirs::home_dir()
         .expect("could not determine home directory")
         .join(".devpilot")
         .join("skills");
 
-    let project_dir = workspace_path.map(|p| {
-        std::path::PathBuf::from(p).join(".devpilot").join("skills")
-    });
+    let project_dir =
+        workspace_path.map(|p| std::path::PathBuf::from(p).join(".devpilot").join("skills"));
 
     match project_dir {
         Some(pdir) => SkillLoader::list_skills_with_project(global_dir, pdir)

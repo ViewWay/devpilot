@@ -3,9 +3,11 @@
 //! Provides:
 //! - `Store` — persistent SQLite connection with migrations
 //! - High-level CRUD operations for sessions, messages, settings, usage
+//! - `config` — Multi-layer TOML configuration system
 //! - Shared types for Tauri IPC serialization
 
 mod claude_import;
+pub mod config;
 mod crypto;
 mod error;
 mod store;
