@@ -888,3 +888,65 @@ New test files:
 | Lines removed  | -                | **-54**      |
 
 **QA:** `npx tsc --noEmit` clean (only pre-existing SettingsPage warnings), `npx vitest run` 145 pass
+
+---
+
+## Session R — 2026-04-20 (P9 UI 密度优化)
+
+**Goal:** 解决 "太拥挤" 问题，参考 CodePilot 的间距设计系统，全面优化 DevPilot UI 密度。
+
+### 设计参考: CodePilot 间距分析
+
+- NavRail: 52px icon sidebar, gap-2 items, px-2 padding
+- ChatListPanel: 280px width, p-3 section headers, gap-1 list items
+- TopBar: 48px height, px-4, gap-2, text-xs secondary labels
+- Chat: p-4 per message, gap-6 between messages, max-w-2xl (672px) — 故意收窄
+- 间距体系: 4/8/12/16/24px scale
+
+### P9-1: TopBar 减密度
+
+- 高度 h-11→h-12, 间距 gap-1.5→gap-2, 内边距 px-2→px-3
+- 移除 overflow-hidden, 允许自然呼吸
+- Model Selector: 移除 border, 改 text-foreground/80 ghost 风格
+- Mode Tabs: border→bg-muted/50 圆角胶囊背景, px-2.5→px-3
+- 全部分割线 bg-border→bg-border/40 半透明
+
+### P9-2: Sidebar 毛玻璃
+
+- 背景 bg-sidebar→bg-sidebar/80 + backdrop-blur-sm 毛玻璃效果
+- 搜索框 border border-input→bg-muted/50 无边框更干净
+- 会话列表项 gap-2→gap-2.5, px-2→px-2.5, py-1.5→py-2
+- 底部工具栏 border→border/40
+
+### P9-3: MessageList 间距
+
+- 消息间距 space-y-6→space-y-8, 容器 py-6→py-8, px-4→px-6
+- 聊天宽度 max-w-4xl→max-w-3xl (2xl:max-w-4xl) — 收窄提升可读性
+- Assistant/Tool 消息 gap-2.5→gap-3
+- Suggestion cards p-3→p-4, border→border/40
+- Tool 消息边框 border→border/40, bg-muted/50→bg-muted/30 更淡
+
+### P9-4: MessageInput 磨砂浮层
+
+- bg-background→bg-background/80 + backdrop-blur-md
+- border-t border→border/40
+- max-width 跟随 MessageList: max-w-3xl (2xl:max-w-4xl)
+
+### P9-5: 全局边框柔化
+
+- ChatPanel: loading/error/approval/systemPrompt 区域 border→border/40
+- Checkpoint 按钮 border→border/40
+- 视觉效果: 分割线若隐若现, 减少视觉噪音
+
+### Stats
+
+| Metric          | Before (P8) | After (P9)  |
+| --------------- | ----------- | ----------- |
+| TopBar height   | h-11 (44px) | h-12 (48px) |
+| TopBar gap      | gap-1.5     | gap-2       |
+| Message spacing | space-y-6   | space-y-8   |
+| Chat max-width  | max-w-4xl   | max-w-3xl   |
+| Frontend tests  | 145         | **146**     |
+| Files changed   | —           | **7 files** |
+
+**QA:** `npx tsc --noEmit` clean, `npx vitest run` 146 pass

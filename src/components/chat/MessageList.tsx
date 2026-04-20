@@ -48,8 +48,8 @@ export function MessageList({ sessionId }: { sessionId?: string } = {}) {
 
   return (
     <div className="flex-1 overflow-y-auto" role="log" aria-live="polite" aria-label={t("a11y.messageLog")}>
-      <div className="mx-auto w-full max-w-4xl px-4 py-6 2xl:max-w-5xl">
-        <div className="space-y-6">
+      <div className="mx-auto w-full max-w-3xl px-6 py-8 2xl:max-w-4xl">
+        <div className="space-y-8">
           {session.messages.map((msg) => (
             <MessageBubble key={msg.id} message={msg} isLastAssistant={msg.id === lastAssistantId} />
           ))}
@@ -88,7 +88,7 @@ function SuggestionCard({ icon, title, description }: { icon: React.ReactNode; t
   return (
     <button
       onClick={handleClick}
-      className="flex flex-col items-start gap-2 rounded-lg border border-border bg-card p-3 text-left transition-colors hover:bg-accent hover:border-accent"
+      className="flex flex-col items-start gap-2 rounded-lg border border-border/40 bg-card p-4 text-left transition-colors hover:bg-accent hover:border-accent"
     >
       <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">{icon}</div>
       <div>
@@ -143,7 +143,7 @@ function MessageBubble({ message, isLastAssistant }: { message: Message; isLastA
   if (isUser) {
     return (
       <div className="group flex justify-end" role="article" aria-label={t("a11y.userMessage")}>
-        <div className="max-w-[75%] rounded-2xl rounded-br-sm bg-user-bubble px-4 py-2.5 leading-relaxed text-user-bubble-foreground" style={{ fontSize }}>
+        <div className="max-w-[75%] rounded-2xl rounded-br-sm bg-user-bubble px-4 py-3 leading-relaxed text-user-bubble-foreground" style={{ fontSize }}>
           {message.content}
           <div className="flex items-center justify-between mt-1">
             <div className="text-[10px] text-user-bubble-foreground/60">{message.timestamp}</div>
@@ -156,13 +156,13 @@ function MessageBubble({ message, isLastAssistant }: { message: Message; isLastA
 
   if (isTool) {
     return (
-      <div className="flex items-start gap-2.5" role="article" aria-label={t("a11y.toolMessage")}>
+      <div className="flex items-start gap-3" role="article" aria-label={t("a11y.toolMessage")}>
         <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted">
           <Wrench size={12} className="text-muted-foreground" />
         </div>
         <div className="min-w-0 flex-1">
           {message.content && (
-            <div className="rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap">
+            <div className="rounded-lg border border-border/40 bg-muted/30 px-3 py-2 text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap">
               {message.content}
             </div>
           )}
@@ -173,7 +173,7 @@ function MessageBubble({ message, isLastAssistant }: { message: Message; isLastA
   }
 
   return (
-    <div className="group flex items-start gap-2.5" role="article" aria-label={t("a11y.assistantMessage")}>
+    <div className="group flex items-start gap-3" role="article" aria-label={t("a11y.assistantMessage")}>
       <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary">
         <Bot size={12} className="text-primary-foreground" />
       </div>
@@ -202,7 +202,7 @@ function MessageBubble({ message, isLastAssistant }: { message: Message; isLastA
               },
               table({ children }) {
                 return (
-                  <div className="my-2 overflow-x-auto rounded-lg border border-border">
+                  <div className="my-2 overflow-x-auto rounded-lg border border-border/40">
                     <table className="w-full text-xs border-collapse">{children}</table>
                   </div>
                 );

@@ -273,8 +273,8 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
   );
 
   return (
-    <div className="shrink-0 border-t border-border bg-background px-4 pb-4 pt-3">
-      <div className="mx-auto w-full max-w-4xl relative 2xl:max-w-5xl">
+    <div className="shrink-0 border-t border-border/40 bg-background/80 backdrop-blur-md px-4 pb-4 pt-3">
+      <div className="mx-auto w-full max-w-3xl relative 2xl:max-w-4xl">
         {/* Screen reader live region for announcements */}
         <div className="sr-only" aria-live="polite" aria-atomic="true">{announceText}</div>
 

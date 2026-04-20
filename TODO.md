@@ -4,7 +4,7 @@
 
 - **版本**: 0.4.0 (开发中)
 - **后端**: 12 Rust crates, 17,200+ 行, 293 tests, 全部通过
-- **前端**: 70+ TS/TSX 文件, ~15,400 行, 145 tests (11 files)
+- **前端**: 70+ TS/TSX 文件, ~15,400 行, 146 tests (11 files)
 - **IPC**: 86 个 Tauri 命令已注册 (40+ 个 #[tauri::command])
 - **编译**: cargo build OK, cargo clippy OK, tsc OK
 
@@ -101,6 +101,44 @@
 - [x] **P8-9** LLM 重试逻辑: 指数退避 transient error 重试 (Rust 后端)
 - [x] **P8-10** 更多中国 Provider: Kimi, MiniMax, VolcEngine (Doubao)
 - [x] **P8-11** Google Gemini 原生 API + 多模态图片附件支持
+
+---
+
+## Phase 9: UI 密度优化 — 6/6 完成 ✅
+
+### P9-A: TopBar 减密度 (Critical)
+
+- [x] **P9-1** TopBar: h-11→h-12, gap-1.5→gap-2, px-2→px-3, 移除 overflow-hidden
+- [x] Model Selector: 移除 border, 改 text-foreground/80 ghost 风格
+- [x] Mode Tabs: border→bg-muted/50 圆角背景, px-2.5→px-3
+- [x] 分割线: bg-border→bg-border/40 半透明
+- [x] 右侧按钮组: gap-0.5→gap-1, gap-1→gap-2
+
+### P9-B: Sidebar 毛玻璃 (High)
+
+- [x] **P9-2** Sidebar: bg-sidebar/80 + backdrop-blur-sm 毛玻璃效果
+- [x] 搜索框: border border-input→bg-muted/50 无边框
+- [x] 会话列表项: gap-2→gap-2.5, px-2→px-2.5, py-1.5→py-2 更宽松
+- [x] 底部工具栏 border→border/40
+
+### P9-C: MessageList 间距 (High)
+
+- [x] **P9-3** MessageList: space-y-6→space-y-8, py-6→py-8, px-4→px-6
+- [x] 聊天宽度: max-w-4xl→max-w-3xl (2xl:max-w-4xl) 收窄提升可读性
+- [x] Assistant/Tool 消息: gap-2.5→gap-3
+- [x] Suggestion cards: p-3→p-4, border→border/40
+- [x] Tool 消息边框: border→border/40, bg-muted/50→bg-muted/30
+
+### P9-D: MessageInput 磨砂 (Medium)
+
+- [x] **P9-4** MessageInput: bg-background→bg-background/80 + backdrop-blur-md 磨砂浮层
+- [x] border-t border→border/40
+- [x] 输入框宽度跟随 MessageList: max-w-3xl (2xl:max-w-4xl)
+
+### P9-E: 全局边框柔化 (Medium)
+
+- [x] **P9-5** 全局 border→border/40: TopBar分割线, Sidebar, ChatPanel, SystemPrompt, Checkpoint按钮, ApprovalQueue
+- [x] 视觉效果: 分割线若隐若现, 减少视觉噪音
 
 ---
 
@@ -224,3 +262,4 @@
 - 2026-04-20 Session O: P5+P6 开发 — devpilot-memory crate, persona UI, split view, sandbox renderer, keyboard shortcuts
 - 2026-04-20 Session P: P7 开发 — interaction modes, skills system, data export/import, accessibility, auto-update
 - 2026-04-20 Session Q: P8 UI 改进 + Provider 增强 — 布局自适应, Terminal 主题跟随, CSS 润色, 健康诊断, Gemini/Kimi/MiniMax/VolcEngine
+- 2026-04-20 Session R: P9 UI 密度优化 — CodePilot 风格间距, 毛玻璃效果, 柔和边框, 磨砂输入框

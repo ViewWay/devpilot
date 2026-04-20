@@ -136,7 +136,7 @@ export function TopBar() {
   }, []);
 
   return (
-    <header className="flex h-11 shrink-0 items-center gap-1.5 border-b border-border bg-background/80 px-2 backdrop-blur-sm overflow-hidden" role="toolbar" aria-label={t("a11y.topBarToolbar")}>
+    <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border/40 bg-background/80 px-3 backdrop-blur-sm" role="toolbar" aria-label={t("a11y.topBarToolbar")}>
       <button
         onClick={toggleSidebar}
         className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
@@ -150,7 +150,7 @@ export function TopBar() {
       <div className="relative" ref={dropdownRef}>
         <button
           onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
-          className="flex items-center gap-1.5 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-medium transition-colors hover:bg-accent"
+          className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium text-foreground/80 transition-colors hover:bg-accent"
           aria-label={t("a11y.selectModel")}
           aria-expanded={modelDropdownOpen}
           aria-haspopup="listbox"
@@ -200,16 +200,16 @@ export function TopBar() {
         )}
       </div>
 
-      <div className="h-4 w-px bg-border" />
+      <div className="h-4 w-px bg-border/40" />
 
       {/* Mode Tabs */}
-      <div className="flex rounded-md border border-input text-xs" role="radiogroup" aria-label={t("a11y.modeSelector")}>
+      <div className="flex rounded-md bg-muted/50 text-xs" role="radiogroup" aria-label={t("a11y.modeSelector")}>
         {MODES.map((mode) => (
           <button
             key={mode}
             onClick={() => setActiveMode(mode)}
             className={cn(
-              "px-2.5 py-1 capitalize transition-colors first:rounded-l-md last:rounded-r-md",
+              "px-3 py-1 capitalize transition-colors first:rounded-l-md last:rounded-r-md",
               activeMode === mode
                 ? "bg-primary text-primary-foreground"
                 : "text-muted-foreground hover:bg-accent hover:text-foreground",
@@ -269,8 +269,8 @@ export function TopBar() {
       {/* Right Panel Toggles — only show on chat page */}
       {location.pathname !== "/settings" && (
         <>
-          <div className="h-4 w-px bg-border" />
-          <div className="flex items-center gap-0.5">
+          <div className="h-4 w-px bg-border/40" />
+          <div className="flex items-center gap-1">
             <button
               onClick={() => toggleSplitView()}
               className={cn(
@@ -333,10 +333,10 @@ export function TopBar() {
 
       <div className="flex-1" />
 
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2">
         <button
           onClick={() => setLocale(locale === "en" ? "zh" : "en")}
-          className="flex h-7 items-center rounded-md px-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="flex h-7 items-center rounded-md px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           aria-label={t("a11y.switchLanguage")}
         >
           {locale === "en" ? "中文" : "EN"}

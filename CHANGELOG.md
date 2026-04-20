@@ -4,6 +4,19 @@ All notable changes to DevPilot will be documented in this file.
 
 ## [0.4.0] — 2026-04-20
 
+### Added — Phase 9 UI Density Optimization
+
+- TopBar: increased height h-11→h-12, spacing gap-1.5→gap-2/px-2→px-3, removed overflow-hidden for natural breathing room
+- TopBar: model selector ghost style (removed border), mode tabs use bg-muted/50 pill background instead of bordered group
+- TopBar: all divider lines changed to border/40 for subtle visual separation
+- Sidebar: frosted glass effect (bg-sidebar/80 + backdrop-blur-sm), search box borderless with bg-muted/50
+- Sidebar: wider session item padding (gap-2→2.5, px-2→2.5, py-1.5→2) for less cramped list
+- MessageList: wider spacing space-y-6→space-y-8, padding py-6→py-8/px-4→px-6
+- MessageList: narrower max-width max-w-4xl→max-w-3xl (2xl:max-w-4xl) following CodePilot's readability-first approach
+- MessageList: assistant/tool messages gap-2.5→gap-3, suggestion cards p-3→p-4, all borders softened to /40
+- MessageInput: frosted glass bottom bar (bg-background/80 + backdrop-blur-md), matching max-width with MessageList
+- Global: all border-divider lines changed to border/40 opacity for subtle, non-distracting visual separation
+
 ### Added — Phase 8 UI Overhaul + Provider Enhancements
 
 - AppShell: sidebar always rendered (CSS class toggle), eliminates layout jumps on toggle

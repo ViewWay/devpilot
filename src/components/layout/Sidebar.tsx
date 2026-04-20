@@ -65,7 +65,7 @@ export function Sidebar() {
   if (collapsed) {
     return (
       <nav
-        className="flex h-full flex-col items-center border-r border-border bg-sidebar py-3 px-1.5 gap-2"
+        className="flex h-full flex-col items-center border-r border-border/40 bg-sidebar/80 backdrop-blur-sm py-3 px-1.5 gap-2"
         aria-label={t("a11y.sidebarNav")}
       >
         <button
@@ -102,7 +102,7 @@ export function Sidebar() {
   return (
     <nav
       ref={sidebarRef}
-      className="relative flex h-full flex-col border-r border-border bg-sidebar transition-all duration-200 ease-in-out animate-in slide-in-from-left md:animate-none"
+      className="relative flex h-full flex-col border-r border-border/40 bg-sidebar/80 backdrop-blur-sm transition-all duration-200 ease-in-out animate-in slide-in-from-left md:animate-none"
       style={{ width: `${width}px` }}
       aria-label={t("a11y.sidebarNav")}
     >
@@ -131,7 +131,7 @@ export function Sidebar() {
 
       {/* Search */}
       <div className="px-3 pb-2">
-        <div className="flex items-center gap-2 rounded-lg border border-input bg-background px-2.5 py-1.5">
+        <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-2.5 py-1.5">
           <Search size={13} className="shrink-0 text-muted-foreground" />
           <input
             value={searchQuery}
@@ -183,7 +183,7 @@ export function Sidebar() {
       )}
 
       {/* Bottom actions */}
-      <div className="mt-auto flex items-center border-t border-border px-3 py-2 gap-1">
+      <div className="mt-auto flex items-center border-t border-border/40 px-3 py-2 gap-1">
         <button onClick={() => navigate("/scheduler")} className="flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
           <Clock size={13} />
           <span>{t("scheduler")}</span>
@@ -340,7 +340,7 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
                   key={session.id}
                   role="listitem"
                   className={cn(
-                    "group flex items-center gap-2 rounded-lg px-2 py-1.5 cursor-pointer transition-colors",
+                    "group flex items-center gap-2.5 rounded-lg px-2.5 py-2 cursor-pointer transition-colors",
                     isActive
                       ? "bg-accent text-accent-foreground"
                       : isSecondary

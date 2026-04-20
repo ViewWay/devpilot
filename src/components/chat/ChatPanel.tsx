@@ -27,7 +27,7 @@ function ChatContent() {
   return (
     <div className="flex h-full flex-col">
       {isLoading && !streamingMessageId && (
-        <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-4 py-2">
+        <div className="flex items-center gap-2 border-b border-border/40 bg-muted/30 px-4 py-2">
           <Loader2 size={14} className="animate-spin text-primary" />
           <span className="text-xs text-muted-foreground">{t("thinking")}</span>
         </div>
@@ -40,7 +40,7 @@ function ChatContent() {
       )}
       <MessageList />
       {pendingApprovals.length > 0 && (
-        <div className="border-t border-border px-4 py-2 max-h-[40vh] overflow-y-auto">
+        <div className="border-t border-border/40 px-4 py-2 max-h-[40vh] overflow-y-auto">
           <ApprovalQueue
             requests={pendingApprovals}
             onApprove={(id) => resolveApproval(id, true)}
@@ -63,7 +63,7 @@ function SystemPromptEditor() {
   const { t } = useI18n();
 
   return (
-    <div className="border-t border-border">
+    <div className="border-t border-border/40">
       <button
         onClick={() => setOpen(!open)}
         className="flex w-full items-center gap-1.5 px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
@@ -119,7 +119,7 @@ export function ChatPanel() {
         {/* Checkpoint toggle button */}
         <button
           onClick={() => setCheckpointOpen(!checkpointOpen)}
-          className="absolute right-2 top-2 z-10 rounded-md border border-border bg-background/80 p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground backdrop-blur-sm"
+          className="absolute right-2 top-2 z-10 rounded-md border border-border/40 bg-background/80 p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground backdrop-blur-sm"
           title={checkpointOpen ? "Close checkpoints" : "Open checkpoints"}
         >
           <History size={14} />
