@@ -1116,3 +1116,53 @@ Migrated 6 components from hardcoded colors (bg-green-500, text-blue-400, etc.) 
 ### Result
 
 All 33 component files now fully migrated to cc-haha design tokens. P10 UI rewrite is complete.
+
+---
+
+## 2026-04-21 Session — Bug Fixes: Onboarding Stuck + Tailwind Build + ConfigTab
+
+### Goal
+
+Fix critical onboarding flow bug (stuck on wizard after completion) and Tailwind 4 build failure.
+
+### FIX-1: Onboarding Wizard Stuck
+
+**Root cause:** `AppShell.tsx` used `useOnboardingStore.getState().completed` (imperative read) instead of `useOnboardingStore((s) => s.completed)` (reactive hook). Zustand state changes did not trigger React re-render, so after `completeOnboarding()` set `completed: true`, the component never re-evaluated the condition.
+
+**Fix:** Moved `useOnboardingStore` hook to component top level (also satisfies rules-of-hooks — was previously called after early returns).
+
+### FIX-2: Tailwind 4 Build Failure
+
+**Root cause:** 50+ components used shadcn-style utility classes (`border-border`, `bg-card`, `bg-muted`, `text-foreground`, `text-muted-foreground`, `bg-popover`, `bg-sidebar`). Tailwind 4 only registers colors defined in `@theme` block; `:root` CSS variables alone don't create utility classes.
+
+**Fix:** Added semantic color aliases in `@theme` block mapping to existing design system colors:
+
+- `--color-border` → `var(--color-outline-variant)`
+- `--color-card` → `var(--color-surface-container)`
+- `--color-popover` → `var(--color-surface-container-lowest)`
+- `--color-sidebar` → `var(--color-surface-container-low)`
+- `--color-muted` → `var(--color-surface-container)`
+- `--color-muted-foreground` → `var(--color-outline)`
+- `--color-foreground` → `var(--color-on-surface)`
+- `--color-accent` → `var(--color-surface-container-high)`
+- `--color-ring` → `var(--color-outline)`
+
+### FIX-3: ConfigTab useEffect Dependency
+
+Wrapped `loadConfig` in `useCallback` with `[t]` dependency to satisfy `react-hooks/exhaustive-deps`.
+
+### FEAT: ConfigTab (SettingsPage)
+
+Added global config file management tab in Settings (load/save/delete config files via backend IPC).
+
+### Verification
+
+- `npx tsc --noEmit` — 0 errors
+- `npx vitest run` — 11 files, 146 tests pass
+- `npx vite build` — success
+- ESLint — 0 errors, 0 warnings
+
+### Commits
+
+- `cd6802e` fix(ui): replace --color-accent with --color-brand in OnboardingWizard
+- `29c775a` fix(ui): onboarding stuck - move hook to top + semantic color aliases

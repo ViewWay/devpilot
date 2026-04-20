@@ -37,6 +37,10 @@ All notable changes to DevPilot will be documented in this file.
 - Empty page on startup: `useNavigate()` called outside `<BrowserRouter>` — rewrote to use tabStore
 - Double line number prefix corruption in ModelSelector.tsx and CodeBlockInner.tsx
 - Sidebar session grouping now uses ISO string timestamps correctly
+- Onboarding wizard stuck after completion — `getState()` replaced with Zustand hook subscription so `completed` state changes trigger re-render
+- Tailwind 4 build failure: `border-border` and other shadcn utilities unknown — added semantic color aliases in `@theme` block
+- OnboardingWizard buttons invisible — `--color-accent` (undefined) replaced with `--color-brand`
+- SettingsPage ConfigTab ESLint warning — `loadConfig` wrapped in `useCallback`
 
 ### Changed
 

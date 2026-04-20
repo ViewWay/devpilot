@@ -26,3 +26,11 @@
 ## Upcoming
 
 - [ ] **P13** — Plugin system / MCP marketplace
+
+## Fixes & Improvements (unreleased)
+
+- [x] **FIX-1** — Onboarding wizard stuck: `useOnboardingStore.getState()` → hook subscription (rules-of-hooks + reactivity)
+- [x] **FIX-2** — Tailwind 4 build failure: `border-border` unknown utility — added semantic color aliases in `@theme` block (border, card, popover, sidebar, muted, foreground, accent, ring)
+- [x] **FIX-3** — OnboardingWizard invisible buttons: `--color-accent` undefined → `--color-brand`
+- [x] **FIX-4** — Settings ConfigTab: `useCallback` for exhaustive-deps
+- [x] **FEAT** — ConfigTab: global config file management in Settings page
