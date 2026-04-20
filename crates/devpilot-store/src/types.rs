@@ -252,3 +252,32 @@ pub struct ImportResult {
     pub skipped: usize,
     pub errors: Vec<String>,
 }
+
+// ── Search types ─────────────────────────────────────────
+
+/// A single message search result, with context from its parent session.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MessageSearchResult {
+    /// The matching message.
+    pub message: MessageInfo,
+    /// The session this message belongs to (id + title for navigation).
+    pub session_id: String,
+    pub session_title: String,
+    /// A short snippet of the matched content (up to 200 chars around the match).
+    pub snippet: String,
+}
+
+/// Parameters for a message search query.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchParams {
+    /// The search query string.
+    pub query: String,
+    /// Optional session ID to restrict search to a specific session.
+    pub session_id: Option<String>,
+    /// Maximum number of results to return (default 50).
+    pub limit: Option<usize>,
+    /// Filter by message role (e.g., "user", "assistant").
+    pub role: Option<String>,
+}

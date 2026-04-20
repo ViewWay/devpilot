@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Session, Message, ApprovalRequest, AttachmentIPC } from "../types";
+import type { Session, Message, ApprovalRequest, AttachmentIPC, MessageSearchResult } from "../types";
 import { useUsageStore } from "./usageStore";
 import { useProviderStore } from "./providerStore";
 import { useUIStore } from "./uiStore";
@@ -366,6 +366,8 @@ interface ChatState {
   exportSession: (sessionId: string, format: "json" | "markdown") => void;
   /** Regenerate the last assistant response by removing it and re-sending the last user message. */
   regenerateLastResponse: () => void;
+  /** Search messages across all sessions via backend. */
+  searchMessages: (query: string) => Promise<MessageSearchResult[]>;
 
   // Internal
   _streamCleanup: (() => void) | null;
@@ -498,6 +500,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
   searchSessions: (query) => {
     const q = query.toLowerCase();
     return get().sessions.filter((s) => s.title.toLowerCase().includes(q));
+  },
+
+  searchMessages: async (query) => {
+    if (!isTauriRuntime() || query.trim().length < 2) {
+      return [];
+    }
+    try {
+      const results = await invoke<MessageSearchResult[]>("search_messages", {
+        query,
+        sessionId: null,
+        role: null,
+        limit: 20,
+      });
+      return results;
+    } catch (err) {
+      console.error("searchMessages failed:", err);
+      return [];
+    }
   },
 
   sendMessage: (content, model, attachments) => {

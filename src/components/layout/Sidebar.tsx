@@ -4,6 +4,7 @@ import { useI18n } from "../../i18n";
 import { useChatStore, relativeTime } from "../../stores/chatStore";
 import { useUIStore } from "../../stores/uiStore";
 import { cn } from "../../lib/utils";
+import type { MessageSearchResult } from "../../types";
 import {
   Plus,
   Search,
@@ -19,6 +20,9 @@ import {
   Archive,
   Download,
   Radio,
+  X,
+  Loader2,
+  FileText,
 } from "lucide-react";
 
 export function Sidebar() {
@@ -136,11 +140,47 @@ export function Sidebar() {
             className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none"
             aria-label={t("a11y.searchChatsLabel")}
           />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+            >
+              <X size={10} />
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Session list */}
-      <SessionList searchQuery={searchQuery} />
+      {/* Session list / Search results */}
+      {searchQuery.length >= 3 ? (
+        <MessageSearchResults
+          query={searchQuery}
+          onSelectSession={(id: string) => {
+            // Navigate to the session
+            const { splitViewActive, secondarySessionId, setSecondarySession } = useUIStore.getState();
+            const activeId = useChatStore.getState().activeSessionId;
+            const setActive = useChatStore.getState().setActiveSession;
+            if (splitViewActive) {
+              if (id !== activeId && id !== secondarySessionId) {
+                setSecondarySession(id);
+              } else if (id === secondarySessionId) {
+                setActive(id);
+                if (secondarySessionId && activeId) {
+                  setSecondarySession(activeId);
+                }
+              }
+            } else {
+              setActive(id);
+            }
+            if (window.innerWidth < 768) {
+              useUIStore.getState().setSidebarOpen(false);
+            }
+            setSearchQuery("");
+          }}
+        />
+      ) : (
+        <SessionList searchQuery={searchQuery} />
+      )}
 
       {/* Bottom actions */}
       <div className="mt-auto flex items-center border-t border-border px-3 py-2 gap-1">
@@ -471,6 +511,97 @@ function SessionList({ searchQuery }: { searchQuery: string }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Message Search Results ──────────────────────────────────────
+
+function MessageSearchResults({
+  query,
+  onSelectSession,
+}: {
+  query: string;
+  onSelectSession: (sessionId: string) => void;
+}) {
+  const { t } = useI18n();
+  const [results, setResults] = useState<MessageSearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const searchMessages = useChatStore((s) => s.searchMessages);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (query.trim().length < 3) {
+      setResults([]);
+      return;
+    }
+
+    // Debounce search: 300ms
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(() => {
+      setLoading(true);
+      searchMessages(query.trim())
+        .then((r) => setResults(r))
+        .catch(() => setResults([]))
+        .finally(() => setLoading(false));
+    }, 300);
+
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [query, searchMessages]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-1 items-center justify-center py-8">
+        <Loader2 size={16} className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (results.length === 0 && query.trim().length >= 3) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+        <Search size={20} className="mb-2 opacity-40" />
+        <span className="text-xs">{t("noResults") ?? "No results found"}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto px-2 py-1" role="list" aria-label="Search results">
+      <div className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
+        {results.length} {t("results") ?? "results"}
+      </div>
+      {results.map((result) => (
+        <div
+          key={result.message.id}
+          role="listitem"
+          className="group flex items-start gap-2 rounded-lg px-2 py-1.5 cursor-pointer transition-colors text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+          onClick={() => onSelectSession(result.sessionId)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onSelectSession(result.sessionId);
+            }
+          }}
+          tabIndex={0}
+          aria-label={`${result.sessionTitle}: ${result.snippet}`}
+        >
+          <FileText size={13} className="mt-0.5 shrink-0 opacity-60" />
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-xs font-medium">{result.sessionTitle}</div>
+            <div className="line-clamp-2 text-[10px] opacity-60">{result.snippet}</div>
+            <div className="mt-0.5 text-[10px] opacity-40">
+              {result.message.role} · {relativeTime(result.message.createdAt)}
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

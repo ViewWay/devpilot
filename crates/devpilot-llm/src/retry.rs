@@ -70,8 +70,8 @@ impl RetryConfig {
 
     /// Calculate the delay for a given retry attempt.
     pub fn delay_for_attempt(&self, attempt: u32) -> Duration {
-        let base_delay = self.initial_delay.as_secs_f64()
-            * self.backoff_multiplier.powi(attempt as i32);
+        let base_delay =
+            self.initial_delay.as_secs_f64() * self.backoff_multiplier.powi(attempt as i32);
         let delay = base_delay.min(self.max_delay.as_secs_f64());
 
         if self.jitter {
@@ -112,7 +112,10 @@ where
                     return Err(err);
                 }
 
-                let delay = if let LlmError::RateLimitError { retry_after: Some(secs) } = &err {
+                let delay = if let LlmError::RateLimitError {
+                    retry_after: Some(secs),
+                } = &err
+                {
                     // Respect server's retry-after header
                     Duration::from_secs_f64(*secs).max(config.initial_delay)
                 } else {
@@ -218,10 +221,7 @@ mod tests {
     #[tokio::test]
     async fn retry_succeeds_first_try() {
         let config = RetryConfig::no_retries();
-        let result = retry_operation(&config, || async {
-            Ok::<i32, LlmError>(42)
-        })
-        .await;
+        let result = retry_operation(&config, || async { Ok::<i32, LlmError>(42) }).await;
         assert_eq!(result.unwrap(), 42);
     }
 

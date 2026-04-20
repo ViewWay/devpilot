@@ -109,3 +109,26 @@ export interface McpServerConfig {
   enabled: boolean;
   createdAt: string;
 }
+
+// ── Search types ─────────────────────────────────────
+
+export interface MessageSearchResult {
+  message: {
+    id: string;
+    sessionId: string;
+    role: string;
+    content: string;
+    model: string | null;
+    tokenInput: number | null;
+    tokenOutput: number | null;
+    tokenCacheRead: number | null;
+    tokenCacheWrite: number | null;
+    costUsd: number | null;
+    toolCalls: string | null;
+    toolCallId: string | null;
+    createdAt: string;
+  };
+  sessionId: string;
+  sessionTitle: string;
+  snippet: string;
+}

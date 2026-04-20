@@ -1477,6 +1477,163 @@ impl Store {
 
         Ok(result)
     }
+
+    // ── Search ─────────────────────────────────────────
+
+    /// Search messages across all sessions (or a specific session).
+    ///
+    /// Uses SQLite LIKE for substring matching. Returns results sorted by
+    /// most recent first, with a snippet of context around the match.
+    pub fn search_messages(&self, params: &SearchParams) -> Result<Vec<MessageSearchResult>> {
+        let limit = params.limit.unwrap_or(50).min(200);
+        let pattern = format!("%{}%", params.query);
+
+        let sql = match (&params.session_id, &params.role) {
+            (Some(_sid), Some(_role)) => {
+                "
+                SELECT m.id, m.session_id, m.role, m.content, m.model,
+                       m.token_input, m.token_output, m.token_cache_read, m.token_cache_write,
+                       m.cost_usd, m.tool_calls, m.tool_call_id, m.created_at,
+                       s.title as session_title
+                FROM messages m
+                JOIN sessions s ON s.id = m.session_id
+                WHERE m.session_id = ?1 AND m.role = ?2 AND m.content LIKE ?3
+                ORDER BY m.created_at DESC
+                LIMIT ?4"
+            }
+            (Some(_sid), None) => {
+                "
+                SELECT m.id, m.session_id, m.role, m.content, m.model,
+                       m.token_input, m.token_output, m.token_cache_read, m.token_cache_write,
+                       m.cost_usd, m.tool_calls, m.tool_call_id, m.created_at,
+                       s.title as session_title
+                FROM messages m
+                JOIN sessions s ON s.id = m.session_id
+                WHERE m.session_id = ?1 AND m.content LIKE ?2
+                ORDER BY m.created_at DESC
+                LIMIT ?3"
+            }
+            (None, Some(_role)) => {
+                "
+                SELECT m.id, m.session_id, m.role, m.content, m.model,
+                       m.token_input, m.token_output, m.token_cache_read, m.token_cache_write,
+                       m.cost_usd, m.tool_calls, m.tool_call_id, m.created_at,
+                       s.title as session_title
+                FROM messages m
+                JOIN sessions s ON s.id = m.session_id
+                WHERE m.role = ?1 AND m.content LIKE ?2
+                ORDER BY m.created_at DESC
+                LIMIT ?3"
+            }
+            (None, None) => {
+                "
+                SELECT m.id, m.session_id, m.role, m.content, m.model,
+                       m.token_input, m.token_output, m.token_cache_read, m.token_cache_write,
+                       m.cost_usd, m.tool_calls, m.tool_call_id, m.created_at,
+                       s.title as session_title
+                FROM messages m
+                JOIN sessions s ON s.id = m.session_id
+                WHERE m.content LIKE ?1
+                ORDER BY m.created_at DESC
+                LIMIT ?2"
+            }
+        };
+
+        let mut stmt = self.conn.prepare(sql)?;
+
+        let rows = match (&params.session_id, &params.role) {
+            (Some(sid), Some(role)) => stmt
+                .query_map(rusqlite::params![sid, role, pattern, limit], |row| {
+                    read_search_row(row)
+                })?
+                .collect::<Vec<_>>(),
+            (Some(sid), None) => stmt
+                .query_map(rusqlite::params![sid, pattern, limit], |row| {
+                    read_search_row(row)
+                })?
+                .collect::<Vec<_>>(),
+            (None, Some(role)) => stmt
+                .query_map(rusqlite::params![role, pattern, limit], |row| {
+                    read_search_row(row)
+                })?
+                .collect::<Vec<_>>(),
+            (None, None) => stmt
+                .query_map(rusqlite::params![pattern, limit], |row| {
+                    read_search_row(row)
+                })?
+                .collect::<Vec<_>>(),
+        };
+
+        let mut results = Vec::new();
+        for row_result in rows {
+            let (msg, session_id, session_title) = row_result?;
+            let snippet = make_snippet(&msg.content, &params.query, 200);
+            results.push(MessageSearchResult {
+                message: msg,
+                session_id,
+                session_title,
+                snippet,
+            });
+        }
+
+        Ok(results)
+    }
+}
+
+/// Helper to read a search result row from the database.
+fn read_search_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<(MessageInfo, String, String)> {
+    let msg = MessageInfo {
+        id: row.get(0)?,
+        session_id: row.get(1)?,
+        role: row.get(2)?,
+        content: row.get(3)?,
+        model: row.get(4)?,
+        token_input: row.get(5)?,
+        token_output: row.get(6)?,
+        token_cache_read: row.get(7)?,
+        token_cache_write: row.get(8)?,
+        cost_usd: row.get(9)?,
+        tool_calls: row.get(10)?,
+        tool_call_id: row.get(11)?,
+        created_at: row.get(12)?,
+    };
+    let session_title: String = row.get(13)?;
+    let session_id = msg.session_id.clone();
+    Ok((msg, session_id, session_title))
+}
+
+/// Create a text snippet around the first match of `query` in `content`.
+fn make_snippet(content: &str, query: &str, max_len: usize) -> String {
+    let content_lower = content.to_lowercase();
+    let query_lower = query.to_lowercase();
+
+    if let Some(pos) = content_lower.find(&query_lower) {
+        let match_end = (pos + query.len()).min(content.len());
+        let context_before = max_len.saturating_sub(query.len()) / 2;
+        let start = pos.saturating_sub(context_before);
+        let end = (match_end + context_before).min(content.len());
+
+        let mut snippet = String::new();
+        if start > 0 {
+            snippet.push_str("...");
+        }
+        snippet.push_str(&content[start..end]);
+        if end < content.len() {
+            snippet.push_str("...");
+        }
+        if snippet.len() > max_len + 10 {
+            snippet.truncate(max_len + 10);
+        }
+        snippet
+    } else {
+        // Fallback: return the beginning of content
+        let end = max_len.min(content.len());
+        let mut s = content[..end].to_string();
+        if content.len() > max_len {
+            s.push_str("...");
+        }
+        s
+    }
 }
 
 // ── Tests ─────────────────────────────────────────────

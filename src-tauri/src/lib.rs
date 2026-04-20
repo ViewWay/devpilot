@@ -80,6 +80,7 @@ pub fn run() {
             commands::sandbox::sandbox_default_policy,
             // Search
             commands::search::search_files,
+            commands::search::search_messages,
             // Scheduler
             commands::scheduler::scheduler_create_task,
             commands::scheduler::scheduler_list_tasks,

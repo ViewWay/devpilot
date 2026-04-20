@@ -7,12 +7,12 @@
 //! Uses the `generateContent` and `streamGenerateContent` REST endpoints.
 
 use async_trait::async_trait;
+#[cfg(test)]
+use devpilot_protocol::ProviderType;
 use devpilot_protocol::{
     ChatRequest, ChatResponse, ContentBlock, FinishReason, ImageSource, Message, MessageRole,
     ProviderConfig, StreamEvent, ToolDefinition, ToolUseDelta, Usage,
 };
-#[cfg(test)]
-use devpilot_protocol::ProviderType;
 use eventsource_stream::Eventsource;
 use futures::StreamExt;
 use reqwest::Client;

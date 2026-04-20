@@ -145,7 +145,8 @@ pub async fn run_diagnostics(config: ProviderConfig) -> DiagnosticReport {
                             config.base_url
                         )),
                         429 => Some(
-                            "You are being rate-limited. Wait and try again, or upgrade your plan.".into(),
+                            "You are being rate-limited. Wait and try again, or upgrade your plan."
+                                .into(),
                         ),
                         500..=599 => Some(
                             "The provider server is experiencing issues. Try again later.".into(),
@@ -231,7 +232,8 @@ pub async fn run_diagnostics(config: ProviderConfig) -> DiagnosticReport {
                 severity: Severity::Error,
                 message: format!("Failed to create provider: {}", e.display_message()),
                 suggestion: Some(
-                    "Check your provider configuration. Ensure the provider type is supported.".into(),
+                    "Check your provider configuration. Ensure the provider type is supported."
+                        .into(),
                 ),
             });
         }
@@ -289,15 +291,16 @@ fn check_config_completeness(config: &ProviderConfig) -> DiagnosticCheck {
     } else {
         DiagnosticCheck {
             name: "Configuration".into(),
-            severity: if issues.iter().any(|i| i.contains("API key") || i.contains("Base URL")) {
+            severity: if issues
+                .iter()
+                .any(|i| i.contains("API key") || i.contains("Base URL"))
+            {
                 Severity::Error
             } else {
                 Severity::Warning
             },
             message: issues.join("; "),
-            suggestion: Some(
-                "Fill in the missing fields in provider settings.".into(),
-            ),
+            suggestion: Some("Fill in the missing fields in provider settings.".into()),
         }
     }
 }
@@ -308,16 +311,10 @@ fn check_model_config(config: &ProviderConfig) -> DiagnosticCheck {
 
     for model in &config.models {
         if model.max_input_tokens == 0 {
-            warnings.push(format!(
-                "Model '{}' has max_input_tokens=0",
-                model.id
-            ));
+            warnings.push(format!("Model '{}' has max_input_tokens=0", model.id));
         }
         if model.max_output_tokens == 0 {
-            warnings.push(format!(
-                "Model '{}' has max_output_tokens=0",
-                model.id
-            ));
+            warnings.push(format!("Model '{}' has max_output_tokens=0", model.id));
         }
     }
 
