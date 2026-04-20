@@ -2,6 +2,7 @@ import { useTabStore } from "../../stores/tabStore";
 import { ChatPanel } from "../chat/ChatPanel";
 import { SettingsPage } from "../../app/SettingsPage";
 import { SchedulerPage } from "../../app/SchedulerPage";
+import { SkillsPage } from "../../app/SkillsPage";
 import { useI18n } from "../../i18n";
 import { MessageSquare } from "lucide-react";
 
@@ -32,6 +33,10 @@ export function ContentRouter() {
 
   if (activeTabType === "scheduled") {
     return <SchedulerPage />;
+  }
+
+  if (activeTabType === "skills") {
+    return <SkillsPage />;
   }
 
   // Session tab — ChatPanel handles the active session display

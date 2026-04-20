@@ -135,3 +135,19 @@ export interface MessageSearchResult {
   sessionTitle: string;
   snippet: string;
 }
+
+// ── Skill types ─────────────────────────────────────
+
+export interface SkillInfo {
+  name: string;
+  description: string;
+  version?: string;
+  author?: string;
+  category?: string;
+  tags: string[];
+  trigger?: string;
+  content: string;
+  enabled: boolean;
+  installedAt?: string;
+  updatedAt?: string;
+}

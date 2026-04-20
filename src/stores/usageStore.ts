@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { UsageRecord, UsageSummary } from "../types";
 import { useProviderStore, type ModelConfig } from "./providerStore";
+import { toast } from "./toastStore";
 
 // Approximate token estimation: ~4 chars per token for English, ~1.5 chars per token for CJK
 function estimateTokens(text: string): number {
@@ -91,20 +92,6 @@ interface UsageState {
 
 let usageIdCounter = Date.now();
 
-// Lazy-load toast to avoid circular imports
-let toastWarning: ((msg: string, duration?: number) => string) | null = null;
-function getToastWarning() {
-  if (!toastWarning) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const mod = require("./toastStore");
-      toastWarning = mod.toast.warning;
-    } catch {
-      // Will be loaded later
-    }
-  }
-  return toastWarning;
-}
 
 export const useUsageStore = create<UsageState>()(
   persist(
@@ -230,13 +217,10 @@ export const useUsageStore = create<UsageState>()(
         const spent = get().getPeriodCost();
         if (spent >= budgetLimit) {
           set({ budgetAlerted: true });
-          const warn = getToastWarning();
-          if (warn) {
-            warn(
-              `Budget limit reached: $${spent.toFixed(2)} of $${budgetLimit.toFixed(2)} used this ${get().budgetPeriod}.`,
-              8000,
-            );
-          }
+          toast.warning(
+            `Budget limit reached: $${spent.toFixed(2)} of $${budgetLimit.toFixed(2)} used this ${get().budgetPeriod}.`,
+            8000,
+          );
         }
       },
 

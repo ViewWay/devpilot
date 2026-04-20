@@ -799,6 +799,7 @@ dependencies = [
  "devpilot-search",
  "devpilot-store",
  "devpilot-tools",
+ "dirs",
  "futures",
  "portable-pty",
  "serde",

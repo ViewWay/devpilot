@@ -207,6 +207,59 @@ impl SkillLoader {
         Ok(())
     }
 
+    /// List skills from both a global directory and a project-level directory,
+    /// with project skills taking precedence (overriding) global skills of the
+    /// same name.
+    ///
+    /// - `global_dir` — typically `~/.devpilot/skills/`
+    /// - `project_dir` — typically `<project-root>/.devpilot/skills/`
+    ///
+    /// Skills in the project directory override identically-named skills in the
+    /// global directory. Both locations follow the `{name}/SKILL.md` convention.
+    pub async fn list_skills_with_project(
+        global_dir: PathBuf,
+        project_dir: PathBuf,
+    ) -> Result<Vec<SkillInfo>, SkillLoaderError> {
+        let global_loader = SkillLoader::with_dir(global_dir);
+        let global_skills = global_loader.list_skills().await.unwrap_or_default();
+
+        let project_loader = SkillLoader::with_dir(project_dir);
+        let project_skills = project_loader.list_skills().await.unwrap_or_default();
+
+        // Build a map keyed by skill name; project entries override global ones.
+        let mut map = std::collections::BTreeMap::new();
+        for skill in global_skills {
+            map.insert(skill.name.clone(), skill);
+        }
+        for skill in project_skills {
+            map.insert(skill.name.clone(), skill);
+        }
+
+        Ok(map.into_values().collect())
+    }
+
+    /// Load enabled skills from both global and project directories, then build
+    /// a skill-context string suitable for injection into the system prompt.
+    ///
+    /// Returns an empty string if no enabled skills are found.
+    pub async fn load_skill_context(
+        global_dir: PathBuf,
+        project_dir: Option<PathBuf>,
+    ) -> String {
+        let global_loader = SkillLoader::with_dir(global_dir);
+        let all_skills = match project_dir {
+            Some(pdir) => {
+                Self::list_skills_with_project(global_loader.skills_dir.clone(), pdir)
+                    .await
+                    .unwrap_or_default()
+            }
+            None => global_loader.list_skills().await.unwrap_or_default(),
+        };
+
+        let enabled: Vec<SkillInfo> = all_skills.into_iter().filter(|s| s.enabled).collect();
+        Self::build_skill_context(&enabled)
+    }
+
     /// Search installed skills by matching the query against name,
     /// description, tags, and category (case-insensitive).
     pub async fn search_skills(&self, query: &str) -> Result<Vec<SkillInfo>, SkillLoaderError> {

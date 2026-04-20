@@ -12,6 +12,7 @@ use std::sync::Arc;
 use devpilot_core::{CoreEvent, Session, SessionConfig};
 use devpilot_llm::create_provider;
 use devpilot_protocol::{ChatRequest, ChatResponse, Message, MessageRole, ProviderConfig, Usage};
+use devpilot_tools::SkillLoader;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 use tracing::{error, info, warn};
@@ -151,6 +152,23 @@ pub async fn send_message_stream(
         .unwrap_or_default();
 
     // Build session config from request
+    // Load enabled skills and append their context to the system prompt.
+    let skill_context = {
+        let global_dir = dirs::home_dir()
+            .unwrap_or_default()
+            .join(".devpilot")
+            .join("skills");
+        let project_dir = request.working_dir.as_ref().map(|wd| {
+            std::path::PathBuf::from(wd).join(".devpilot").join("skills")
+        });
+        SkillLoader::load_skill_context(global_dir, project_dir).await
+    };
+    let system_prompt = match (&request.chat_request.system, skill_context.is_empty()) {
+        (Some(sp), false) => Some(format!("{sp}\n\n{skill_context}")),
+        (None, false) => Some(skill_context),
+        (Some(sp), true) => Some(sp.clone()),
+        (None, true) => None,
+    };
     let session_config = SessionConfig {
         id: Some(session_id.clone()),
         model: model_id.clone(),
@@ -158,7 +176,7 @@ pub async fn send_message_stream(
         mode,
         reasoning_effort,
         working_dir: request.working_dir.clone(),
-        system_prompt: request.chat_request.system.clone(),
+        system_prompt,
         temperature: request.chat_request.temperature,
     };
 

@@ -145,6 +145,7 @@ pub fn run() {
             commands::skills::uninstall_skill,
             commands::skills::toggle_skill,
             commands::skills::search_skills,
+            commands::skills::list_project_skills,
             // PTY
             commands::pty::pty_create,
             commands::pty::pty_write,

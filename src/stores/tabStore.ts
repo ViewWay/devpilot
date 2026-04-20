@@ -4,8 +4,9 @@ const TAB_STORAGE_KEY = "devpilot-open-tabs";
 
 export const SETTINGS_TAB_ID = "__settings__";
 export const SCHEDULED_TAB_ID = "__scheduled__";
+export const SKILLS_TAB_ID = "__skills__";
 
-export type TabType = "session" | "settings" | "scheduled";
+export type TabType = "session" | "settings" | "scheduled" | "skills";
 
 export type Tab = {
   sessionId: string;
@@ -145,12 +146,12 @@ export const useTabStore = create<TabStore>((set, get) => ({
       const validTabs: Tab[] = data.openTabs
         .filter((t) => {
           // Special tabs are always valid
-          if (t.type === "settings" || t.type === "scheduled") {return true;}
+          if (t.type === "settings" || t.type === "scheduled" || t.type === "skills") {return true;}
           // Session tabs must exist locally
           return existingIds.has(t.sessionId);
         })
         .map((t) => {
-          if (t.type === "settings" || t.type === "scheduled") {
+          if (t.type === "settings" || t.type === "scheduled" || t.type === "skills") {
             return { sessionId: t.sessionId, title: t.title, type: t.type, status: "idle" as const };
           }
           return {

@@ -2,7 +2,8 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { useI18n } from "../../i18n";
 import { useChatStore } from "../../stores/chatStore";
 import { useUIStore } from "../../stores/uiStore";
-import { useTabStore, SETTINGS_TAB_ID, SCHEDULED_TAB_ID } from "../../stores/tabStore";
+import { useTabStore, SETTINGS_TAB_ID, SCHEDULED_TAB_ID, SKILLS_TAB_ID } from "../../stores/tabStore";
+import { Package } from "lucide-react";
 
 type TimeGroup = "today" | "yesterday" | "last7days" | "last30days" | "older";
 
@@ -105,6 +106,15 @@ export function Sidebar() {
           icon={<ClockIcon />}
         >
           {t("scheduler")}
+        </NavItem>
+        <NavItem
+          active={activeTabId === SKILLS_TAB_ID}
+          collapsed={!sidebarOpen}
+          label={t("skills")}
+          onClick={() => openTab(SKILLS_TAB_ID, t("skills"), "skills")}
+          icon={<Package size={18} />}
+        >
+          {t("skills")}
         </NavItem>
       </div>
 

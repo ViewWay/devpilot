@@ -253,6 +253,19 @@ function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
       return [];
     case "cancel_stream":
       return false;
+    // Skills
+    case "list_skills":
+      return [];
+    case "get_skill":
+      return null;
+    case "install_skill":
+      return null;
+    case "uninstall_skill":
+      return null;
+    case "toggle_skill":
+      return null;
+    case "search_skills":
+      return [];
     default:
       console.warn(`[IPC mock] Unhandled command: ${cmd}`);
       return null;
@@ -408,6 +421,14 @@ export interface IPCCommands {
   list_daily_memories_cmd: { dataDir: string; limit?: number | null };
   search_memories_cmd: { workspaceDir: string; dataDir: string; query: string };
   create_daily_memory_cmd: { dataDir: string; date: string; content: string };
+
+  // Skills
+  list_skills: void;
+  get_skill: { name: string };
+  install_skill: { content: string };
+  uninstall_skill: { name: string };
+  toggle_skill: { name: string };
+  search_skills: { query: string };
 }
 
 export interface ProviderConfigIPC {

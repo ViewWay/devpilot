@@ -45,6 +45,7 @@ chrono.workspace = true
 tracing.workspace = true
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 futures.workspace = true
+dirs.workspace = true
 
 [dev-dependencies]
 chrono.workspace = true
