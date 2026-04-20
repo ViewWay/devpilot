@@ -21,10 +21,10 @@
 ## In Progress
 
 - [x] **P10** — Full UI rewrite matching cc-haha design system (all components migrated)
+- [x] **P10-B** — LLM streaming optimization (backend batching, frontend chunk batching, abort/cancellation)
 
 ## Upcoming
 
-- [ ] **P10-B** — LLM streaming optimization
 - [ ] **P11** — Split view / dual session polish
 - [ ] **P12** — Bridge (Telegram/Feishu) integration
 - [ ] **P13** — Plugin system / MCP marketplace

@@ -152,6 +152,7 @@ pub struct ToolDefinition {
 
 /// Token usage statistics returned by the provider.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Usage {
     pub input_tokens: u32,
     pub output_tokens: u32,

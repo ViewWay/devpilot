@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use devpilot_bridge::BridgeManager;
@@ -71,6 +72,7 @@ pub fn run() {
             // LLM
             commands::llm::send_message,
             commands::llm::send_message_stream,
+            commands::llm::cancel_stream,
             commands::llm::check_provider,
             commands::llm::list_provider_models,
             commands::llm::diagnose_provider,
@@ -172,6 +174,8 @@ pub struct AppState {
     pub pty_manager: Arc<Mutex<PtyManager>>,
     /// Approval gate — resolves tool approval requests from the frontend.
     pub approval_gate: devpilot_core::ApprovalGate,
+    /// Active agent streams — maps session ID → abort handle for cancellation.
+    pub active_streams: Arc<Mutex<HashMap<String, tokio::task::AbortHandle>>>,
 }
 
 impl AppState {
@@ -220,6 +224,7 @@ impl AppState {
             mcp_manager: Arc::new(AsyncMutex::new(None)),
             pty_manager: Arc::new(Mutex::new(PtyManager::new())),
             approval_gate,
+            active_streams: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 }

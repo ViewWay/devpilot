@@ -6,6 +6,13 @@ All notable changes to DevPilot will be documented in this file.
 
 ### Added
 
+- **P10-B: LLM Streaming Pipeline Optimization**
+  - Backend: text delta batching in agent loop (flush interval instead of per-chunk emit)
+  - Backend: `cancel_stream` Tauri command — aborts running agent task via `AbortHandle` stored in `AppState.active_streams`
+  - Frontend: chunk batching in `chatStore.ts` — accumulate deltas in mutable buffer, flush to Zustand store every 16ms via `setTimeout`, reducing immutable state tree clones from ~40-50/sec to ~60/sec
+  - Frontend: `abortStreaming()` now calls `cancel_stream` to propagate cancellation to the Rust backend
+  - `Usage` struct in `devpilot-protocol` now serializes with `camelCase` (`inputTokens`, `outputTokens`, etc.)
+  - IPC mock for `cancel_stream` in browser dev mode
 - **P10 UI Rewrite** — Complete visual overhaul matching cc-haha design system
   - CSS design system: oklch color tokens, Material Symbols icons, Inter/Manrope/JetBrains Mono fonts
   - `tabStore` for multi-tab session management with drag-reorder

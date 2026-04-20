@@ -213,6 +213,13 @@ pub async fn send_message_stream(
     let mut agent_handle =
         tokio::spawn(async move { agent.run(&mut session, &*provider, user_message).await });
 
+    // Store the abort handle so the frontend can cancel this stream
+    {
+        let abort_handle = agent_handle.abort_handle();
+        let mut active = state.active_streams.lock().map_err(|e| e.to_string())?;
+        active.insert(session_id.clone(), abort_handle);
+    }
+
     // Bridge EventBus events → Tauri emit
     let mut total_input: u32 = 0;
     let mut total_output: u32 = 0;
@@ -225,12 +232,10 @@ pub async fn send_message_stream(
                 match event {
                     Ok(core_event) => {
                         let name = event_name(&core_event);
-                        if matches!(core_event, CoreEvent::TurnDone { .. }) {
-                            if let CoreEvent::TurnDone { usage, finish_reason: fr, .. } = &core_event {
-                                total_input += usage.input_tokens;
-                                total_output += usage.output_tokens;
-                                finish_reason = format!("{:?}", fr).to_lowercase();
-                            }
+                        if let CoreEvent::TurnDone { usage, finish_reason: fr, .. } = &core_event {
+                            total_input += usage.input_tokens;
+                            total_output += usage.output_tokens;
+                            finish_reason = format!("{:?}", fr).to_lowercase();
                         }
                         let _ = app.emit(name, &core_event);
                         if matches!(core_event, CoreEvent::AgentDone { .. }) {
@@ -278,6 +283,13 @@ pub async fn send_message_stream(
                 }
                 break;
             }
+        }
+    }
+
+    // Remove the abort handle — stream finished normally
+    {
+        if let Ok(mut active) = state.active_streams.lock() {
+            active.remove(&session_id);
         }
     }
 
@@ -399,6 +411,31 @@ fn calculate_cost_from_tokens(
         input_cost + output_cost
     } else {
         0.0
+    }
+}
+
+/// Cancel an active streaming session.
+///
+/// Aborts the agent task associated with the given session ID.
+/// Returns `true` if a stream was found and cancelled, `false` if no
+/// active stream exists for that session.
+#[tauri::command(rename_all = "camelCase")]
+pub async fn cancel_stream(state: State<'_, AppState>, session_id: String) -> Result<bool, String> {
+    let abort_handle = {
+        let mut active = state.active_streams.lock().map_err(|e| e.to_string())?;
+        active.remove(&session_id)
+    };
+
+    match abort_handle {
+        Some(handle) => {
+            info!("Cancelling stream for session {}", session_id);
+            handle.abort();
+            Ok(true)
+        }
+        None => {
+            warn!("No active stream found for session {}", session_id);
+            Ok(false)
+        }
     }
 }
 

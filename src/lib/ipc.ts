@@ -242,6 +242,8 @@ function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
       return null;
     case "searchFiles":
       return [];
+    case "cancel_stream":
+      return false;
     default:
       console.warn(`[IPC mock] Unhandled command: ${cmd}`);
       return null;
@@ -314,6 +316,7 @@ export interface IPCCommands {
   };
   check_provider: { config: ProviderConfigIPC };
   list_provider_models: { config: ProviderConfigIPC };
+  cancel_stream: { sessionId: string };
 
   // Settings
   get_setting: { key: string };

@@ -1,5 +1,45 @@
 # DevPilot Development Log
 
+## 2026-04-21 Session — P10-B: LLM Streaming Pipeline Optimization
+
+### Goal
+
+Reduce per-chunk overhead in the LLM streaming pipeline (Provider → Agent loop → EventBus → Tauri emit → Frontend listen).
+
+### P10-B-1: Backend stream batching ✅
+
+- Modified `agent.rs` to batch text deltas with a flush interval instead of emitting per-chunk
+- Reduced logging to trace level for Chunk events
+
+### P10-B-2: Frontend chunk batching ✅
+
+- Modified `chatStore.ts` stream-chunk listener to accumulate deltas in mutable buffer vars
+- Flush to Zustand store every 16ms via `setTimeout`, reducing immutable state tree clones from ~40-50/sec to ~60/sec
+- Cleanup function flushes remaining buffer before unsubscribing
+
+### P10-B-3: Tauri emit optimization ✅
+
+- Simplified `llm.rs` to use CoreEvent Serialize directly for Tauri emit
+
+### P10-B-4: Abort/cancellation propagation ✅
+
+- Added `active_streams: Arc<Mutex<HashMap<String, AbortHandle>>>` to `AppState`
+- `send_message_stream` stores `AbortHandle` on spawn, removes on completion
+- New `cancel_stream` Tauri command aborts the agent task by session ID
+- Frontend `abortStreaming()` calls `cancel_stream` after detaching listeners
+- Added `cancel_stream` to IPC type map and mock handler
+
+### P10-B-5: Usage serialization fix ✅
+
+- Added `#[serde(rename_all = "camelCase")]` to `Usage` struct in `devpilot-protocol/src/lib.rs`
+- Ensures nested Usage fields serialize as `inputTokens`, `outputTokens`, etc.
+
+### Build verification ✅
+
+- `cargo build` — PASS
+- `npx tsc --noEmit` — PASS
+- `cargo test` — all tests pass
+
 ## 2026-04-19 Session F — Phase 1 Agent Loop 集成 (P0-1 ~ P0-3)
 
 ### Goal
