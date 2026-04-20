@@ -14,6 +14,7 @@ use devpilot_protocol::{ContentBlock, FinishReason, Message, MessageRole, Stream
 use devpilot_tools::{RiskLevel, ToolContext, ToolExecutor};
 use futures::StreamExt;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::Mutex;
 
 use crate::approval::ApprovalGate;
@@ -235,6 +236,14 @@ impl Agent {
         Ok(())
     }
 
+    /// Flush the chunk buffer, emitting any buffered text as a single event.
+    fn flush_chunk_buffer(&self, buffer: &mut String, session_id: &str) {
+        if !buffer.is_empty() {
+            self.event_bus.emit_chunk(session_id, buffer.as_str());
+            buffer.clear();
+        }
+    }
+
     /// Process a stream of events, emitting chunks and collecting the full response.
     async fn process_stream(
         &self,
@@ -251,6 +260,13 @@ impl Agent {
         let mut usage = Usage::default();
         let mut finish_reason = FinishReason::Stop;
 
+        // Batching: accumulate text deltas and flush at a configurable interval
+        // or when a non-text event arrives, reducing per-delta emit overhead.
+        let mut chunk_buffer = String::with_capacity(512);
+        let mut last_flush = tokio::time::Instant::now();
+        const FLUSH_INTERVAL_MS: u64 = 16; // ~60fps
+        const FLUSH_THRESHOLD_CHARS: usize = 256;
+
         while let Some(item) = stream.next().await {
             match item {
                 Ok(event) => match event {
@@ -262,9 +278,19 @@ impl Agent {
                     } => {
                         if let Some(text) = delta {
                             full_text.push_str(&text);
-                            self.event_bus.emit_chunk(session_id, &text);
+                            chunk_buffer.push_str(&text);
+                            if chunk_buffer.len() >= FLUSH_THRESHOLD_CHARS
+                                || last_flush.elapsed() >= Duration::from_millis(FLUSH_INTERVAL_MS)
+                            {
+                                self.event_bus.emit_chunk(session_id, &chunk_buffer);
+                                chunk_buffer.clear();
+                                last_flush = tokio::time::Instant::now();
+                            }
                         }
                         if let Some(tu) = tool_use {
+                            // Flush any buffered text before handling tool use
+                            self.flush_chunk_buffer(&mut chunk_buffer, session_id);
+                            last_flush = tokio::time::Instant::now();
                             if let Some(id) = tu.id {
                                 // New tool call started
                                 // First finalize any previous tool call
@@ -298,6 +324,9 @@ impl Agent {
                             }
                         }
                         if let Some(td) = thinking {
+                            // Flush any buffered text before handling thinking
+                            self.flush_chunk_buffer(&mut chunk_buffer, session_id);
+                            last_flush = tokio::time::Instant::now();
                             if let Some(think_text) = td.thinking {
                                 full_thinking.push_str(&think_text);
                             }
@@ -311,10 +340,14 @@ impl Agent {
                         finish_reason: fr,
                         ..
                     } => {
+                        // Flush any remaining buffered text before handling Done
+                        self.flush_chunk_buffer(&mut chunk_buffer, session_id);
                         usage = u;
                         finish_reason = fr;
                     }
                     StreamEvent::Error { message, .. } => {
+                        // Flush any remaining buffered text before handling Error
+                        self.flush_chunk_buffer(&mut chunk_buffer, session_id);
                         self.event_bus.emit_error(session_id, &message);
                         return Err(CoreError::Internal(message));
                     }
@@ -324,6 +357,9 @@ impl Agent {
                 }
             }
         }
+
+        // Final flush: emit any remaining buffered text
+        self.flush_chunk_buffer(&mut chunk_buffer, session_id);
 
         // Finalize any pending tool call
         if let (Some(id), Some(name), Some(input)) =

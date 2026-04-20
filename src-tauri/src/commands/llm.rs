@@ -223,91 +223,30 @@ pub async fn send_message_stream(
         tokio::select! {
             event = event_rx.recv() => {
                 match event {
-                    Ok(core_event) => match core_event {
-                        CoreEvent::Chunk { session_id: sid, delta } => {
-                            let payload = serde_json::json!({
-                                "type": "chunk",
-                                "sessionId": sid,
-                                "delta": delta,
-                            });
-                            let _ = app.emit("stream-chunk", &payload);
+                    Ok(core_event) => {
+                        let name = event_name(&core_event);
+                        if matches!(core_event, CoreEvent::TurnDone { .. }) {
+                            if let CoreEvent::TurnDone { usage, finish_reason: fr, .. } = &core_event {
+                                total_input += usage.input_tokens;
+                                total_output += usage.output_tokens;
+                                finish_reason = format!("{:?}", fr).to_lowercase();
+                            }
                         }
-                        CoreEvent::ToolCallStarted { session_id: sid, call_id, tool_name, input } => {
-                            let payload = serde_json::json!({
-                                "type": "tool-start",
-                                "sessionId": sid,
-                                "callId": call_id,
-                                "toolName": tool_name,
-                                "input": input,
-                            });
-                            let _ = app.emit("stream-tool-start", &payload);
-                        }
-                        CoreEvent::ToolCallResult { session_id: sid, call_id, output, is_error } => {
-                            let payload = serde_json::json!({
-                                "type": "tool-result",
-                                "sessionId": sid,
-                                "callId": call_id,
-                                "output": output,
-                                "isError": is_error,
-                            });
-                            let _ = app.emit("stream-tool-result", &payload);
-                        }
-                        CoreEvent::ApprovalRequired { session_id: sid, call_id, tool_name, input, risk_level } => {
-                            let payload = serde_json::json!({
-                                "type": "approval",
-                                "sessionId": sid,
-                                "callId": call_id,
-                                "toolName": tool_name,
-                                "input": input,
-                                "riskLevel": risk_level,
-                            });
-                            let _ = app.emit("stream-approval", &payload);
-                        }
-                        CoreEvent::TurnDone { session_id: sid, usage, finish_reason: fr } => {
-                            total_input += usage.input_tokens;
-                            total_output += usage.output_tokens;
-                            finish_reason = format!("{:?}", fr).to_lowercase();
-                            let payload = serde_json::json!({
-                                "type": "turn-done",
-                                "sessionId": sid,
-                                "usage": usage,
-                                "finishReason": finish_reason,
-                            });
-                            let _ = app.emit("stream-turn-done", &payload);
-                        }
-                        CoreEvent::AgentDone { session_id: sid, total_turns, total_usage } => {
-                            total_input = total_usage.input_tokens;
-                            total_output = total_usage.output_tokens;
-                            let payload = serde_json::json!({
-                                "type": "done",
-                                "sessionId": sid,
-                                "totalTurns": total_turns,
-                                "usage": total_usage,
-                            });
-                            let _ = app.emit("stream-done", &payload);
-                            // Agent loop finished — break out of event forwarding
+                        let _ = app.emit(name, &core_event);
+                        if matches!(core_event, CoreEvent::AgentDone { .. }) {
+                            if let CoreEvent::AgentDone { total_usage, .. } = &core_event {
+                                total_input = total_usage.input_tokens;
+                                total_output = total_usage.output_tokens;
+                            }
                             break;
                         }
-                        CoreEvent::Error { session_id: sid, message } => {
-                            error!("Agent error for session {}: {}", sid, message);
-                            let payload = serde_json::json!({
-                                "type": "error",
-                                "sessionId": sid,
-                                "message": message,
-                            });
-                            let _ = app.emit("stream-error", &payload);
+                        if matches!(core_event, CoreEvent::Error { .. }) {
+                            if let CoreEvent::Error { message, .. } = &core_event {
+                                error!("Agent error: {}", message);
+                            }
                             break;
                         }
-                        CoreEvent::Compacted { session_id: sid, messages_removed, summary_added } => {
-                            let payload = serde_json::json!({
-                                "type": "compacted",
-                                "sessionId": sid,
-                                "messagesRemoved": messages_removed,
-                                "summaryAdded": summary_added,
-                            });
-                            let _ = app.emit("stream-compacted", &payload);
-                        }
-                    },
+                    }
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(count)) => {
                         warn!("Event bus lagged by {} events", count);
                         continue;
@@ -325,12 +264,11 @@ pub async fn send_message_stream(
                     }
                     Ok(Err(e)) => {
                         error!("Agent error for session {}: {}", session_id, e);
-                        let payload = serde_json::json!({
-                            "type": "error",
-                            "sessionId": session_id,
-                            "message": e.to_string(),
-                        });
-                        let _ = app.emit("stream-error", &payload);
+                        let core_event = CoreEvent::Error {
+                            session_id: session_id.clone(),
+                            message: e.to_string(),
+                        };
+                        let _ = app.emit(event_name(&core_event), &core_event);
                         return Err(e.to_string());
                     }
                     Err(e) => {
@@ -423,6 +361,20 @@ pub async fn diagnose_provider(
 }
 
 // ── Helpers ───────────────────────────────────────────
+
+/// Map a CoreEvent variant to the frontend Tauri event name.
+fn event_name(event: &CoreEvent) -> &'static str {
+    match event {
+        CoreEvent::Chunk { .. } => "stream-chunk",
+        CoreEvent::ToolCallStarted { .. } => "stream-tool-start",
+        CoreEvent::ToolCallResult { .. } => "stream-tool-result",
+        CoreEvent::ApprovalRequired { .. } => "stream-approval",
+        CoreEvent::TurnDone { .. } => "stream-turn-done",
+        CoreEvent::AgentDone { .. } => "stream-done",
+        CoreEvent::Error { .. } => "stream-error",
+        CoreEvent::Compacted { .. } => "stream-compacted",
+    }
+}
 
 /// Calculate the cost of a request based on usage and model pricing.
 fn calculate_cost(usage: &Usage, config: &ProviderConfig, model_id: &str) -> f64 {

@@ -5,14 +5,14 @@
 use devpilot_protocol::{FinishReason, Usage};
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
-use tracing::debug;
+use tracing::{debug, trace};
 
 /// Default channel capacity for the broadcast bus.
 const DEFAULT_CAPACITY: usize = 256;
 
 /// Events emitted by the agent engine during a conversation turn.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
+#[serde(tag = "type", rename_all = "camelCase")]
 pub enum CoreEvent {
     /// A new chunk of text is available (streaming).
     #[serde(rename = "chunk")]
@@ -107,7 +107,14 @@ impl EventBus {
 
     /// Emit an event to all subscribers.
     pub fn emit(&self, event: CoreEvent) {
-        debug!(?event, "emitting core event");
+        match &event {
+            CoreEvent::Chunk { delta, .. } => {
+                trace!(delta_len = delta.len(), "emitting chunk");
+            }
+            _ => {
+                debug!(?event, "emitting core event");
+            }
+        }
         // It's OK if there are no subscribers or if they lag.
         let _ = self.tx.send(event);
     }
