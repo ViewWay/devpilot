@@ -62,6 +62,10 @@ interface UIState {
   sandboxPolicy: "default" | "permissive" | "strict";
   setSandboxPolicy: (policy: "default" | "permissive" | "strict") => void;
 
+  // Diff data for PreviewPanel — populated from apply_patch tool results
+  diffData: { original: string; modified: string; language: string } | null;
+  setDiffData: (data: { original: string; modified: string; language: string } | null) => void;
+
   // Split View (dual session)
   splitViewActive: boolean;
   secondarySessionId: string | null;
@@ -129,6 +133,9 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   sandboxPolicy: "default",
   setSandboxPolicy: (policy) => set({ sandboxPolicy: policy }),
+
+  diffData: null,
+  setDiffData: (data) => set({ diffData: data }),
 
   splitViewActive: false,
   secondarySessionId: null,

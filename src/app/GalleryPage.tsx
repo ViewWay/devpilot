@@ -24,7 +24,7 @@ export function GalleryPage() {
   };
 
   return (
-    <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-gray-950 p-6 text-gray-100">
+    <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-background p-6 text-foreground">
       {/* Header */}
       <h1 className="text-2xl font-bold">{t("gallery")}</h1>
 
@@ -33,8 +33,8 @@ export function GalleryPage() {
         {/* Prompt */}
         <textarea
           rows={3}
-          className="w-full rounded-lg border border-gray-800 bg-gray-900 p-3 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600"
-          placeholder="Describe the image you want to generate..."
+          className="w-full rounded-lg border border-border bg-muted p-3 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          placeholder={t("imagePromptPlaceholder")}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           disabled={loading}
@@ -44,9 +44,9 @@ export function GalleryPage() {
         <div className="flex flex-wrap items-end gap-3">
           {/* Provider */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-400">{t("provider")}</label>
+            <label className="text-xs text-muted-foreground">{t("provider")}</label>
             <select
-              className="rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               value={provider}
               onChange={(e) => setProvider(e.target.value)}
               disabled={loading}
@@ -61,11 +61,11 @@ export function GalleryPage() {
 
           {/* Model */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-400">Model</label>
+            <label className="text-xs text-muted-foreground">{t("modelLabel")}</label>
             <input
               type="text"
-              className="rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600"
-              placeholder="(optional)"
+              className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              placeholder={t("modelPlaceholder")}
               value={model}
               onChange={(e) => setModel(e.target.value)}
               disabled={loading}
@@ -74,9 +74,9 @@ export function GalleryPage() {
 
           {/* Size */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-400">Size</label>
+            <label className="text-xs text-muted-foreground">{t("imageSize")}</label>
             <select
-              className="rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               value={size}
               onChange={(e) => setSize(e.target.value)}
               disabled={loading}
@@ -92,7 +92,7 @@ export function GalleryPage() {
           {/* Generate Button */}
           <button
             type="button"
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50"
             onClick={handleGenerate}
             disabled={loading || !prompt.trim()}
           >
@@ -117,7 +117,7 @@ export function GalleryPage() {
                 />
               </svg>
             )}
-            {loading ? "Generating..." : "Generate"}
+            {loading ? t("generating") : t("generate")}
           </button>
         </div>
 
@@ -131,18 +131,18 @@ export function GalleryPage() {
 
       {/* Gallery Grid */}
       {images.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center py-20 text-gray-500">
-          <p>No images generated yet. Use the form above to create one.</p>
+        <div className="flex flex-1 items-center justify-center py-20 text-muted-foreground">
+          <p>{t("noImagesEmpty")}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {images.map((img) => (
             <div
               key={img.id}
-              className="overflow-hidden rounded-lg border border-gray-800 bg-gray-900"
+              className="overflow-hidden rounded-lg border border-border bg-card"
             >
               {/* Image area */}
-              <div className="flex aspect-square items-center justify-center bg-gray-800">
+              <div className="flex aspect-square items-center justify-center bg-muted/50">
                 {img.url ? (
                   <img
                     src={img.url}
@@ -156,25 +156,25 @@ export function GalleryPage() {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <span className="text-sm text-gray-500">No preview</span>
+                  <span className="text-sm text-muted-foreground">{t("noPreview")}</span>
                 )}
               </div>
 
               {/* Card info */}
               <div className="space-y-2 p-3">
-                <p className="line-clamp-2 text-sm text-gray-300">
+                <p className="line-clamp-2 text-sm text-foreground">
                   {img.prompt}
                 </p>
                 <div className="flex items-center gap-2">
-                  <span className="rounded bg-blue-900/50 px-2 py-0.5 text-xs text-blue-300">
+                  <span className="rounded bg-primary/10 px-2 py-0.5 text-xs text-primary">
                     {img.provider}
                   </span>
-                  <span className="rounded bg-gray-800 px-2 py-0.5 text-xs text-gray-400">
+                  <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                     {img.model}
                   </span>
                 </div>
                 {img.revisedPrompt && (
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     {img.revisedPrompt}
                   </p>
                 )}

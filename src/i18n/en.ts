@@ -235,9 +235,14 @@ const en: Record<string, string> = {
   imagePromptPlaceholder: "Describe the image you want to generate...",
   imageProvider: "Provider",
   imageSize: "Size",
+  modelLabel: "Model",
+  modelPlaceholder: "(optional)",
+  generate: "Generate",
   generating: "Generating...",
   noImages: "No images generated yet",
+  noImagesEmpty: "No images generated yet. Use the form above to create one.",
   noImagesHint: "Write a prompt and click Generate to create images",
+  noPreview: "No preview",
   revisedPrompt: "Revised prompt",
 
   // --- Bridge ---

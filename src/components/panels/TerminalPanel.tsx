@@ -202,7 +202,7 @@ export function TerminalPanel() {
         }
         term.writeln("\x1b[90m  Commands run via sandbox_execute IPC.\x1b[0m");
       } else {
-        term.writeln("\x1b[1;34m  DevPilot Terminal\x1b[0m \x1b[90m(v0.1.0 — demo mode)\x1b[0m");
+        term.writeln("\x1b[1;34m  DevPilot Terminal\x1b[0m \x1b[90m(v0.4.0 — demo mode)\x1b[0m");
         term.writeln("\x1b[90m  Type 'help' for available commands.\x1b[0m");
       }
       term.writeln("");

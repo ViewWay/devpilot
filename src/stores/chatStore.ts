@@ -13,7 +13,7 @@ import {
   type HydratedSession,
 } from "../lib/persistence";
 import { invoke, listen, isTauriRuntime } from "../lib/ipc";
-import { buildSystemPrompt } from "../lib/systemPrompt";
+import { buildSystemPromptWithPersona } from "../lib/systemPrompt";
 import { mapProviderType } from "../lib/utils";
 
 let nextId = 100;
@@ -595,9 +595,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
           content: [{ type: "text" as const, text: typeof m.content === "string" ? m.content : "" }],
         }));
 
-        // Inject system prompt if configured
+        // Inject system prompt with persona data (SOUL/USER/MEMORY.md)
         const customPrompt = useUIStore.getState().systemPrompt;
-        const systemPrompt = buildSystemPrompt(customPrompt);
+        const workspaceDir = useUIStore.getState().workingDir || "";
+        const systemPrompt = await buildSystemPromptWithPersona(workspaceDir, customPrompt);
         messages.unshift({ role: "system", content: [{ type: "text" as const, text: systemPrompt }] });
 
         messages.push({ role: "user", content: buildUserContentBlocks(content, attachments) });
@@ -630,7 +631,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         let unlistenCompacted = () => {};
 
         // Track active tool calls for this session
-        const activeToolCalls: Record<string, { msgId: string; startTime: number }> = {};
+        const activeToolCalls: Record<string, { msgId: string; startTime: number; toolName?: string; input?: unknown }> = {};
 
         unlistenChunk = await listen<{
           event: "chunk"; sessionId: string; delta?: string;
@@ -666,7 +667,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 status: "running",
               }],
             });
-            activeToolCalls[payload.callId] = { msgId: toolMsgId, startTime: Date.now() };
+            activeToolCalls[payload.callId] = { msgId: toolMsgId, startTime: Date.now(), toolName: payload.toolName, input: payload.input };
           },
         );
 
@@ -702,6 +703,36 @@ export const useChatStore = create<ChatState>((set, get) => ({
                   : sess,
               ),
             }));
+
+            // Populate diff view for apply_patch results
+            if (tc.toolName === "apply_patch" && !payload.isError) {
+              const input = tc.input as Record<string, unknown> | undefined;
+              if (input) {
+                const oldStr = typeof input.old_string === "string" ? input.old_string : "";
+                const newStr = typeof input.new_string === "string" ? input.new_string : "";
+                const filePath = typeof input.path === "string" ? input.path : "";
+                if (oldStr || newStr) {
+                  // Determine language from file path
+                  const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
+                  const langMap: Record<string, string> = {
+                    ts: "typescript", tsx: "typescript", js: "javascript", jsx: "javascript",
+                    rs: "rust", py: "python", json: "json", toml: "toml",
+                    yaml: "yaml", yml: "yaml", md: "markdown", css: "css",
+                    html: "html", sh: "shell", sql: "sql",
+                  };
+                  useUIStore.getState().setDiffData({
+                    original: oldStr,
+                    modified: newStr,
+                    language: langMap[ext] ?? "plaintext",
+                  });
+                  // Auto-switch to preview panel in diff mode
+                  const ui = useUIStore.getState();
+                  if (ui.rightPanel === "none") {
+                    ui.setRightPanel("preview");
+                  }
+                }
+              }
+            }
           },
         );
 
@@ -1220,18 +1251,65 @@ async function handleSlashCommand(
       break;
     }
     case "/doctor": {
-      const checks = [
-        { name: "Tauri Runtime", status: typeof window !== "undefined" && "__TAURI__" in window ? "Connected" : "Not connected (web preview)" },
-        { name: "SQLite Database", status: "Not connected" },
-        { name: "Default Provider", status: "Mock mode" },
-        { name: "Filesystem Access", status: typeof window !== "undefined" && "__TAURI__" in window ? "Granted" : "Unavailable" },
-        { name: "Terminal (PTY)", status: "Not connected" },
-      ];
-      const statusIcon = (s: string) => s.includes("Connected") || s.includes("Granted") || s.includes("Mock") ? "✅" : "⚠️";
-      const table = checks.map((c) => `| ${statusIcon(c.status)} ${c.name} | ${c.status} |`).join("\n");
+      const checks: Array<{ name: string; status: string }> = [];
+
+      // Tauri runtime
+      const hasTauri = typeof window !== "undefined" && "__TAURI__" in window;
+      checks.push({
+        name: "Tauri Runtime",
+        status: hasTauri ? "Connected ✅" : "Not connected (web preview) ⚠️",
+      });
+
+      // SQLite Database — try a lightweight IPC call
+      try {
+        await invoke("list_sessions");
+        checks.push({ name: "SQLite Database", status: "Connected ✅" });
+      } catch {
+        checks.push({ name: "SQLite Database", status: "Error ⚠️" });
+      }
+
+      // Default Provider — check provider store
+      const providerState = useProviderStore.getState();
+      const enabledProviders = providerState.providers.filter((p) => p.enabled);
+      if (enabledProviders.length > 0) {
+        const names = enabledProviders.map((p) => p.name).join(", ");
+        checks.push({ name: "Default Provider", status: `${names} ✅` });
+      } else {
+        checks.push({ name: "Default Provider", status: "None configured ⚠️" });
+      }
+
+      // Working directory
+      const wd = useUIStore.getState().workingDir;
+      checks.push({
+        name: "Working Directory",
+        status: wd ? `${wd} ✅` : "Not set ⚠️",
+      });
+
+      // Filesystem — try reading app data dir
+      if (hasTauri) {
+        try {
+          await invoke("get_settings");
+          checks.push({ name: "Filesystem Access", status: "Granted ✅" });
+        } catch {
+          checks.push({ name: "Filesystem Access", status: "Error ⚠️" });
+        }
+      } else {
+        checks.push({ name: "Filesystem Access", status: "Unavailable ⚠️" });
+      }
+
+      // Terminal / Sandbox
+      try {
+        await invoke("sandbox_default_policy");
+        checks.push({ name: "Terminal (Sandbox)", status: "Ready ✅" });
+      } catch {
+        checks.push({ name: "Terminal (Sandbox)", status: "Error ⚠️" });
+      }
+
+      const table = checks.map((c) => `| ${c.name} | ${c.status} |`).join("\n");
+      const allGood = checks.every((c) => c.status.includes("✅"));
       get().addMessage(sessionId, {
         role: "assistant",
-        content: `### System Health Check\n\n| Component | Status |\n|-----------|--------|\n${table}\n\n> Most components require the Tauri backend. Running in web preview mode.`,
+        content: `### System Health Check\n\n| Component | Status |\n|-----------|--------|\n${table}\n\n${allGood ? "✅ All systems operational." : "⚠️ Some components need attention. Check Settings → Providers."}`,
         model,
       });
       break;

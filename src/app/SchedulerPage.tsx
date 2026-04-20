@@ -126,13 +126,13 @@ export function SchedulerPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 text-gray-100">
+    <div className="max-w-4xl mx-auto p-6 text-foreground">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">{t("taskScheduler")}</h1>
         <button
           onClick={() => setShowForm((v) => !v)}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors"
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium hover:bg-primary/90 transition-colors"
         >
           {showForm ? t("cancel") : t("newTask")}
         </button>
@@ -147,22 +147,22 @@ export function SchedulerPage() {
 
       {/* Create Form */}
       {showForm && (
-        <div className="mb-6 rounded-lg border border-gray-800 bg-gray-900 p-5 space-y-4">
+        <div className="mb-6 rounded-lg border border-border bg-card p-5 space-y-4">
           {/* Name & Cron */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="mb-1 block text-sm text-gray-400">{t("taskName")}</label>
+              <label className="mb-1 block text-sm text-muted-foreground">{t("taskName")}</label>
               <input
-                className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none"
                 placeholder={t("taskName")}
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm text-gray-400">{t("cronExpression")}</label>
+              <label className="mb-1 block text-sm text-muted-foreground">{t("cronExpression")}</label>
               <input
-                className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none"
                 placeholder={t("cronPlaceholder")}
                 value={form.cronExpr}
                 onChange={(e) => setForm((f) => ({ ...f, cronExpr: e.target.value }))}
@@ -172,9 +172,9 @@ export function SchedulerPage() {
 
           {/* Action Type */}
           <div>
-            <label className="mb-1 block text-sm text-gray-400">{t("actionType")}</label>
+            <label className="mb-1 block text-sm text-muted-foreground">{t("actionType")}</label>
             <select
-              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
               value={form.actionType}
               onChange={(e) => setForm((f) => ({ ...f, actionType: e.target.value as ActionType }))}
             >
@@ -187,9 +187,9 @@ export function SchedulerPage() {
           {/* Action fields */}
           {form.actionType === "shellCommand" && (
             <div>
-              <label className="mb-1 block text-sm text-gray-400">{t("command")}</label>
+              <label className="mb-1 block text-sm text-muted-foreground">{t("command")}</label>
               <input
-                className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none"
                 placeholder="echo hello"
                 value={form.command}
                 onChange={(e) => setForm((f) => ({ ...f, command: e.target.value }))}
@@ -200,18 +200,18 @@ export function SchedulerPage() {
           {form.actionType === "httpRequest" && (
             <div className="space-y-3">
               <div>
-                <label className="mb-1 block text-sm text-gray-400">URL</label>
+                <label className="mb-1 block text-sm text-muted-foreground">{t("mcpUrl")}</label>
                 <input
-                  className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                  className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none"
                   placeholder="https://example.com/api"
                   value={form.url}
                   onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm text-gray-400">{t("httpMethod")}</label>
+                <label className="mb-1 block text-sm text-muted-foreground">{t("httpMethod")}</label>
                 <select
-                  className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 focus:border-blue-500 focus:outline-none"
+                  className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
                   value={form.method}
                   onChange={(e) => setForm((f) => ({ ...f, method: e.target.value }))}
                 >
@@ -223,9 +223,9 @@ export function SchedulerPage() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-sm text-gray-400">{t("httpHeaders")}</label>
+                <label className="mb-1 block text-sm text-muted-foreground">{t("httpHeaders")}</label>
                 <textarea
-                  className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-blue-500 focus:outline-none resize-y"
+                  className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none resize-y"
                   rows={2}
                   placeholder={"Content-Type: application/json\nAuthorization: Bearer ***"}
                   value={form.headers}
@@ -233,9 +233,9 @@ export function SchedulerPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm text-gray-400">{t("httpBody")}</label>
+                <label className="mb-1 block text-sm text-muted-foreground">{t("httpBody")}</label>
                 <textarea
-                  className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-blue-500 focus:outline-none resize-y"
+                  className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none resize-y"
                   rows={3}
                   placeholder='{"key": "value"}'
                   value={form.body}
@@ -247,9 +247,9 @@ export function SchedulerPage() {
 
           {form.actionType === "custom" && (
             <div>
-              <label className="mb-1 block text-sm text-gray-400">{t("customActionId")}</label>
+              <label className="mb-1 block text-sm text-muted-foreground">{t("customActionId")}</label>
               <input
-                className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none"
                 placeholder="my-custom-action"
                 value={form.customId}
                 onChange={(e) => setForm((f) => ({ ...f, customId: e.target.value }))}
@@ -259,11 +259,11 @@ export function SchedulerPage() {
 
           {/* Max Executions */}
           <div>
-            <label className="mb-1 block text-sm text-gray-400">{t("maxExecutionsOptional")}</label>
+            <label className="mb-1 block text-sm text-muted-foreground">{t("maxExecutionsOptional")}</label>
             <input
               type="number"
               min={1}
-              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none"
               placeholder={t("maxExecutionsUnlimited")}
               value={form.maxExecutions}
               onChange={(e) => setForm((f) => ({ ...f, maxExecutions: e.target.value }))}
@@ -274,14 +274,14 @@ export function SchedulerPage() {
           <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={resetForm}
-              className="rounded-lg border border-gray-700 px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
+              className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-muted transition-colors"
             >
               {t("cancel")}
             </button>
             <button
               onClick={handleCreate}
               disabled={creating || !form.cronExpr.trim() || !buildAction()}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {creating ? t("creating") : t("createTask")}
             </button>
@@ -292,7 +292,7 @@ export function SchedulerPage() {
       {/* Loading */}
       {loading && (
         <div className="flex items-center justify-center py-12">
-          <svg className="h-8 w-8 animate-spin text-blue-500" viewBox="0 0 24 24" fill="none">
+          <svg className="h-8 w-8 animate-spin text-primary" viewBox="0 0 24 24" fill="none">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path
               className="opacity-75"
@@ -305,12 +305,12 @@ export function SchedulerPage() {
 
       {/* Empty state */}
       {!loading && tasks.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 text-gray-500">
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <svg className="h-12 w-12 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <circle cx="12" cy="12" r="10" />
             <polyline points="12,6 12,12 16,14" />
           </svg>
-          <p className="text-lg font-medium text-gray-400">{t("noTasks")}</p>
+          <p className="text-lg font-medium text-muted-foreground">{t("noTasks")}</p>
           <p className="text-sm mt-1">{t("noTasksHint")}</p>
         </div>
       )}
@@ -321,7 +321,7 @@ export function SchedulerPage() {
           {tasks.map((task) => (
             <div
               key={task.id}
-              className="rounded-lg border border-gray-800 bg-gray-900 p-4"
+              className="rounded-lg border border-border bg-card p-4"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
@@ -331,8 +331,8 @@ export function SchedulerPage() {
                     </h3>
                     {statusBadge(task.status)}
                   </div>
-                  <div className="flex items-center gap-4 text-sm text-gray-400">
-                    <span className="font-mono text-xs bg-gray-800 rounded px-1.5 py-0.5">
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <span className="font-mono text-xs bg-muted rounded px-1.5 py-0.5">
                       {task.cronExpr}
                     </span>
                     <span>
@@ -366,7 +366,7 @@ export function SchedulerPage() {
                       </button>
                       <button
                         onClick={() => setDeleteConfirmId(null)}
-                        className="rounded-lg border border-gray-700 px-3 py-1.5 text-xs hover:bg-gray-800 transition-colors"
+                        className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-muted transition-colors"
                       >
                         {t("cancel")}
                       </button>
@@ -374,7 +374,7 @@ export function SchedulerPage() {
                   ) : (
                     <button
                       onClick={() => setDeleteConfirmId(task.id)}
-                      className="rounded-lg px-3 py-1.5 text-xs font-medium text-gray-400 hover:text-red-400 hover:bg-red-950/30 transition-colors"
+                      className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-red-400 hover:bg-red-950/30 transition-colors"
                     >
                       {t("delete")}
                     </button>

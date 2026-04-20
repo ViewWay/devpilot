@@ -235,9 +235,14 @@ const zh: Record<string, string> = {
   imagePromptPlaceholder: "描述你想生成的图片...",
   imageProvider: "服务商",
   imageSize: "尺寸",
+  modelLabel: "模型",
+  modelPlaceholder: "（可选）",
+  generate: "生成",
   generating: "生成中...",
   noImages: "尚未生成图片",
+  noImagesEmpty: "尚未生成图片。请使用上方表单创建。",
   noImagesHint: "输入提示词并点击生成来创建图片",
+  noPreview: "无预览",
   revisedPrompt: "修正后的提示词",
 
   // --- Bridge ---

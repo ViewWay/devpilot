@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useI18n } from "../../i18n";
 import { useChatStore } from "../../stores/chatStore";
 import { useUIStore } from "../../stores/uiStore";
-import { Send, Paperclip, Globe, Sparkles, StopCircle, X, Image, FileText } from "lucide-react";
+import { Send, Paperclip, Sparkles, StopCircle, X, Image, FileText } from "lucide-react";
 import { cn } from "../../lib/utils";
 import type { Attachment, AttachmentIPC } from "../../types";
 
@@ -386,15 +386,6 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
               aria-label={t("a11y.messageInput")}
             />
 
-            {/* Web search */}
-            <button
-              title={t("webSearch")}
-              className="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              aria-label={t("a11y.webSearch")}
-            >
-              <Globe size={15} />
-            </button>
-
             {/* Send / Stop */}
             {isLoading || isStreaming ? (
               <button
@@ -428,7 +419,7 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
           <span>{t("inputHint")}</span>
           <div className="flex items-center gap-1">
             <Sparkles size={10} />
-            <span>DevPilot v0.1.0</span>
+            <span>DevPilot v0.4.0</span>
           </div>
         </div>
       </div>

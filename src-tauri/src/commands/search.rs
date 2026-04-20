@@ -181,3 +181,59 @@ pub async fn list_directory(
 
     Ok(entries)
 }
+
+// ── File reading ──────────────────────────────────────
+
+/// Result of reading a text file.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileReadResult {
+    /// File content as UTF-8 string.
+    pub content: String,
+    /// Total number of lines.
+    pub total_lines: usize,
+}
+
+/// Safely read a text file's contents.
+///
+/// Validates that the path points to a regular file (not a directory, symlink,
+/// etc.) and reads it as UTF-8. Returns the content and line count.
+#[tauri::command(rename_all = "camelCase")]
+pub async fn read_text_file(path: String) -> Result<FileReadResult, String> {
+    use std::fs;
+    use std::path::Path;
+
+    let file_path = Path::new(&path);
+
+    // Security: reject symlinks — only allow regular files
+    if file_path.is_symlink() {
+        return Err("Symlinks are not allowed".to_string());
+    }
+    if !file_path.exists() {
+        return Err(format!("File not found: {path}"));
+    }
+    if file_path.is_dir() {
+        return Err(format!("Path is a directory, not a file: {path}"));
+    }
+
+    let metadata = fs::symlink_metadata(&path).map_err(|e| format!("Metadata error: {e}"))?;
+    if !metadata.is_file() {
+        return Err(format!("Not a regular file: {path}"));
+    }
+
+    // Size guard: reject files > 10 MB
+    if metadata.len() > 10 * 1024 * 1024 {
+        return Err(format!(
+            "File too large ({} bytes, max 10 MB)",
+            metadata.len()
+        ));
+    }
+
+    let content = fs::read_to_string(&path).map_err(|e| format!("Read error: {e}"))?;
+    let total_lines = content.lines().count();
+
+    Ok(FileReadResult {
+        content,
+        total_lines,
+    })
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
 import { Eye, GitCompare, FileCode, X, Loader2, AlertCircle } from "lucide-react";
 import { useI18n } from "../../i18n";
@@ -53,12 +53,6 @@ interface FileContent {
   language: string;
 }
 
-interface DiffData {
-  original: string;
-  modified: string;
-  language: string;
-}
-
 const EDITOR_OPTIONS = {
   readOnly: true,
   minimap: { enabled: false },
@@ -80,11 +74,10 @@ export function PreviewPanel() {
   const { t } = useI18n();
   const previewFile = useUIStore((s) => s.previewFile);
   const setPreviewFile = useUIStore((s) => s.setPreviewFile);
-  const workingDir = useUIStore((s) => s.workingDir);
 
   const [mode, setMode] = useState<"file" | "diff">("file");
   const [fileData, setFileData] = useState<FileContent | null>(null);
-  const diffData = useRef<DiffData | null>(null);
+  const diffData = useUIStore((s) => s.diffData);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -95,30 +88,12 @@ export function PreviewPanel() {
 
     try {
       const result = await invoke<{
-        stdout: string;
-        stderr: string;
-        exitCode: number | null;
-        denied: boolean;
-      }>("sandbox_execute", {
-        request: {
-          command: `cat "${path}"`,
-          workingDir: workingDir || "/",
-          policy: "permissive",
-        },
-      });
-
-      if (result.denied) {
-        setError(t("fileAccessDenied"));
-        return;
-      }
-
-      if (result.exitCode !== 0 && result.stderr) {
-        setError(result.stderr);
-        return;
-      }
+        content: string;
+        totalLines: number;
+      }>("read_text_file", { path });
 
       setFileData({
-        content: result.stdout,
+        content: result.content,
         language: getLanguage(path),
       });
     } catch (err) {
@@ -126,7 +101,7 @@ export function PreviewPanel() {
     } finally {
       setLoading(false);
     }
-  }, [workingDir, t]);
+  }, [t]);
 
   useEffect(() => {
     if (previewFile) {
@@ -145,7 +120,7 @@ export function PreviewPanel() {
   };
 
   // Determine what diff shows: use diffData if available, otherwise placeholder
-  const hasDiff = diffData.current !== null;
+  const hasDiff = diffData !== null;
 
   return (
     <div className="flex h-full flex-col">
@@ -252,9 +227,9 @@ export function PreviewPanel() {
               <div className="flex-1 min-h-0">
                 <DiffEditor
                   height="100%"
-                  language={diffData.current!.language}
-                  original={diffData.current!.original}
-                  modified={diffData.current!.modified}
+                  language={diffData!.language}
+                  original={diffData!.original}
+                  modified={diffData!.modified}
                   theme="vs-dark"
                   options={{
                     ...EDITOR_OPTIONS,
