@@ -399,7 +399,7 @@ impl ModelProvider for GeminiProvider {
         let message = candidate
             .content
             .as_ref()
-            .map(|c| Self::convert_response_content(c))
+            .map(Self::convert_response_content)
             .unwrap_or_else(|| Message::text(MessageRole::Assistant, ""));
 
         let usage = gemini_resp

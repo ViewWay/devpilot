@@ -264,7 +264,7 @@ fn check_config_completeness(config: &ProviderConfig) -> DiagnosticCheck {
         issues.push("Base URL should start with http:// or https://");
     }
 
-    if config.api_key.is_none() || config.api_key.as_ref().map_or(true, |k| k.is_empty()) {
+    if config.api_key.is_none() || config.api_key.as_ref().is_none_or(|k| k.is_empty()) {
         // Ollama doesn't require API keys
         let needs_key = !matches!(
             config.provider_type,

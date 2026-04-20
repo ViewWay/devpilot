@@ -78,7 +78,7 @@ impl RetryConfig {
             // Add ±25% jitter
             let jitter_range = delay * 0.25;
             // Simple deterministic jitter based on attempt number
-            let jitter_offset = if attempt % 2 == 0 {
+            let jitter_offset = if attempt.is_multiple_of(2) {
                 jitter_range * 0.3
             } else {
                 -jitter_range * 0.2
@@ -141,7 +141,7 @@ where
 ///
 /// Uses the default retry configuration. For custom retry behavior,
 /// use `retry_operation` directly with a custom `RetryConfig`.
-pub async fn retry_chat<F, Fut>(mut chat_fn: F) -> Result<devpilot_protocol::ChatResponse, LlmError>
+pub async fn retry_chat<F, Fut>(chat_fn: F) -> Result<devpilot_protocol::ChatResponse, LlmError>
 where
     F: FnMut() -> Fut,
     Fut: std::future::Future<Output = Result<devpilot_protocol::ChatResponse, LlmError>>,
