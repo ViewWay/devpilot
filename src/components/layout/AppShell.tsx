@@ -9,6 +9,7 @@ import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
 import { useShortcutStore } from "../../stores/shortcutStore";
 import { useI18n } from "../../i18n";
 import { useEffect, useCallback } from "react";
+import { cn } from "../../lib/utils";
 
 export function AppShell() {
   const { t } = useI18n();
@@ -50,21 +51,26 @@ export function AppShell() {
         {t("a11y.skipToMain")}
       </a>
 
-      {/* Mobile backdrop */}
+      {/* Sidebar: always rendered — collapsed icon strip when closed, full panel when open.
+          Mobile: overlay drawer. Desktop: inline flex child. */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/50 md:hidden"
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-[2px] md:hidden"
           onClick={handleBackdropClick}
           aria-hidden="true"
         />
       )}
-
-      {/* Sidebar: drawer on mobile, inline on desktop */}
-      {sidebarOpen && (
-        <div className="fixed inset-y-0 left-0 z-40 md:relative md:inset-auto md:z-auto">
-          <Sidebar />
-        </div>
-      )}
+      <div
+        className={cn(
+          "shrink-0 z-40",
+          // Mobile: fixed overlay
+          sidebarOpen
+            ? "fixed inset-y-0 left-0 md:relative md:inset-auto"
+            : "relative",
+        )}
+      >
+        <Sidebar />
+      </div>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <UpdateChecker />

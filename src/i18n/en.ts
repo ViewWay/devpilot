@@ -439,6 +439,20 @@ const en: Record<string, string> = {
   updateError: "Update check failed",
   updateUpToDate: "You're up to date",
   updateCheckFailed: "Could not check for updates",
+
+  // --- Provider Diagnostics ---
+  runDiagnostics: "Run Diagnostics",
+  diagnosing: "Diagnosing…",
+  diagnosticReport: "Diagnostic Report",
+  diagnosticHealthy: "Provider is healthy",
+  diagnosticUnhealthy: "Issues detected",
+  diagnosticDuration: "Completed in {ms}ms",
+  diagnosticModels: "{count} models available",
+  severityOk: "OK",
+  severityWarning: "Warning",
+  severityError: "Error",
+  diagnosticSuggestion: "Suggestion",
+  diagnosticNoChecks: "No diagnostic checks available.",
 };
 
 export default en;

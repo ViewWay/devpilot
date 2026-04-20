@@ -53,7 +53,7 @@ export function CheckpointPanel({ open, onClose }: { open: boolean; onClose: () 
   if (!open) { return null; }
 
   return (
-    <div className="flex h-full w-72 flex-col border-l border-border bg-background">
+    <div className="absolute inset-y-0 right-0 z-20 flex w-72 flex-col border-l border-border bg-background/95 backdrop-blur-sm shadow-lg animate-in slide-in-from-right">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-3 py-2">
         <div className="flex items-center gap-2">

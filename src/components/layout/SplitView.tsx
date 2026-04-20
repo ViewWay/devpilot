@@ -48,8 +48,8 @@ export function SplitView({ left, right, className }: SplitViewProps) {
       ref={containerRef}
       className={cn("flex h-full overflow-hidden", className)}
     >
-      {/* Left panel (Chat) */}
-      <div className="flex min-w-0 flex-col overflow-hidden" style={{ width: `${panelSize}%` }}>
+      {/* Left panel (Chat) — min 280px for usable width */}
+      <div className="flex min-w-[280px] flex-col overflow-hidden" style={{ width: `${panelSize}%` }}>
         {left}
       </div>
 
@@ -69,8 +69,8 @@ export function SplitView({ left, right, className }: SplitViewProps) {
         />
       </div>
 
-      {/* Right panel */}
-      <div className="min-w-0 flex-1 overflow-hidden">{right}</div>
+      {/* Right panel — min 200px */}
+      <div className="min-w-[200px] flex-1 overflow-hidden">{right}</div>
     </div>
   );
 }

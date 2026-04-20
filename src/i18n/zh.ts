@@ -439,6 +439,20 @@ const zh: Record<string, string> = {
   updateError: "更新检查失败",
   updateUpToDate: "已是最新版本",
   updateCheckFailed: "无法检查更新",
+
+  // --- Provider Diagnostics ---
+  runDiagnostics: "运行诊断",
+  diagnosing: "正在诊断…",
+  diagnosticReport: "诊断报告",
+  diagnosticHealthy: "服务提供商运行正常",
+  diagnosticUnhealthy: "检测到问题",
+  diagnosticDuration: "完成耗时 {ms}ms",
+  diagnosticModels: "{count} 个可用模型",
+  severityOk: "正常",
+  severityWarning: "警告",
+  severityError: "错误",
+  diagnosticSuggestion: "建议",
+  diagnosticNoChecks: "暂无诊断检查。",
 };
 
 export default zh;

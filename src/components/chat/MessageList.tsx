@@ -47,7 +47,7 @@ export function MessageList({ sessionId }: { sessionId?: string } = {}) {
 
   return (
     <div className="flex-1 overflow-y-auto" role="log" aria-live="polite" aria-label={t("a11y.messageLog")}>
-      <div className="mx-auto max-w-3xl px-4 py-6">
+      <div className="mx-auto w-full max-w-4xl px-4 py-6 2xl:max-w-5xl">
         <div className="space-y-6">
           {session.messages.map((msg) => (
             <MessageBubble key={msg.id} message={msg} isLastAssistant={msg.id === lastAssistantId} />
@@ -62,7 +62,7 @@ export function MessageList({ sessionId }: { sessionId?: string } = {}) {
 function EmptyState() {
   const { t } = useI18n();
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-4">
+    <div className="flex flex-1 flex-col items-center justify-center px-4 empty-pattern">
       <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mb-6">
         <Sparkles size={28} className="text-primary" />
       </div>

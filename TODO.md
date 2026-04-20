@@ -4,7 +4,7 @@
 
 - **版本**: 0.4.0 (开发中)
 - **后端**: 12 Rust crates, 17,200+ 行, 293 tests, 全部通过
-- **前端**: 70+ TS/TSX 文件, ~15,400 行, 142 tests (11 files)
+- **前端**: 70+ TS/TSX 文件, ~15,400 行, 145 tests (11 files)
 - **IPC**: 86 个 Tauri 命令已注册 (40+ 个 #[tauri::command])
 - **编译**: cargo build OK, cargo clippy OK, tsc OK
 
@@ -74,6 +74,33 @@
 - [x] **P6-1** SandboxRenderer: iframe-based sandbox with srcdoc, resize handle, open-in-new-tab, error boundary (e5ef4f2)
 - [x] **P6-2** SandboxBlock: Chat message block for html code blocks — auto-detected in MessageList (e5ef4f2)
 - [x] **P6-3** Keyboard shortcuts: 9 default shortcuts, customizable with click-to-rebind recording, persistence (2a22820)
+
+---
+
+## Phase 8: UI 自适应 + 美化 — 8/8 完成 ✅
+
+### P8-A: 布局自适应 (Critical)
+
+- [x] **P8-1** AppShell 重构: sidebar 始终渲染(条件 class 切换)，消除布局跳跃
+- [x] **P8-2** TopBar 自适应: 溢出隐藏非核心元素 (lg: WorkingDir, md: ReasoningEffort)
+- [x] **P8-3** MessageList/MessageInput 全屏自适应: max-w-3xl → max-w-4xl/5xl (2xl 断点)
+- [x] **P8-4** ChatPanel CheckpointPanel 改为 absolute overlay (不再挤压聊天区域)
+
+### P8-B: 面板 + Terminal (High)
+
+- [x] **P8-5** SplitView: min-width 保护 (左 280px, 右 200px)，防止挤压为零
+- [x] **P8-6** Terminal 主题跟随: 消除硬编码 #1a1b26，改用 CSS 变量自动适配 dark/light
+
+### P8-C: 细节润色 (Medium)
+
+- [x] **P8-7** CSS: 更细腻 scrollbar (5px + oklch alpha)，prose 排版，空状态背景图案，CheckpointPanel 滑入动画，focus-visible 全局样式
+
+### P8-D: 其他增强 (from prior sessions)
+
+- [x] **P8-8** Provider 健康诊断: providerStore.diagnoseProvider + DiagnosticReport 类型 + i18n keys
+- [x] **P8-9** LLM 重试逻辑: 指数退避 transient error 重试 (Rust 后端)
+- [x] **P8-10** 更多中国 Provider: Kimi, MiniMax, VolcEngine (Doubao)
+- [x] **P8-11** Google Gemini 原生 API + 多模态图片附件支持
 
 ---
 
@@ -196,3 +223,4 @@
 - 2026-04-19 Session N: P4 规划 + 开始开发
 - 2026-04-20 Session O: P5+P6 开发 — devpilot-memory crate, persona UI, split view, sandbox renderer, keyboard shortcuts
 - 2026-04-20 Session P: P7 开发 — interaction modes, skills system, data export/import, accessibility, auto-update
+- 2026-04-20 Session Q: P8 UI 改进 + Provider 增强 — 布局自适应, Terminal 主题跟随, CSS 润色, 健康诊断, Gemini/Kimi/MiniMax/VolcEngine

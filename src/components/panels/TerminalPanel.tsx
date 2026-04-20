@@ -149,29 +149,34 @@ export function TerminalPanel() {
       const { XTerm, FitAddon, WebLinksAddon } = await loadXterm();
       if (cancelled || !termContainerRef.current) {return;}
 
+      // Read theme colors from CSS variables to follow app theme
+      const cs = getComputedStyle(document.documentElement);
+      const themeBg = cs.getPropertyValue("--background").trim() || "#1a1b26";
+      const isDark = themeBg.includes("0.1"); // oklch lightness < 0.2
+
       const term = new XTerm.Terminal({
         theme: {
-          background: "#1a1b26",
-          foreground: "#c0caf5",
-          cursor: "#c0caf5",
-          cursorAccent: "#1a1b26",
-          selectionBackground: "#33467c",
-          black: "#15161e",
-          red: "#f7768e",
-          green: "#9ece6a",
-          yellow: "#e0af68",
-          blue: "#7aa2f7",
-          magenta: "#bb9af7",
-          cyan: "#7dcfff",
-          white: "#a9b1d6",
-          brightBlack: "#414868",
-          brightRed: "#f7768e",
-          brightGreen: "#9ece6a",
-          brightYellow: "#e0af68",
-          brightBlue: "#7aa2f7",
-          brightMagenta: "#bb9af7",
-          brightCyan: "#7dcfff",
-          brightWhite: "#c0caf5",
+          background: isDark ? "#1a1b26" : "#fafafa",
+          foreground: isDark ? "#c0caf5" : "#383a42",
+          cursor: isDark ? "#c0caf5" : "#383a42",
+          cursorAccent: isDark ? "#1a1b26" : "#fafafa",
+          selectionBackground: isDark ? "#33467c" : "#add6ff",
+          black: isDark ? "#15161e" : "#383a42",
+          red: isDark ? "#f7768e" : "#e45649",
+          green: isDark ? "#9ece6a" : "#50a14f",
+          yellow: isDark ? "#e0af68" : "#c18401",
+          blue: isDark ? "#7aa2f7" : "#4078f2",
+          magenta: isDark ? "#bb9af7" : "#a626a4",
+          cyan: isDark ? "#7dcfff" : "#0184bc",
+          white: isDark ? "#a9b1d6" : "#a0a1a7",
+          brightBlack: isDark ? "#414868" : "#4f4f4f",
+          brightRed: isDark ? "#f7768e" : "#e45649",
+          brightGreen: isDark ? "#9ece6a" : "#50a14f",
+          brightYellow: isDark ? "#e0af68" : "#c18401",
+          brightBlue: isDark ? "#7aa2f7" : "#4078f2",
+          brightMagenta: isDark ? "#bb9af7" : "#a626a4",
+          brightCyan: isDark ? "#7dcfff" : "#0184bc",
+          brightWhite: isDark ? "#c0caf5" : "#383a42",
         },
         fontFamily:
           "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, monospace",
@@ -300,9 +305,9 @@ export function TerminalPanel() {
   };
 
   return (
-    <div className="flex h-full flex-col bg-[#1a1b26]">
+    <div className="flex h-full flex-col bg-card">
       {/* Tab bar */}
-      <div className="flex items-center gap-1 border-b border-border/50 bg-[#16161e] px-2 py-1">
+      <div className="flex items-center gap-1 border-b border-border/50 bg-muted/50 px-2 py-1">
         <TerminalIcon size={12} className="text-muted-foreground ml-1" />
         {tabs.map((tab) => (
           <button
@@ -311,8 +316,8 @@ export function TerminalPanel() {
             className={cn(
               "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] transition-colors",
               tab.id === activeTabId
-                ? "bg-[#1a1b26] text-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-[#1a1b26]/50",
+                ? "bg-card text-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent",
             )}
           >
             <span className="h-1.5 w-1.5 rounded-full bg-green-500/70" />

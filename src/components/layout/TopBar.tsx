@@ -135,7 +135,7 @@ export function TopBar() {
   }, []);
 
   return (
-    <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border bg-background/80 px-3 backdrop-blur-sm" role="toolbar" aria-label={t("a11y.topBarToolbar")}>
+    <header className="flex h-11 shrink-0 items-center gap-1.5 border-b border-border bg-background/80 px-2 backdrop-blur-sm overflow-hidden" role="toolbar" aria-label={t("a11y.topBarToolbar")}>
       <button
         onClick={toggleSidebar}
         className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
@@ -222,11 +222,13 @@ export function TopBar() {
         ))}
       </div>
 
-      {/* Working Directory */}
-      <WorkingDirSelector />
+      {/* Working Directory — hidden on narrow screens */}
+      <div className="hidden lg:block">
+        <WorkingDirSelector />
+      </div>
 
-      {/* Reasoning Effort Slider */}
-      <div className="relative" ref={effortRef}>
+      {/* Reasoning Effort Slider — hidden on medium screens */}
+      <div className="relative hidden md:block" ref={effortRef}>
         <button
           onClick={() => setEffortOpen(!effortOpen)}
           className={cn(

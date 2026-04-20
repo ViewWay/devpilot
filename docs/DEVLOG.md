@@ -818,3 +818,73 @@ New test files:
 | DB tables      | 7                | **11**  |
 
 **QA:** `cargo test --workspace` 234 pass, `vitest run` 142 pass, `cargo clippy -D warnings` clean, `npm run build` clean
+
+---
+
+## 2026-04-20 Session Q — Phase 8 UI 自适应 + Provider 增强
+
+### Goal
+
+改善 DevPilot 界面在全屏/不同分辨率下的自适应表现，参考 Codex CLI 和 CodePilot 的设计。
+
+### P8-1: AppShell 重构 ✅
+
+- Sidebar 改为始终渲染（条件 class 切换），消除 toggle 时的布局跳跃
+- 导入 `cn` 工具函数做 class 合并
+
+### P8-2: TopBar 自适应 ✅
+
+- WorkingDir selector: `hidden lg:block` — 窄屏隐藏
+- ReasoningEffort: `hidden md:block` — 中等屏隐藏
+- 间距从 `gap-2` 缩为 `gap-1`
+
+### P8-3: MessageList/Input 全屏自适应 ✅
+
+- `max-w-3xl` → `max-w-4xl 2xl:max-w-5xl`
+- 大屏幕下聊天内容区域更宽
+
+### P8-4: CheckpointPanel Overlay ✅
+
+- 从 flex 内联改为 absolute overlay
+- 添加 `backdrop-blur-sm` + `slide-in-from-right` 动画
+- 不再挤压聊天区域宽度
+
+### P8-5: SplitView Min-Width 保护 ✅
+
+- 左面板 min-width: 280px
+- 右面板 min-width: 200px
+- 防止拖拽时面板被挤压到不可见
+
+### P8-6: Terminal 主题跟随 ✅
+
+- 消除所有硬编码颜色 (#1a1b26, #16161e)
+- 改用 CSS 变量 (--background, --card, --muted, --accent)
+- Terminal 字体颜色根据 oklch 亮度自动选择前景色
+- 外层 div: `bg-card`, tab bar: `bg-muted/50`, hover: `bg-accent`
+
+### P8-7: CSS 润色 ✅
+
+- Scrollbar: 5px 宽, oklch alpha 25%/50% 渐变
+- `.prose-sm`: line-height 1.65, blockquote primary tint
+- `button:focus-visible`: 2px ring outline
+- `.empty-pattern`: 点状背景图（空状态页面）
+- `.slide-in-from-right`: CheckpointPanel 滑入动画
+- `.transition-layout`: 宽高变化过渡
+
+### P8-8~11: 其他增强 (prior sessions) ✅
+
+- Provider 健康诊断系统 (DiagnosticReport + diagnoseProvider)
+- LLM 指数退避重试
+- Kimi / MiniMax / VolcEngine (Doubao) 中国 Provider
+- Google Gemini 原生 API + 多模态图片附件
+
+### Stats
+
+| Metric         | Before (56c2a51) | Current      |
+| -------------- | ---------------- | ------------ |
+| Frontend tests | 142              | **145**      |
+| Files changed  | -                | **13 files** |
+| Lines added    | -                | **+219**     |
+| Lines removed  | -                | **-54**      |
+
+**QA:** `npx tsc --noEmit` clean (only pre-existing SettingsPage warnings), `npx vitest run` 145 pass

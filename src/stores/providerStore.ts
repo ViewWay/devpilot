@@ -25,9 +25,29 @@ export interface ModelConfig {
   outputPrice?: number;
 }
 
+/** Mirrors Rust DiagnosticCheck (camelCase via serde). */
+export interface DiagnosticCheck {
+  name: string;
+  severity: "ok" | "warning" | "error";
+  message: string;
+  suggestion?: string;
+}
+
+/** Mirrors Rust DiagnosticReport (camelCase via serde). */
+export interface DiagnosticReport {
+  providerId: string;
+  providerName: string;
+  healthy: boolean;
+  durationMs: number;
+  checks: DiagnosticCheck[];
+  modelsCount?: number;
+}
+
 export interface ProviderStore {
   providers: Provider[];
   hydrated: boolean;
+  /** Last diagnostic report keyed by provider id. */
+  diagnosticReports: Record<string, DiagnosticReport>;
 
   // Actions
   hydrateFromBackend: () => Promise<void>;
@@ -35,6 +55,7 @@ export interface ProviderStore {
   updateProvider: (id: string, partial: Partial<Provider>) => void;
   removeProvider: (id: string) => void;
   testConnection: (id: string) => Promise<boolean>;
+  diagnoseProvider: (id: string) => Promise<DiagnosticReport | null>;
   setApiKey: (id: string, key: string) => void;
   getEnabledProviders: () => Provider[];
   getProviderById: (id: string) => Provider | undefined;
@@ -192,6 +213,7 @@ async function unpersistProvider(id: string): Promise<void> {
 export const useProviderStore = create<ProviderStore>((set, get) => ({
   providers: DEFAULT_PROVIDERS,
   hydrated: false,
+  diagnosticReports: {},
 
   hydrateFromBackend: async () => {
     if (!isTauriRuntime() || get().hydrated) { return; }
@@ -390,6 +412,69 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
       }));
       return false;
     }
+  },
+
+  diagnoseProvider: async (id: string): Promise<DiagnosticReport | null> => {
+    const provider = get().providers.find((p) => p.id === id);
+    if (!provider) { return null; }
+
+    if (isTauriRuntime()) {
+      try {
+        const report = await invoke<DiagnosticReport>(
+          "diagnose_provider",
+          {
+            config: {
+              id: provider.id,
+              name: provider.name,
+              providerType: mapProviderType(provider.id),
+              baseUrl: provider.baseUrl,
+              apiKey: provider.apiKey || undefined,
+              models: provider.models.map((m) => ({
+                id: m.id,
+                name: m.name,
+                provider: mapProviderType(provider.id),
+                maxInputTokens: m.maxTokens,
+                maxOutputTokens: 4096,
+                supportsStreaming: m.supportsStreaming,
+                supportsTools: true,
+                supportsVision: m.supportsVision,
+                inputPricePerMillion: m.inputPrice,
+                outputPricePerMillion: m.outputPrice,
+              })),
+              enabled: provider.enabled,
+            },
+          },
+        );
+        set({ diagnosticReports: { ...get().diagnosticReports, [id]: report } });
+        return report;
+      } catch {
+        return null;
+      }
+    }
+
+    // Browser mock fallback
+    await new Promise((resolve) => setTimeout(resolve, 600 + Math.random() * 400));
+    const isLocal = provider.baseUrl.includes("localhost") || provider.baseUrl.includes("127.0.0.1");
+    const hasKey = !!provider.apiKey;
+    const healthy = isLocal || hasKey;
+    const report: DiagnosticReport = {
+      providerId: provider.id,
+      providerName: provider.name,
+      healthy,
+      durationMs: Math.round(400 + Math.random() * 400),
+      checks: [
+        { name: "Configuration", severity: "ok", message: "Base URL configured" },
+        ...(isLocal
+          ? [{ name: "API Key", severity: "ok" as const, message: "Not required for local provider" }]
+          : hasKey
+            ? [{ name: "API Key", severity: "ok" as const, message: "API key is set" }]
+            : [{ name: "API Key", severity: "error" as const, message: "No API key configured", suggestion: "Add your API key to use this provider" }]),
+        { name: "Models", severity: "ok", message: `${provider.models.length} model(s) configured` },
+      ],
+      modelsCount: provider.models.length,
+    };
+    set({ diagnosticReports: { ...get().diagnosticReports, [id]: report } });
+    return report;
   },
 
   setApiKey: (id, key) => {

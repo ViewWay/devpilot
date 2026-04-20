@@ -2,7 +2,21 @@
 
 All notable changes to DevPilot will be documented in this file.
 
-## [0.4.0] — 2026-04-19
+## [0.4.0] — 2026-04-20
+
+### Added — Phase 8 UI Overhaul + Provider Enhancements
+
+- AppShell: sidebar always rendered (CSS class toggle), eliminates layout jumps on toggle
+- TopBar: responsive overflow — WorkingDir hidden on <lg, ReasoningEffort hidden on <md
+- MessageList/MessageInput: wider max-width (max-w-4xl / max-w-5xl at 2xl breakpoint) for fullscreen usage
+- CheckpointPanel: absolute overlay positioning with slide-in animation, no longer squeezes chat area
+- SplitView: min-width guards (left 280px, right 200px) prevent panel collapse to zero
+- TerminalPanel: theme-aware colors from CSS variables (replaced hardcoded #1a1b26/#16161e), auto-adapts to dark/light
+- CSS: finer scrollbar (5px, oklch alpha), prose line-height, empty-state dot pattern, focus-visible outlines, transition-layout utility
+- Provider health diagnostics: providerStore.diagnoseProvider() with DiagnosticReport type, mock + Tauri IPC
+- LLM retry logic: exponential backoff for transient errors (Rust backend)
+- Chinese providers: Kimi (Moonshot), MiniMax, VolcEngine/Doubao native support
+- Google Gemini: native API provider + multimodal image attachment support
 
 ### Added — Phase 4 Practical Features (15/15 完成)
 

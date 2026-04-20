@@ -113,9 +113,9 @@ export function ChatPanel() {
   const [checkpointOpen, setCheckpointOpen] = useState(false);
 
   const chatContent = (
-    <div className="relative flex h-full">
+    <div className="relative flex h-full overflow-hidden">
       {/* Chat area */}
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col min-w-0">
         {/* Checkpoint toggle button */}
         <button
           onClick={() => setCheckpointOpen(!checkpointOpen)}
@@ -126,7 +126,7 @@ export function ChatPanel() {
         </button>
         <ChatContent />
       </div>
-      {/* Checkpoint side panel */}
+      {/* Checkpoint side panel — absolute overlay to avoid layout collision */}
       <CheckpointPanel open={checkpointOpen} onClose={() => setCheckpointOpen(false)} />
     </div>
   );
