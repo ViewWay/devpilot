@@ -6,7 +6,9 @@ const en: Record<string, string> = {
   today: "Today",
   yesterday: "Yesterday",
   previous7Days: "Previous 7 Days",
+  previous30Days: "Previous 30 Days",
   older: "Older",
+  noMatching: "No matching conversations",
   rename: "Rename",
   archive: "Archive",
   archived: "Archived",
@@ -496,6 +498,17 @@ const en: Record<string, string> = {
   quickFileSearchContentResultsCount: "{count} matches in {files} files",
   commandPaletteSearchFiles: "Search Files",
   commandPaletteSearchFilesDesc: "Quick search files by name or content",
+
+  // --- Tabs ---
+  "tabs.close": "Close",
+  "tabs.closeOthers": "Close Others",
+  "tabs.closeLeft": "Close to Left",
+  "tabs.closeRight": "Close to Right",
+  "tabs.closeAll": "Close All",
+  "tabs.closeConfirmTitle": "Close running session?",
+  "tabs.closeConfirmMessage": "This session is still generating a response. What would you like to do?",
+  "tabs.closeConfirmKeep": "Keep Running",
+  "tabs.closeConfirmStop": "Stop & Close",
 };
 
 export default en;

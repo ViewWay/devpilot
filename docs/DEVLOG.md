@@ -950,3 +950,72 @@ New test files:
 | Files changed   | —           | **7 files** |
 
 **QA:** `npx tsc --noEmit` clean, `npx vitest run` 146 pass
+
+## 2026-04-21 Session — P10 UI Rewrite (cc-haha design system)
+
+### Goal
+
+Complete visual overhaul matching cc-haha design system — oklch colors, Material Symbols icons, Inter/Manrope/JetBrains Mono fonts, tab-based navigation.
+
+### P10-1: CSS/Fonts Design System Migration ✅
+
+- Copied Inter, Manrope, JetBrains Mono woff2 fonts from cc-haha to `public/fonts/`
+- Replaced `src/index.css` with cc-haha's `globals.css` (23,439 chars)
+  - oklch color token system (--color-surface, --color-brand, --color-border, etc.)
+  - Tailwind v4 `@import "tailwindcss"` syntax
+  - Material Symbols icon font
+  - glass-panel, sidebar-shell, NavItem utility classes
+
+### P10-2: tabStore + AppShell + TabBar + ContentRouter ✅
+
+- Created `src/stores/tabStore.ts` (6,839 chars) — multi-tab session management with drag-reorder
+- Created `src/components/layout/TabBar.tsx` (15,824 chars) — session tabs with context menus
+- Created `src/components/layout/ContentRouter.tsx` (1,744 chars) — tab-based content routing
+- Updated `src/components/layout/AppShell.tsx` — Sidebar + ContentRouter layout
+
+### P10-3: Fix Empty Page ✅
+
+- **Root cause:** `useKeyboardShortcuts.ts` called `useNavigate()` from react-router but BrowserRouter was removed
+- **Fix:** Rewrote useKeyboardShortcuts to use `useTabStore`'s `setActiveTab(SETTINGS_TAB_ID)`
+- App now renders correctly: Sidebar with sessions, main content shows empty state
+
+### P10-4: Sidebar Rewrite ✅
+
+- Rewrote `src/components/layout/Sidebar.tsx` matching cc-haha style
+  - DP logo + DevPilot title
+  - New Chat / Scheduler / Settings nav buttons with Material Symbols
+  - Search box with clear button
+  - Time-grouped sessions: Today / Yesterday / Previous 7 Days / Previous 30 Days / Older
+  - Settings button pinned at bottom
+  - Sidebar collapse toggle
+  - Deleted resize handle and MessageSearchResults (search filtering replaces it)
+- Added i18n keys: `noMatching`, `previous30Days` (EN + CN)
+- Fixed `updatedAt` type from `number` to `string` (ISO format)
+
+### P10-5: Chat Component CSS Migration ✅
+
+- Migrated `MessageInput.tsx` — 22 CSS variable replacements
+  - All Tailwind v3 color tokens → cc-haha CSS custom properties
+  - Added `glass-panel` class to input container
+- Migrated `ChatPanel.tsx` — 16 class replacements
+  - ChatContent, SystemPromptEditor, checkpoint button
+- Migrated `MessageList.tsx` — 30 class replacements
+  - EmptyState, SuggestionCard, MessageActions, tool messages, tables, blockquotes
+
+### Stats
+
+| Metric        | Before (P9) | After (P10)  |
+| ------------- | ----------- | ------------ |
+| Files changed | 7           | **24 files** |
+| Lines added   | +144        | **+2,244**   |
+| Lines removed | -29         | **-1,005**   |
+| Rust tests    | 293         | **384**      |
+| TSC errors    | 0           | **0**        |
+| Vite build    | ✅          | **✅**       |
+
+### QA
+
+- `npx tsc --noEmit` — 0 errors
+- `npx vite build` — built in 1.64s
+- `cargo test --workspace` — 384 passed, 0 failed
+- Browser renders correctly: Sidebar with sessions, empty state in main area

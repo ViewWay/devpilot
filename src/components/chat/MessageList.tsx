@@ -64,11 +64,11 @@ function EmptyState() {
   const { t } = useI18n();
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-4 empty-pattern">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mb-6">
-        <Sparkles size={28} className="text-primary" />
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--color-brand)]/10 mb-6">
+        <Sparkles size={28} className="text-[var(--color-brand)]" />
       </div>
-      <h2 className="text-lg font-semibold text-foreground mb-2">DevPilot</h2>
-      <p className="text-sm text-muted-foreground mb-8 text-center max-w-md">
+      <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2">DevPilot</h2>
+      <p className="text-sm text-[var(--color-text-secondary)] mb-8 text-center max-w-md">
         {t("emptyStateDescription")}
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-lg">
@@ -88,12 +88,12 @@ function SuggestionCard({ icon, title, description }: { icon: React.ReactNode; t
   return (
     <button
       onClick={handleClick}
-      className="flex flex-col items-start gap-2 rounded-lg border border-border/40 bg-card p-4 text-left transition-colors hover:bg-accent hover:border-accent"
+      className="flex flex-col items-start gap-2 rounded-lg border border-[var(--color-border)]/40 bg-card p-4 text-left transition-colors hover:bg-[var(--color-surface-hover)] hover:border-accent"
     >
-      <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">{icon}</div>
+      <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--color-brand)]/10 text-[var(--color-brand)]">{icon}</div>
       <div>
-        <div className="text-xs font-medium text-foreground">{title}</div>
-        <div className="text-[11px] text-muted-foreground mt-0.5">{description}</div>
+        <div className="text-xs font-medium text-[var(--color-text-primary)]">{title}</div>
+        <div className="text-[11px] text-[var(--color-text-secondary)] mt-0.5">{description}</div>
       </div>
     </button>
   );
@@ -114,7 +114,7 @@ function MessageActions({ content, onRegenerate }: { content: string; onRegenera
     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" role="group" aria-label={t("a11y.messageActions")}>
       <button
         onClick={handleCopy}
-        className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+        className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)] transition-colors"
         title="Copy"
         aria-label={t("a11y.copyMessage")}
       >
@@ -123,7 +123,7 @@ function MessageActions({ content, onRegenerate }: { content: string; onRegenera
       {onRegenerate && (
         <button
           onClick={onRegenerate}
-          className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)] transition-colors"
           title="Regenerate"
           aria-label={t("a11y.regenerateMessage")}
         >
@@ -157,12 +157,12 @@ function MessageBubble({ message, isLastAssistant }: { message: Message; isLastA
   if (isTool) {
     return (
       <div className="flex items-start gap-3" role="article" aria-label={t("a11y.toolMessage")}>
-        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted">
-          <Wrench size={12} className="text-muted-foreground" />
+        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[var(--color-surface-container)]">
+          <Wrench size={12} className="text-[var(--color-text-secondary)]" />
         </div>
         <div className="min-w-0 flex-1">
           {message.content && (
-            <div className="rounded-lg border border-border/40 bg-muted/30 px-3 py-2 text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap">
+            <div className="rounded-lg border border-[var(--color-border)]/40 bg-[var(--color-surface-container)]/30 px-3 py-2 text-xs leading-relaxed text-[var(--color-text-secondary)] whitespace-pre-wrap">
               {message.content}
             </div>
           )}
@@ -174,7 +174,7 @@ function MessageBubble({ message, isLastAssistant }: { message: Message; isLastA
 
   return (
     <div className="group flex items-start gap-3" role="article" aria-label={t("a11y.assistantMessage")}>
-      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary">
+      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[var(--color-brand)]">
         <Bot size={12} className="text-primary-foreground" />
       </div>
       <div className="min-w-0 flex-1 space-y-2">
@@ -191,7 +191,7 @@ function MessageBubble({ message, isLastAssistant }: { message: Message; isLastA
                 const codeStr = String(children).replace(/\n$/, "");
                 const isInline = !match && !codeStr.includes("\n");
                 if (isInline) {
-                  return <code className="rounded bg-muted px-1 py-0.5 text-xs font-mono">{children}</code>;
+                  return <code className="rounded bg-[var(--color-surface-container)] px-1 py-0.5 text-xs font-mono">{children}</code>;
                 }
                 const lang = match?.[1];
                 // Render HTML code blocks as interactive sandbox previews
@@ -202,60 +202,60 @@ function MessageBubble({ message, isLastAssistant }: { message: Message; isLastA
               },
               table({ children }) {
                 return (
-                  <div className="my-2 overflow-x-auto rounded-lg border border-border/40">
+                  <div className="my-2 overflow-x-auto rounded-lg border border-[var(--color-border)]/40">
                     <table className="w-full text-xs border-collapse">{children}</table>
                   </div>
                 );
               },
               th({ children }) {
-                return <th className="border-b border-border bg-muted/50 px-3 py-2 text-left font-semibold text-foreground">{children}</th>;
+                return <th className="border-b border-[var(--color-border)] bg-[var(--color-surface-container)]/50 px-3 py-2 text-left font-semibold text-[var(--color-text-primary)]">{children}</th>;
               },
               td({ children }) {
-                return <td className="border-b border-border px-3 py-2 text-muted-foreground">{children}</td>;
+                return <td className="border-b border-[var(--color-border)] px-3 py-2 text-[var(--color-text-secondary)]">{children}</td>;
               },
               tr({ children }) {
-                return <tr className="hover:bg-muted/20 transition-colors">{children}</tr>;
+                return <tr className="hover:bg-[var(--color-surface-container)]/20 transition-colors">{children}</tr>;
               },
               pre({ children }) {
                 return <>{children}</>;
               },
               a({ href, children }) {
                 return (
-                  <a href={href} className="text-primary underline underline-offset-2 hover:text-primary/80 transition-colors" target="_blank" rel="noopener noreferrer">
+                  <a href={href} className="text-[var(--color-brand)] underline underline-offset-2 hover:text-[var(--color-brand)]/80 transition-colors" target="_blank" rel="noopener noreferrer">
                     {children}
                   </a>
                 );
               },
               ul({ children }) {
-                return <ul className="my-1.5 ml-4 list-disc space-y-1 text-sm marker:text-muted-foreground">{children}</ul>;
+                return <ul className="my-1.5 ml-4 list-disc space-y-1 text-sm marker:text-[var(--color-text-secondary)]">{children}</ul>;
               },
               ol({ children }) {
-                return <ol className="my-1.5 ml-4 list-decimal space-y-1 text-sm marker:text-muted-foreground">{children}</ol>;
+                return <ol className="my-1.5 ml-4 list-decimal space-y-1 text-sm marker:text-[var(--color-text-secondary)]">{children}</ol>;
               },
               li({ children }) {
                 return <li className="leading-relaxed">{children}</li>;
               },
               blockquote({ children }) {
                 return (
-                  <blockquote className="my-2 border-l-2 border-primary/40 bg-primary/5 pl-3 py-1 text-sm italic text-muted-foreground">
+                  <blockquote className="my-2 border-l-2 border-[var(--color-brand)]/40 bg-[var(--color-brand)]/5 pl-3 py-1 text-sm italic text-[var(--color-text-secondary)]">
                     {children}
                   </blockquote>
                 );
               },
               h1({ children }) {
-                return <h1 className="mt-4 mb-2 text-lg font-bold text-foreground">{children}</h1>;
+                return <h1 className="mt-4 mb-2 text-lg font-bold text-[var(--color-text-primary)]">{children}</h1>;
               },
               h2({ children }) {
-                return <h2 className="mt-3 mb-1.5 text-base font-bold text-foreground">{children}</h2>;
+                return <h2 className="mt-3 mb-1.5 text-base font-bold text-[var(--color-text-primary)]">{children}</h2>;
               },
               h3({ children }) {
-                return <h3 className="mt-2 mb-1 text-sm font-bold text-foreground">{children}</h3>;
+                return <h3 className="mt-2 mb-1 text-sm font-bold text-[var(--color-text-primary)]">{children}</h3>;
               },
               p({ children }) {
                 return <p className="my-1 leading-relaxed">{children}</p>;
               },
               hr() {
-                return <hr className="my-3 border-border" />;
+                return <hr className="my-3 border-[var(--color-border)]" />;
               },
               input({ checked, disabled }) {
                 // GFM task list checkboxes
@@ -264,7 +264,7 @@ function MessageBubble({ message, isLastAssistant }: { message: Message; isLastA
                     type="checkbox"
                     checked={checked}
                     disabled={disabled}
-                    className="mr-1.5 h-3.5 w-3.5 rounded border-border accent-primary"
+                    className="mr-1.5 h-3.5 w-3.5 rounded border-[var(--color-border)] accent-[var(--color-brand)]"
                   />
                 );
               },
@@ -273,10 +273,10 @@ function MessageBubble({ message, isLastAssistant }: { message: Message; isLastA
             {message.content}
           </ReactMarkdown>
           {message.streaming && (
-            <span className="inline-block h-4 w-0.5 animate-pulse bg-primary ml-0.5 align-text-bottom" />
+            <span className="inline-block h-4 w-0.5 animate-pulse bg-[var(--color-brand)] ml-0.5 align-text-bottom" />
           )}
         </div>
-        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+        <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-secondary)]">
           <MessageActions content={message.content} onRegenerate={isLastAssistant ? () => useChatStore.getState().regenerateLastResponse() : undefined} />
           {message.model && <span>{message.model}</span>}
           {message.model && <span>·</span>}

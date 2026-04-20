@@ -2,6 +2,9 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useI18n } from "../../i18n";
 import { useChatStore } from "../../stores/chatStore";
 import { useUIStore } from "../../stores/uiStore";
+import { ModelSelector } from "./ModelSelector";
+import { ModeTabs } from "./ModeTabs";
+import { ReasoningEffort } from "./ReasoningEffort";
 import { Send, Paperclip, Sparkles, StopCircle, X, Image, FileText } from "lucide-react";
 import { cn } from "../../lib/utils";
 import type { Attachment, AttachmentIPC } from "../../types";
@@ -273,14 +276,14 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
   );
 
   return (
-    <div className="shrink-0 border-t border-border/40 bg-background/80 backdrop-blur-md px-4 pb-4 pt-3">
+    <div className="shrink-0 border-t border-[var(--color-border)]/40 bg-[var(--color-surface)]/80 backdrop-blur-md px-4 pb-4 pt-3">
       <div className="mx-auto w-full max-w-3xl relative 2xl:max-w-4xl">
         {/* Screen reader live region for announcements */}
         <div className="sr-only" aria-live="polite" aria-atomic="true">{announceText}</div>
 
         {/* Slash command autocomplete menu */}
         {showCommands && (
-          <div className="absolute bottom-full left-0 right-0 mb-1 rounded-lg border border-border bg-popover shadow-lg overflow-hidden z-50" role="listbox" aria-label={t("slashHelp")}>
+          <div className="absolute bottom-full left-0 right-0 mb-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg overflow-hidden z-50" role="listbox" aria-label={t("slashHelp")}>
             {filteredCommands.map((cmd, idx) => (
               <button
                 key={cmd.cmd}
@@ -290,18 +293,27 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
                 }}
                 className={cn(
                   "flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors",
-                  idx === selectedIndex ? "bg-accent text-accent-foreground" : "text-popover-foreground hover:bg-accent/50",
+                  idx === selectedIndex ? "bg-[var(--color-surface-hover)] text-[var(--color-text-primary)]" : "text-[var(--color-text-primary)] hover:bg-[var(--color-surface-hover)]",
                 )}
                 role="option"
                 aria-selected={idx === selectedIndex}
               >
                 <span className="text-base">{cmd.icon}</span>
                 <span className="font-mono text-xs font-medium w-16">{cmd.cmd}</span>
-                <span className="text-xs text-muted-foreground">{t(cmd.descKey)}</span>
+                <span className="text-xs text-[var(--color-text-secondary)]">{t(cmd.descKey)}</span>
               </button>
             ))}
           </div>
         )}
+
+        {/* Action bar — Model, Mode, Reasoning Effort */}
+        <div className="mb-1.5 flex items-center gap-2">
+          <ModelSelector />
+          <div className="h-4 w-px bg-[var(--color-border)]/40" />
+          <ModeTabs />
+          <div className="h-4 w-px bg-[var(--color-border)]/40" />
+          <ReasoningEffort />
+        </div>
 
         {/* Input container with drag overlay */}
         <div
@@ -312,8 +324,8 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
         >
           {/* Drag overlay */}
           {isDragOver && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-primary/5">
-              <div className="flex flex-col items-center gap-1 text-primary">
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-[var(--color-brand)] bg-[var(--color-brand)]/5">
+              <div className="flex flex-col items-center gap-1 text-[var(--color-brand)]">
                 <Paperclip size={24} />
                 <span className="text-xs font-medium">{t("dropFilesHere")}</span>
               </div>
@@ -326,20 +338,20 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
               {attachments.map((att) => (
                 <div
                   key={att.id}
-                  className="group relative flex items-center gap-1.5 rounded-lg border border-border bg-muted/50 px-2 py-1 pr-1 text-xs text-foreground"
+                  className="group relative flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-container)]/50 px-2 py-1 pr-1 text-xs text-[var(--color-text-primary)]"
                 >
                   {att.preview ? (
                     <img src={att.preview} alt={att.name} className="h-6 w-6 rounded object-cover" />
                   ) : isImageType(att.type) ? (
-                    <Image size={14} className="text-primary shrink-0" />
+                    <Image size={14} className="text-[var(--color-brand)] shrink-0" />
                   ) : (
-                    <FileText size={14} className="text-muted-foreground shrink-0" />
+                    <FileText size={14} className="text-[var(--color-text-secondary)] shrink-0" />
                   )}
                   <span className="max-w-[100px] truncate">{att.name}</span>
-                  <span className="text-muted-foreground">{formatFileSize(att.size)}</span>
+                  <span className="text-[var(--color-text-secondary)]">{formatFileSize(att.size)}</span>
                   <button
                     onClick={() => removeAttachment(att.id)}
-                    className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/20 hover:text-destructive group-hover:opacity-100"
+                    className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-[var(--color-text-secondary)] opacity-0 transition-opacity hover:bg-[var(--color-error)]/20 hover:text-[var(--color-error)] group-hover:opacity-100"
                     aria-label={`${t("a11y.removeAttachment")} ${att.name}`}
                   >
                     <X size={10} />
@@ -351,16 +363,16 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
 
           <div
             className={cn(
-              "flex items-end gap-2 rounded-xl border bg-background px-3 py-2 transition-colors",
-              hasContent ? "border-ring" : "border-input",
-              isDragOver && "border-primary",
+              "glass-panel flex items-end gap-2 rounded-xl border bg-[var(--color-surface)] px-3 py-2 transition-colors",
+              hasContent ? "border-[var(--color-border-focus)]" : "border-[var(--color-border)]",
+              isDragOver && "border-[var(--color-brand)]",
             )}
           >
             {/* Attach button */}
             <button
               onClick={() => fileInputRef.current?.click()}
               title={t("attachFile")}
-              className="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]"
               aria-label={t("attachFile")}
             >
               <Paperclip size={15} />
@@ -381,7 +393,7 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
               onChange={(e) => setInput(e.target.value)}
               placeholder={t("inputPlaceholder")}
               rows={1}
-              className="max-h-32 min-h-[28px] flex-1 resize-none bg-transparent py-1 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground outline-none"
+              className="max-h-32 min-h-[28px] flex-1 resize-none bg-transparent py-1 text-sm leading-relaxed text-[var(--color-text-primary)] placeholder:text-[var(--color-text-secondary)] outline-none"
               onKeyDown={handleKeyDown}
               aria-label={t("a11y.messageInput")}
             />
@@ -391,7 +403,7 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
               <button
                 onClick={handleStop}
                 title={t("stopGeneration")}
-                className="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-destructive/90 text-white transition-colors hover:bg-destructive"
+                className="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--color-error)]/90 text-white transition-colors hover:bg-[var(--color-error)]"
                 aria-label={t("a11y.stopGeneration")}
               >
                 <StopCircle size={14} />
@@ -402,8 +414,8 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
                 className={cn(
                   "mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors",
                   hasContent
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "bg-muted text-muted-foreground",
+                    ? "bg-[var(--color-brand)] text-white hover:bg-[var(--color-brand)]/90"
+                    : "bg-[var(--color-surface-container)] text-[var(--color-text-secondary)]",
                 )}
                 disabled={!hasContent}
                 aria-label={t("a11y.sendMessage")}
@@ -415,7 +427,7 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
         </div>
 
         {/* Footer hint */}
-        <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
+        <div className="mt-1.5 flex items-center justify-between text-[10px] text-[var(--color-text-secondary)]">
           <span>{t("inputHint")}</span>
           <div className="flex items-center gap-1">
             <Sparkles size={10} />

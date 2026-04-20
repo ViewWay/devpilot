@@ -1,23 +1,24 @@
-import { Outlet, useLocation } from "react-router-dom";
+import { useEffect, useState, useCallback } from "react";
 import { Sidebar } from "./Sidebar";
-import { TopBar } from "./TopBar";
-import { CommandPalette } from "../CommandPalette";
-import { QuickFileSearch } from "../QuickFileSearch";
+import { ContentRouter } from "./ContentRouter";
 import { ToastContainer } from "../ToastContainer";
 import { UpdateChecker } from "../UpdateChecker";
+import { CommandPalette } from "../CommandPalette";
+import { QuickFileSearch } from "../QuickFileSearch";
 import { useUIStore } from "../../stores/uiStore";
 import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
 import { useShortcutStore } from "../../stores/shortcutStore";
 import { useI18n } from "../../i18n";
-import { useEffect, useCallback } from "react";
-import { cn } from "../../lib/utils";
+import { TabBar } from "./TabBar";
+import { useTabStore } from "../../stores/tabStore";
+import { useChatStore } from "../../stores/chatStore";
 
 export function AppShell() {
   const { t } = useI18n();
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
-  const setActiveView = useUIStore((s) => s.setActiveView);
-  const location = useLocation();
+  const [ready, setReady] = useState(false);
+  const [startupError, setStartupError] = useState<string | null>(null);
 
   // Global keyboard shortcuts
   useKeyboardShortcuts();
@@ -28,32 +29,70 @@ export function AppShell() {
     hydrateShortcuts();
   }, [hydrateShortcuts]);
 
-  // Sync URL → store
+  // Bootstrap: restore tabs and activate session
   useEffect(() => {
-    const view = location.pathname === "/settings" ? "settings" : "chat";
-    setActiveView(view);
-  }, [location.pathname, setActiveView]);
+    let cancelled = false;
+
+    const bootstrap = async () => {
+      try {
+        // Restore tabs from localStorage
+        await useTabStore.getState().restoreTabs();
+        const activeId = useTabStore.getState().activeTabId;
+        if (activeId) {
+          useChatStore.getState().setActiveSession(activeId);
+        }
+        if (!cancelled) {
+          setReady(true);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setStartupError(error instanceof Error ? error.message : String(error));
+          setReady(false);
+        }
+      }
+    };
+
+    void bootstrap();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Close mobile sidebar on route change
   useEffect(() => {
-    if (window.innerWidth < 768) {setSidebarOpen(false);}
-  }, [location.pathname, setSidebarOpen]);
+    if (window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
+  }, [setSidebarOpen]);
 
   // Close sidebar when clicking backdrop
   const handleBackdropClick = useCallback(() => setSidebarOpen(false), [setSidebarOpen]);
 
-  return (
-    <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
-      {/* Skip to main content link for keyboard/screen reader users */}
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-0 focus:left-0 focus:z-50 focus:p-2 focus:bg-primary focus:text-primary-foreground"
-      >
-        {t("a11y.skipToMain")}
-      </a>
+  if (startupError) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-[var(--color-surface)] px-6">
+        <div className="max-w-xl rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-container-low)] p-6">
+          <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">
+            {t("errorGeneric")}
+          </h1>
+          <p className="mt-2 text-sm text-[var(--color-text-secondary)]">{startupError}</p>
+        </div>
+      </div>
+    );
+  }
 
-      {/* Sidebar: always rendered — collapsed icon strip when closed, full panel when open.
-          Mobile: overlay drawer. Desktop: inline flex child. */}
+  if (!ready) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-[var(--color-surface)] text-[var(--color-text-secondary)]">
+        {t("loading")}
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-screen flex overflow-hidden bg-[var(--color-surface)]">
+      {/* Mobile backdrop */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-30 bg-black/40 backdrop-blur-[2px] md:hidden"
@@ -61,28 +100,30 @@ export function AppShell() {
           aria-hidden="true"
         />
       )}
+
+      {/* Sidebar shell — uses cc-haha's sidebar-shell / sidebar-panel CSS classes */}
       <div
-        className={cn(
-          "shrink-0 z-40",
-          // Mobile: fixed overlay
-          sidebarOpen
-            ? "fixed inset-y-0 left-0 md:relative md:inset-auto"
-            : "relative",
-        )}
+        data-testid="sidebar-shell"
+        data-state={sidebarOpen ? "open" : "closed"}
+        className="sidebar-shell"
       >
         <Sidebar />
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <UpdateChecker />
-        <TopBar />
-        <main id="main-content" className="flex-1 overflow-hidden">
-          <Outlet />
-        </main>
-      </div>
+      {/* Main content area */}
+      <main
+        id="main-content"
+        data-sidebar-state={sidebarOpen ? "open" : "closed"}
+        className="min-w-0 flex-1 flex flex-col overflow-hidden"
+      >
+        <TabBar />
+        <ContentRouter />
+      </main>
+
       <CommandPalette />
       <QuickFileSearch />
       <ToastContainer />
+      <UpdateChecker />
     </div>
   );
 }

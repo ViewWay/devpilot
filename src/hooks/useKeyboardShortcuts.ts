@@ -2,7 +2,7 @@ import { useEffect, useCallback, useMemo } from "react";
 import { useUIStore } from "../stores/uiStore";
 import { useChatStore } from "../stores/chatStore";
 import { useShortcutStore, parseCombo, SHORTCUT_DEFINITIONS, type ShortcutAction } from "../stores/shortcutStore";
-import { useNavigate } from "react-router-dom";
+import { useTabStore, SETTINGS_TAB_ID } from "../stores/tabStore";
 import { toast } from "../stores/toastStore";
 
 type ShortcutHandler = () => void;
@@ -21,21 +21,17 @@ export function useKeyboardShortcuts() {
   const setCommandPaletteOpen = useUIStore((s) => s.setCommandPaletteOpen);
   const commandPaletteOpen = useUIStore((s) => s.commandPaletteOpen);
   const selectedModel = useUIStore((s) => s.selectedModel);
-  const setActiveView = useUIStore((s) => s.setActiveView);
   const toggleQuickFileSearch = useUIStore((s) => s.toggleQuickFileSearch);
   const shortcuts = useShortcutStore((s) => s.shortcuts);
-
-  const navigate = useNavigate();
+  const openTab = useTabStore((s) => s.openTab);
 
   const handleNewChat = useCallback(() => {
     createSession(selectedModel.id, selectedModel.provider);
-    navigate("/");
-  }, [createSession, selectedModel, navigate]);
+  }, [createSession, selectedModel]);
 
   const handleOpenSettings = useCallback(() => {
-    setActiveView("settings");
-    navigate("/settings");
-  }, [setActiveView, navigate]);
+    openTab(SETTINGS_TAB_ID, "Settings", "settings");
+  }, [openTab]);
 
   const handleCommandPalette = useCallback(() => {
     if (commandPaletteOpen) {

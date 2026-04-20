@@ -1,607 +1,516 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useI18n } from "../../i18n";
-import { useChatStore, relativeTime } from "../../stores/chatStore";
+import { useChatStore } from "../../stores/chatStore";
 import { useUIStore } from "../../stores/uiStore";
-import { cn } from "../../lib/utils";
-import type { MessageSearchResult } from "../../types";
-import {
-  Plus,
-  Search,
-  Settings,
-  Image,
-  Clock,
-  MoreHorizontal,
-  Trash2,
-  MessageSquare,
-  PanelLeftClose,
-  PanelLeft,
-  Pencil,
-  Archive,
-  Download,
-  Radio,
-  X,
-  Loader2,
-  FileText,
-} from "lucide-react";
+import { useTabStore, SETTINGS_TAB_ID, SCHEDULED_TAB_ID } from "../../stores/tabStore";
+
+type TimeGroup = "today" | "yesterday" | "last7days" | "last30days" | "older";
+
+const TIME_GROUP_ORDER: TimeGroup[] = ["today", "yesterday", "last7days", "last30days", "older"];
 
 export function Sidebar() {
   const { t } = useI18n();
-  const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState("");
-  const collapsed = useUIStore((s) => !s.sidebarOpen);
+  const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const createSession = useChatStore((s) => s.createSession);
   const selectedModel = useUIStore((s) => s.selectedModel);
-  const sidebarRef = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(280);
-  const isDragging = useRef(false);
+  const openTab = useTabStore((s) => s.openTab);
+  const activeTabId = useTabStore((s) => s.activeTabId);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
 
-  // Drag to resize
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  // Close context menu on outside click
+  useEffect(() => {
+    if (!contextMenu) { return; }
+    const close = () => setContextMenu(null);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [contextMenu]);
+
+  // Close context menu when sidebar closes
+  useEffect(() => {
+    if (!contextMenu || sidebarOpen) { return; }
+    setContextMenu(null);
+  }, [contextMenu, sidebarOpen]);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, id: string) => {
     e.preventDefault();
-    isDragging.current = true;
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-
-    const handleMouseMove = (ev: MouseEvent) => {
-      if (!isDragging.current || !sidebarRef.current) {return;}
-      const newWidth = Math.max(200, Math.min(400, ev.clientX));
-      setWidth(newWidth);
-    };
-
-    const handleMouseUp = () => {
-      isDragging.current = false;
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-    };
-
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
+    setContextMenu({ id, x: e.clientX, y: e.clientY });
   }, []);
 
-  if (collapsed) {
-    return (
-      <nav
-        className="flex h-full flex-col items-center border-r border-border/40 bg-sidebar/80 backdrop-blur-sm py-3 px-1.5 gap-2"
-        aria-label={t("a11y.sidebarNav")}
-      >
-        <button
-          onClick={toggleSidebar}
-          className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          title={t("recentChats")}
-          aria-label={t("a11y.expandSidebar")}
-        >
-          <PanelLeft size={16} />
-        </button>
-        <button
-          onClick={() => createSession(selectedModel.name, selectedModel.provider)}
-          className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          title={t("newChat")}
-          aria-label={t("a11y.newSession")}
-        >
-          <Plus size={16} />
-        </button>
-        <div className="mt-auto flex flex-col gap-1">
-          <button onClick={() => navigate("/gallery")} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title={t("gallery")} aria-label={t("gallery")}>
-            <Image size={16} />
-          </button>
-          <button onClick={() => navigate("/bridge")} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title={t("bridge")} aria-label={t("bridge")}>
-            <Radio size={16} />
-          </button>
-          <button onClick={() => navigate("/settings")} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title={t("settings")} aria-label={t("settings")}>
-            <Settings size={16} />
-          </button>
+  const timeGroupLabels: Record<TimeGroup, string> = {
+    today: t("today"),
+    yesterday: t("yesterday"),
+    last7days: t("previous7Days"),
+    last30days: t("previous30Days"),
+    older: t("older"),
+  };
+
+  return (
+    <aside
+      className="sidebar-panel relative h-full flex flex-col bg-[var(--color-surface-sidebar)] border-r border-[var(--color-border)] select-none"
+      data-state={sidebarOpen ? "open" : "closed"}
+      aria-label="Sidebar"
+    >
+      {/* Header — logo + collapse toggle */}
+      <div className="px-3 pb-2 pt-3">
+        <div className={`flex ${sidebarOpen ? "items-center justify-between gap-3" : "flex-col items-center gap-2"}`}>
+          <div className={`flex min-w-0 items-center ${sidebarOpen ? "gap-2.5" : "justify-center"}`}>
+            <span
+              className="flex h-8 w-8 items-center justify-center rounded-lg flex-shrink-0 bg-[var(--color-brand)] text-white text-xs font-bold"
+            >
+              DP
+            </span>
+            <span
+              className={`sidebar-copy ${sidebarOpen ? "sidebar-copy--visible" : "sidebar-copy--hidden"} text-[13px] font-semibold tracking-tight text-[var(--color-text-primary)]`}
+              style={{ fontFamily: "var(--font-headline)" }}
+            >
+              DevPilot
+            </span>
+          </div>
+          <div className={`flex items-center ${sidebarOpen ? "gap-1.5" : "flex-col gap-2"}`}>
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              data-testid={sidebarOpen ? "sidebar-collapse-button" : "sidebar-expand-button"}
+              className={`sidebar-toggle-button ${sidebarOpen ? "sidebar-toggle-button--open h-8 w-8" : "sidebar-toggle-button--collapsed h-8 w-8"} flex items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-border-focus)]`}
+              aria-label={sidebarOpen ? t("a11y.collapseSidebar") : t("a11y.expandSidebar")}
+              title={sidebarOpen ? t("a11y.collapseSidebar") : t("a11y.expandSidebar")}
+            >
+              <SidebarToggleIcon collapsed={!sidebarOpen} />
+            </button>
+          </div>
         </div>
-      </nav>
+      </div>
+
+      {/* New Session + Scheduled buttons */}
+      <div className={`px-3 pb-3 flex flex-col ${sidebarOpen ? "gap-0.5" : "items-center gap-2"}`}>
+        <NavItem
+          active={false}
+          collapsed={!sidebarOpen}
+          label={t("newChat")}
+          onClick={() => {
+            const id = createSession(selectedModel.name, selectedModel.provider);
+            openTab(id, t("newChat"), "session");
+          }}
+          icon={<PlusIcon />}
+        >
+          {t("newChat")}
+        </NavItem>
+        <NavItem
+          active={activeTabId === SCHEDULED_TAB_ID}
+          collapsed={!sidebarOpen}
+          label={t("scheduler")}
+          onClick={() => openTab(SCHEDULED_TAB_ID, t("scheduler"), "scheduled")}
+          icon={<ClockIcon />}
+        >
+          {t("scheduler")}
+        </NavItem>
+      </div>
+
+      {/* Search + Session list — only when open */}
+      {sidebarOpen ? (
+        <>
+          <div className="sidebar-section sidebar-section--visible flex-none px-3 pb-2">
+            <input
+              id="sidebar-search"
+              type="text"
+              placeholder={t("searchChats")}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-8 px-2.5 text-xs rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] outline-none transition-colors focus:border-[var(--color-border-focus)]"
+            />
+          </div>
+
+          <div className="sidebar-section sidebar-section--visible flex-1 min-h-0">
+            <div className="flex-1 overflow-y-auto px-3">
+              <SidebarSessionList
+                searchQuery={searchQuery}
+                activeTabId={activeTabId}
+                onContextMenu={handleContextMenu}
+                timeGroupLabels={timeGroupLabels}
+              />
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="flex-1" aria-hidden="true" />
+      )}
+
+      {/* Bottom — Settings */}
+      <div className={`border-t border-[var(--color-border)] p-3 ${sidebarOpen ? "" : "flex justify-center"}`}>
+        <NavItem
+          active={activeTabId === SETTINGS_TAB_ID}
+          collapsed={!sidebarOpen}
+          label={t("settings")}
+          onClick={() => openTab(SETTINGS_TAB_ID, t("settings"), "settings")}
+          icon={<span className="material-symbols-outlined text-[18px]">settings</span>}
+        >
+          {t("settings")}
+        </NavItem>
+      </div>
+
+      {/* Context menu */}
+      {contextMenu && sidebarOpen && (
+        <SidebarContextMenu
+          sessionId={contextMenu.id}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+    </aside>
+  );
+}
+
+/* ─── Session list ─────────────────────────────────────────── */
+
+function SidebarSessionList({
+  searchQuery,
+  activeTabId,
+  onContextMenu,
+  timeGroupLabels,
+}: {
+  searchQuery: string;
+  activeTabId: string | null;
+  onContextMenu: (e: React.MouseEvent, id: string) => void;
+  timeGroupLabels: Record<TimeGroup, string>;
+}) {
+  const { t } = useI18n();
+  const sessions = useChatStore((s) => s.sessions);
+  const searchSessions = useChatStore((s) => s.searchSessions);
+  const openTab = useTabStore((s) => s.openTab);
+  const setActiveSession = useChatStore((s) => s.setActiveSession);
+
+  const filtered = useMemo(() => {
+    let result = searchQuery ? searchSessions(searchQuery) : sessions;
+    result = result.filter((s) => !s.archived);
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter((s) => s.title.toLowerCase().includes(q));
+    }
+    return result;
+  }, [sessions, searchQuery, searchSessions]);
+
+  const timeGroups = useMemo(() => groupByTime(filtered), [filtered]);
+
+  if (filtered.length === 0) {
+    return (
+      <div className="px-3 py-4 text-center text-xs text-[var(--color-text-tertiary)]">
+        {searchQuery ? t("noMatching") : t("noSessions")}
+      </div>
     );
   }
 
   return (
-    <nav
-      ref={sidebarRef}
-      className="relative flex h-full flex-col border-r border-border/40 bg-sidebar/80 backdrop-blur-sm transition-all duration-200 ease-in-out animate-in slide-in-from-left md:animate-none"
-      style={{ width: `${width}px` }}
-      aria-label={t("a11y.sidebarNav")}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-3">
-        <h1 className="text-sm font-semibold text-foreground tracking-tight">DevPilot</h1>
-        <div className="flex items-center gap-0.5">
-          <button
-            onClick={() => createSession(selectedModel.name, selectedModel.provider)}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            title={t("newChat")}
-            aria-label={t("a11y.newSession")}
-          >
-            <Plus size={15} />
-          </button>
-          <button
-            onClick={toggleSidebar}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            title={t("scToggleSidebar")}
-            aria-label={t("a11y.collapseSidebar")}
-          >
-            <PanelLeftClose size={15} />
-          </button>
-        </div>
-      </div>
-
-      {/* Search */}
-      <div className="px-3 pb-2">
-        <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-2.5 py-1.5">
-          <Search size={13} className="shrink-0 text-muted-foreground" />
-          <input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t("searchChats")}
-            className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none"
-            aria-label={t("a11y.searchChatsLabel")}
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground hover:text-foreground"
-            >
-              <X size={10} />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Session list / Search results */}
-      {searchQuery.length >= 3 ? (
-        <MessageSearchResults
-          query={searchQuery}
-          onSelectSession={(id: string) => {
-            // Navigate to the session
-            const { splitViewActive, secondarySessionId, setSecondarySession } = useUIStore.getState();
-            const activeId = useChatStore.getState().activeSessionId;
-            const setActive = useChatStore.getState().setActiveSession;
-            if (splitViewActive) {
-              if (id !== activeId && id !== secondarySessionId) {
-                setSecondarySession(id);
-              } else if (id === secondarySessionId) {
-                setActive(id);
-                if (secondarySessionId && activeId) {
-                  setSecondarySession(activeId);
-                }
-              }
-            } else {
-              setActive(id);
-            }
-            if (window.innerWidth < 768) {
-              useUIStore.getState().setSidebarOpen(false);
-            }
-            setSearchQuery("");
-          }}
-        />
-      ) : (
-        <SessionList searchQuery={searchQuery} />
-      )}
-
-      {/* Bottom actions */}
-      <div className="mt-auto flex items-center border-t border-border/40 px-3 py-2 gap-1">
-        <button onClick={() => navigate("/scheduler")} className="flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
-          <Clock size={13} />
-          <span>{t("scheduler")}</span>
-        </button>
-        <button onClick={() => navigate("/gallery")} className="flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
-          <Image size={13} />
-          <span>{t("gallery")}</span>
-        </button>
-        <button onClick={() => navigate("/bridge")} className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title={t("bridge")}>
-          <Radio size={13} />
-        </button>
-        <button onClick={() => navigate("/settings")} className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title={t("settings")}>
-          <Settings size={13} />
-        </button>
-      </div>
-
-      {/* Resize handle — desktop only */}
-      <div
-        onMouseDown={handleMouseDown}
-        className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/20 active:bg-primary/40 transition-colors hidden md:block"
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="Resize sidebar"
-      />
-    </nav>
+    <>
+      {TIME_GROUP_ORDER.map((group) => {
+        const items = timeGroups.get(group);
+        if (!items || items.length === 0) { return null; }
+        return (
+          <div key={group} className="mb-1">
+            <div className="px-2 pb-1 pt-3 text-[11px] font-semibold tracking-wide text-[var(--color-text-tertiary)]">
+              {timeGroupLabels[group]}
+            </div>
+            {items.map((session) => (
+              <SidebarSessionItem
+                key={session.id}
+                id={session.id}
+                title={session.title}
+                updatedAt={session.updatedAt}
+                isActive={session.id === activeTabId}
+                onClick={() => {
+                  setActiveSession(session.id);
+                  openTab(session.id, session.title, "session");
+                }}
+                onContextMenu={(e) => onContextMenu(e, session.id)}
+              />
+            ))}
+          </div>
+        );
+      })}
+    </>
   );
 }
 
-function SessionList({ searchQuery }: { searchQuery: string }) {
-  const { t } = useI18n();
-  const sessions = useChatStore((s) => s.sessions);
-  const activeSessionId = useChatStore((s) => s.activeSessionId);
-  const setActiveSession = useChatStore((s) => s.setActiveSession);
-  const deleteSession = useChatStore((s) => s.deleteSession);
-  const updateSessionTitle = useChatStore((s) => s.updateSessionTitle);
-  const archiveSession = useChatStore((s) => s.archiveSession);
-  const exportSession = useChatStore((s) => s.exportSession);
-  const searchSessions = useChatStore((s) => s.searchSessions);
-  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
-  const [renamingId, setRenamingId] = useState<string | null>(null);
+/* ─── Single session item ──────────────────────────────────── */
+
+function SidebarSessionItem({
+  id,
+  title,
+  updatedAt,
+  isActive,
+  onClick,
+  onContextMenu,
+}: {
+  id: string;
+  title: string;
+  updatedAt: string;
+  isActive: boolean;
+  onClick: () => void;
+  onContextMenu: (e: React.MouseEvent) => void;
+}) {
+  const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState("");
-  const renameRef = useRef<HTMLInputElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const updateSessionTitle = useChatStore((s) => s.updateSessionTitle);
 
-  // Close menu on click outside
-  useEffect(() => {
-    if (!menuOpenId) {return;}
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpenId(null);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [menuOpenId]);
-
-  // Focus rename input
-  useEffect(() => {
-    if (renamingId && renameRef.current) {
-      renameRef.current.focus();
-      renameRef.current.select();
-    }
-  }, [renamingId]);
-
-  const handleRename = (id: string) => {
+  const handleFinishRename = useCallback(() => {
     if (renameValue.trim()) {
       updateSessionTitle(id, renameValue.trim());
     }
-    setRenamingId(null);
-  };
+    setRenaming(false);
+    setRenameValue("");
+  }, [id, renameValue, updateSessionTitle]);
 
-  // Close mobile sidebar on session select
-  const handleSelectSession = (id: string) => {
-    const { splitViewActive, secondarySessionId, setSecondarySession } = useUIStore.getState();
-    if (splitViewActive) {
-      // In split view: if clicking the session that's already active, do nothing.
-      // If clicking the secondary session, swap it to primary.
-      // Otherwise, set the clicked session as secondary.
-      if (id === activeSessionId) {
-        // Already primary — do nothing
-      } else if (id === secondarySessionId) {
-        // It's the secondary — swap primary and secondary
-        setActiveSession(id);
-        if (secondarySessionId && activeSessionId) {
-          // The old primary becomes secondary
-          setSecondarySession(activeSessionId);
-        }
-      } else {
-        // New session — set as secondary
-        setSecondarySession(id);
-      }
-    } else {
-      setActiveSession(id);
-    }
-    if (window.innerWidth < 768) {
-      useUIStore.getState().setSidebarOpen(false);
-    }
-  };
-
-  const filtered = (searchQuery ? searchSessions(searchQuery) : sessions).filter((s) => !s.archived);
-
-  // Group by time period
-  const groups = useMemo(() => {
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterdayStart = new Date(todayStart.getTime() - 86400_000);
-    const weekStart = new Date(todayStart.getTime() - 7 * 86400_000);
-
-    const groups: { label: string; sessions: typeof filtered }[] = [
-      { label: t("today"), sessions: [] },
-      { label: t("yesterday"), sessions: [] },
-      { label: t("previous7Days"), sessions: [] },
-      { label: t("older"), sessions: [] },
-    ];
-
-    for (const session of filtered) {
-      const date = new Date(session.updatedAt);
-      if (date >= todayStart) {
-        groups[0]!.sessions.push(session);
-      } else if (date >= yesterdayStart) {
-        groups[1]!.sessions.push(session);
-      } else if (date >= weekStart) {
-        groups[2]!.sessions.push(session);
-      } else {
-        groups[3]!.sessions.push(session);
-      }
-    }
-
-    return groups.filter((g) => g.sessions.length > 0);
-  }, [filtered, t]);
-
-  const archivedSessions = sessions.filter((s) => s.archived);
-  const splitViewActive = useUIStore((s) => s.splitViewActive);
-  const secondarySessionId = useUIStore((s) => s.secondarySessionId);
+  if (renaming) {
+    return (
+      <input
+        autoFocus
+        value={renameValue}
+        onChange={(e) => setRenameValue(e.target.value)}
+        onBlur={handleFinishRename}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { handleFinishRename(); }
+          if (e.key === "Escape") { setRenaming(false); setRenameValue(""); }
+        }}
+        className="ml-1 w-full rounded-[var(--radius-md)] border border-[var(--color-border-focus)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none"
+      />
+    );
+  }
 
   return (
-    <div className="flex-1 overflow-y-auto px-2 py-1" role="list" aria-label={t("a11y.sidebarNav")}>
-      {groups.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-          <MessageSquare size={24} className="mb-2 opacity-40" />
-          <span className="text-xs">{t("noSessions")}</span>
-        </div>
-      ) : (
-        groups.map((group) => (
-          <div key={group.label} className="mb-2">
-            <div className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
-              {group.label}
-            </div>
-            {group.sessions.map((session) => {
-              const isActive = session.id === activeSessionId;
-              const isSecondary = splitViewActive && session.id === secondarySessionId;
-              return (
-                <div
-                  key={session.id}
-                  role="listitem"
-                  className={cn(
-                    "group flex items-center gap-2.5 rounded-lg px-2.5 py-2 cursor-pointer transition-colors",
-                    isActive
-                      ? "bg-accent text-accent-foreground"
-                      : isSecondary
-                        ? "bg-primary/10 text-foreground border border-primary/30"
-                        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-                  )}
-                  onClick={() => handleSelectSession(session.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      handleSelectSession(session.id);
-                    }
-                  }}
-                  tabIndex={0}
-                  aria-current={isActive ? "page" : undefined}
-                  aria-label={`${session.title}, ${relativeTime(session.updatedAt)}${isActive ? ` (${t("a11y.activeSession")})` : ""}`}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    setMenuOpenId(menuOpenId === session.id ? null : session.id);
-                  }}
-                >
-                  <MessageSquare size={13} className="shrink-0 opacity-60" />
-                  <div className="min-w-0 flex-1">
-                    {renamingId === session.id ? (
-                      <input
-                        ref={renameRef}
-                        value={renameValue}
-                        onChange={(e) => setRenameValue(e.target.value)}
-                        onBlur={() => handleRename(session.id)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {handleRename(session.id);}
-                          if (e.key === "Escape") {setRenamingId(null);}
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-full rounded bg-background px-1 py-0 text-xs outline-none ring-1 ring-primary"
-                        aria-label={t("rename")}
-                      />
-                    ) : (
-                      <div className="truncate text-xs font-medium">{session.title}</div>
-                    )}
-                    <div className="text-[10px] opacity-60">{relativeTime(session.updatedAt)}</div>
-                  </div>
-                  <div className="relative" ref={menuOpenId === session.id ? menuRef : undefined}>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setMenuOpenId(menuOpenId === session.id ? null : session.id);
-                      }}
-                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-accent"
-                      aria-label={t("a11y.sessionMenu")}
-                    >
-                      <MoreHorizontal size={12} />
-                    </button>
-                    {menuOpenId === session.id && (
-                      <div className="absolute right-0 top-6 z-50 w-40 rounded-lg border border-border bg-popover p-1 shadow-lg">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setRenamingId(session.id);
-                            setRenameValue(session.title);
-                            setMenuOpenId(null);
-                          }}
-                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground transition-colors hover:bg-accent"
-                        >
-                          <Pencil size={12} /> {t("rename")}
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            archiveSession(session.id);
-                            setMenuOpenId(null);
-                          }}
-                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground transition-colors hover:bg-accent"
-                        >
-                          <Archive size={12} /> {t("archive")}
-                        </button>
-                        <div className="my-1 h-px bg-border" />
-                        <div className="px-2 py-1">
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Download size={12} /> {t("exportAs")}
-                          </div>
-                          <div className="ml-5 mt-0.5 flex gap-2">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                exportSession(session.id, "json");
-                                setMenuOpenId(null);
-                              }}
-                              className="rounded px-1.5 py-0.5 text-xs text-foreground transition-colors hover:bg-accent"
-                            >
-                              {t("exportJson")}
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                exportSession(session.id, "markdown");
-                                setMenuOpenId(null);
-                              }}
-                              className="rounded px-1.5 py-0.5 text-xs text-foreground transition-colors hover:bg-accent"
-                            >
-                              {t("exportMarkdown")}
-                            </button>
-                          </div>
-                        </div>
-                        <div className="my-1 h-px bg-border" />
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteSession(session.id);
-                            setMenuOpenId(null);
-                          }}
-                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-destructive transition-colors hover:bg-destructive/10"
-                        >
-                          <Trash2 size={12} /> {t("delete")}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ))
-      )}
-      {/* Archived sessions */}
-      {archivedSessions.length > 0 && (
-        <div className="mt-3 mb-2">
-          <div className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
-            {t("archived")}
-          </div>
-          {archivedSessions.map((session) => (
-            <div
-              key={session.id}
-              role="listitem"
-              className="group flex items-center gap-2 rounded-lg px-2 py-1.5 cursor-pointer transition-colors opacity-60 hover:opacity-100 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-              onClick={() => handleSelectSession(session.id)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  handleSelectSession(session.id);
-                }
-              }}
-              tabIndex={0}
-              aria-label={`${session.title}, ${relativeTime(session.updatedAt)}`}
-            >
-              <Archive size={13} className="shrink-0 opacity-60" />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-xs font-medium">{session.title}</div>
-                <div className="text-[10px] opacity-60">{relativeTime(session.updatedAt)}</div>
-              </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // Unarchive: set archived = false
-                  useChatStore.setState(s => ({
-                    sessions: s.sessions.map(sess =>
-                      sess.id === session.id ? { ...sess, archived: false } : sess
-                    ),
-                  }));
-                }}
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-accent"
-                title={t("unarchive")}
-                aria-label={t("a11y.unarchiveSession")}
-              >
-                <MessageSquare size={12} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+    <button
+      onClick={onClick}
+      onContextMenu={onContextMenu}
+      className={`
+        group w-full rounded-[var(--radius-md)] py-1.5 pl-4 pr-3 text-left text-sm transition-colors duration-200
+        ${isActive
+          ? "bg-[var(--color-surface-selected)] text-[var(--color-text-primary)]"
+          : "text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]"
+        }
+      `}
+    >
+      <span className="flex items-center gap-2">
+        <span
+          className="h-1 w-1 flex-shrink-0 rounded-full"
+          style={{
+            backgroundColor: isActive ? "var(--color-brand)" : "var(--color-text-tertiary)",
+            opacity: isActive ? 1 : 0.5,
+          }}
+        />
+        <span className="flex-1 truncate">{title || "Untitled"}</span>
+        <span className="flex-shrink-0 text-[10px] text-[var(--color-text-tertiary)] opacity-0 transition-opacity group-hover:opacity-100">
+          {formatRelativeTime(updatedAt)}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+/* ─── Context menu ─────────────────────────────────────────── */
+
+function SidebarContextMenu({
+  sessionId,
+  x,
+  y,
+  onClose,
+}: {
+  sessionId: string;
+  x: number;
+  y: number;
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
+  const deleteSession = useChatStore((s) => s.deleteSession);
+  const updateSessionTitle = useChatStore((s) => s.updateSessionTitle);
+  const archiveSession = useChatStore((s) => s.archiveSession);
+  const closeTab = useTabStore((s) => s.closeTab);
+  const sessions = useChatStore((s) => s.sessions);
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+
+  if (renaming) {
+    return (
+      <div
+        className="fixed z-50 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] p-2"
+        style={{ left: x, top: y, boxShadow: "var(--shadow-dropdown)" }}
+      >
+        <input
+          autoFocus
+          value={renameValue}
+          onChange={(e) => setRenameValue(e.target.value)}
+          onBlur={() => {
+            if (renameValue.trim()) {
+              updateSessionTitle(sessionId, renameValue.trim());
+            }
+            onClose();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              if (renameValue.trim()) {
+                updateSessionTitle(sessionId, renameValue.trim());
+              }
+              onClose();
+            }
+            if (e.key === "Escape") { onClose(); }
+          }}
+          className="w-48 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-xs text-[var(--color-text-primary)] outline-none"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="fixed z-50 min-w-[140px] rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] py-1"
+      style={{ left: x, top: y, boxShadow: "var(--shadow-dropdown)" }}
+    >
+      <button
+        onClick={() => {
+          const session = sessions.find((s) => s.id === sessionId);
+          setRenaming(true);
+          setRenameValue(session?.title || "");
+        }}
+        className="w-full px-3 py-1.5 text-left text-xs text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-hover)]"
+      >
+        {t("rename")}
+      </button>
+      <button
+        onClick={() => {
+          archiveSession(sessionId);
+          onClose();
+        }}
+        className="w-full px-3 py-1.5 text-left text-xs text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-hover)]"
+      >
+        {t("archive")}
+      </button>
+      <button
+        onClick={() => {
+          deleteSession(sessionId);
+          closeTab(sessionId);
+          onClose();
+        }}
+        className="w-full px-3 py-1.5 text-left text-xs text-[var(--color-error)] transition-colors hover:bg-[var(--color-surface-hover)]"
+      >
+        {t("delete")}
+      </button>
     </div>
   );
 }
 
-// ── Message Search Results ──────────────────────────────────────
+/* ─── Shared components ────────────────────────────────────── */
 
-function MessageSearchResults({
-  query,
-  onSelectSession,
+function NavItem({
+  active,
+  collapsed,
+  label,
+  onClick,
+  icon,
+  children,
 }: {
-  query: string;
-  onSelectSession: (sessionId: string) => void;
+  active: boolean;
+  collapsed: boolean;
+  label: string;
+  onClick: () => void;
+  icon: React.ReactNode;
+  children: React.ReactNode;
 }) {
-  const { t } = useI18n();
-  const [results, setResults] = useState<MessageSearchResult[]>([]);
-  const [loading, setLoading] = useState(false);
-  const searchMessages = useChatStore((s) => s.searchMessages);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (query.trim().length < 3) {
-      setResults([]);
-      return;
-    }
-
-    // Debounce search: 300ms
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-    debounceRef.current = setTimeout(() => {
-      setLoading(true);
-      searchMessages(query.trim())
-        .then((r) => setResults(r))
-        .catch(() => setResults([]))
-        .finally(() => setLoading(false));
-    }, 300);
-
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
-    };
-  }, [query, searchMessages]);
-
-  if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center py-8">
-        <Loader2 size={16} className="animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (results.length === 0 && query.trim().length >= 3) {
-    return (
-      <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-        <Search size={20} className="mb-2 opacity-40" />
-        <span className="text-xs">{t("noResults") ?? "No results found"}</span>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex-1 overflow-y-auto px-2 py-1" role="list" aria-label="Search results">
-      <div className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
-        {results.length} {t("results") ?? "results"}
-      </div>
-      {results.map((result) => (
-        <div
-          key={result.message.id}
-          role="listitem"
-          className="group flex items-start gap-2 rounded-lg px-2 py-1.5 cursor-pointer transition-colors text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-          onClick={() => onSelectSession(result.sessionId)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              onSelectSession(result.sessionId);
-            }
-          }}
-          tabIndex={0}
-          aria-label={`${result.sessionTitle}: ${result.snippet}`}
-        >
-          <FileText size={13} className="mt-0.5 shrink-0 opacity-60" />
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-xs font-medium">{result.sessionTitle}</div>
-            <div className="line-clamp-2 text-[10px] opacity-60">{result.snippet}</div>
-            <div className="mt-0.5 text-[10px] opacity-40">
-              {result.message.role} · {relativeTime(result.message.createdAt)}
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
+    <button
+      onClick={onClick}
+      aria-label={label}
+      title={collapsed ? label : undefined}
+      className={`
+        flex items-center rounded-[var(--radius-md)] transition-all duration-200
+        ${collapsed ? "h-10 w-10 justify-center px-0 py-0" : "w-full gap-2.5 px-3 py-2 text-sm"}
+        ${active
+          ? "bg-[var(--color-surface-selected)] font-medium text-[var(--color-text-primary)] shadow-[0_8px_24px_rgba(15,23,42,0.08)]"
+          : "text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]"
+        }
+      `}
+    >
+      <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">
+        {icon}
+      </span>
+      <span className={`sidebar-copy ${collapsed ? "sidebar-copy--hidden" : "sidebar-copy--visible"}`}>
+        {children}
+      </span>
+    </button>
   );
+}
+
+/* ─── Icons ────────────────────────────────────────────────── */
+
+function PlusIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+}
+
+function SidebarToggleIcon({ collapsed }: { collapsed: boolean }) {
+  return (
+    <svg
+      width={collapsed ? 16 : 14}
+      height={collapsed ? 16 : 14}
+      viewBox="0 0 14 14"
+      fill="none"
+      className={`sidebar-toggle-icon ${collapsed ? "sidebar-toggle-icon--collapsed" : "sidebar-toggle-icon--open"}`}
+      aria-hidden="true"
+    >
+      <path
+        d={collapsed ? "M5 3 9 7l-4 4" : "M9 3 5 7l4 4"}
+        className="sidebar-toggle-chevron"
+      />
+    </svg>
+  );
+}
+
+/* ─── Utilities ────────────────────────────────────────────── */
+
+function groupByTime(sessions: Array<{ id: string; title: string; updatedAt: string }>): Map<TimeGroup, Array<{ id: string; title: string; updatedAt: string }>> {
+  const groups = new Map<TimeGroup, Array<{ id: string; title: string; updatedAt: string }>>();
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startOfYesterday = startOfToday - 86400000;
+  const sevenDaysAgo = startOfToday - 7 * 86400000;
+  const thirtyDaysAgo = startOfToday - 30 * 86400000;
+
+  for (const session of sessions) {
+    const ts = new Date(session.updatedAt).getTime();
+    let group: TimeGroup;
+    if (ts >= startOfToday) { group = "today"; }
+    else if (ts >= startOfYesterday) { group = "yesterday"; }
+    else if (ts >= sevenDaysAgo) { group = "last7days"; }
+    else if (ts >= thirtyDaysAgo) { group = "last30days"; }
+    else { group = "older"; }
+
+    if (!groups.has(group)) { groups.set(group, []); }
+    groups.get(group)!.push(session);
+  }
+
+  return groups;
+}
+
+function formatRelativeTime(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) { return "now"; }
+  if (min < 60) { return `${min}m`; }
+  const hr = Math.floor(min / 60);
+  if (hr < 24) { return `${hr}h`; }
+  const day = Math.floor(hr / 24);
+  if (day < 30) { return `${day}d`; }
+  return `${Math.floor(day / 30)}mo`;
 }

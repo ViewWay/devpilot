@@ -1,71 +1,15 @@
-import { useState, useMemo } from "react";
-import { Copy, Check } from "lucide-react";
-import { createHighlighter, type Highlighter } from "shiki";
+import { useState, lazy, Suspense } from "react";
+import { Copy, Check, Loader2 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useI18n } from "../../i18n";
 
-let highlighterPromise: Promise<Highlighter> | undefined;
-
-/** Map common language aliases to Shiki language IDs. */
-const LANG_ALIASES: Record<string, string> = {
-  js: "javascript",
-  ts: "typescript",
-  tsx: "typescript",
-  jsx: "javascript",
-  sh: "shell",
-  zsh: "shell",
-  py: "python",
-  rb: "ruby",
-  rs: "rust",
-  golang: "go",
-  cs: "csharp",
-  makefile: "ini",
-  docker: "dockerfile",
-  yml: "yaml",
-  md: "markdown",
-  proto: "protobuf",
-  tf: "hcl",  // Terraform — may not be available, falls back gracefully
-};
-
-function resolveLang(lang: string | undefined): string {
-  if (!lang) {
-    return "text";
-  }
-  const lower = lang.toLowerCase().replace(/[-_.]/g, "");
-  // Direct match first
-  if (LANG_ALIASES[lower]) {
-    return LANG_ALIASES[lower];
-  }
-  // Try original lowercase
-  return lang.toLowerCase();
-}
-
-function getShiki(): Promise<Highlighter> {
-  if (!highlighterPromise) {
-    highlighterPromise = createHighlighter({
-      themes: ["github-dark", "github-light"],
-      langs: [
-        // Core languages
-        "rust", "typescript", "javascript", "python", "go", "java",
-        "c", "cpp", "csharp",
-        // Web & markup
-        "html", "css", "scss", "json", "yaml", "toml", "xml",
-        "markdown", "mdx",
-        // Shell & scripting
-        "bash", "shell", "powershell", "lua", "perl", "ruby", "php",
-        // Data & query
-        "sql", "graphql", "protobuf",
-        // Systems & infra
-        "dockerfile", "nix", "ini",
-        // Functional & other
-        "haskell", "elixir", "kotlin", "swift", "scala", "zig",
-        // Config formats
-        "diff",
-      ],
-    });
-  }
-  return highlighterPromise;
-}
+/**
+ * Lazy-load shiki to avoid bundling the 9MB shiki-core in the main chunk.
+ * The heavy code-to-html highlighting work is deferred until first code block renders.
+ */
+const LazyCodeBlock = lazy(() =>
+  import("./CodeBlockInner").then((m) => ({ default: m.CodeBlockInner })),
+);
 
 interface CodeBlockProps {
   code: string;
@@ -76,26 +20,6 @@ interface CodeBlockProps {
 export function CodeBlock({ code, lang, className }: CodeBlockProps) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
-  const [html, setHtml] = useState<string | null>(null);
-  const [showLineNumbers, setShowLineNumbers] = useState(false);
-
-  useMemo(() => {
-    const language = resolveLang(lang);
-    getShiki().then((h) => {
-      try {
-        // Check if language is loaded; fall back to 'text' if not
-        const resolvedLang = h.getLoadedLanguages().includes(language) ? language : "text";
-        const result = h.codeToHtml(code, {
-          lang: resolvedLang,
-          themes: { dark: "github-dark", light: "github-light" },
-          defaultColor: false,
-        });
-        setHtml(result);
-      } catch {
-        setHtml(null);
-      }
-    });
-  }, [code, lang]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(code);
@@ -111,10 +35,8 @@ export function CodeBlock({ code, lang, className }: CodeBlockProps) {
             {lang || "code"}
           </span>
           <button
-            onClick={() => setShowLineNumbers((v) => !v)}
             className="text-[10px] text-muted-foreground hover:text-foreground"
             aria-label={t("a11y.toggleLineNumbers")}
-            aria-pressed={showLineNumbers}
           >
             {t("lineNumbers")}
           </button>
@@ -128,31 +50,16 @@ export function CodeBlock({ code, lang, className }: CodeBlockProps) {
           {copied ? t("copied") : t("copy")}
         </button>
       </div>
-      {html ? (
-        <>
-          <div className={cn("shiki-wrapper overflow-x-auto relative", showLineNumbers && "with-line-numbers")} dangerouslySetInnerHTML={{ __html: html }} />
-          {showLineNumbers && (
-            <div className="absolute top-[34px] left-0 bottom-0 w-10 flex flex-col border-r border-border/50 bg-muted/30 select-none pointer-events-none" style={{ paddingTop: 12, paddingBottom: 12 }}>
-              {code.split("\n").map((_, i) => (
-                <div key={i} className="text-right pr-2 text-[11px] leading-[1.6] text-muted-foreground/60">{i + 1}</div>
-              ))}
-            </div>
-          )}
-          <style>{`
-            .shiki-wrapper pre { margin: 0 !important; padding: 12px 16px !important; background: transparent !important; }
-            .shiki-wrapper code { font-size: 12px !important; line-height: 1.6 !important; }
-            .shiki-wrapper.with-line-numbers code { padding-left: 48px !important; }
-            .dark .shiki-wrapper .shiki,
-            .dark .shiki-wrapper span { color: var(--shiki-dark) !important; background-color: var(--shiki-dark-bg) !important; }
-            .shiki-wrapper .shiki,
-            .shiki-wrapper span { color: var(--shiki-light) !important; background-color: var(--shiki-light-bg) !important; }
-          `}</style>
-        </>
-      ) : (
-        <pre className="overflow-x-auto p-3 text-xs leading-relaxed">
-          <code>{code}</code>
-        </pre>
-      )}
+      <Suspense
+        fallback={
+          <div className="flex items-center gap-2 px-4 py-3 text-xs text-muted-foreground">
+            <Loader2 size={12} className="animate-spin" />
+            <span>Loading syntax highlighter...</span>
+          </div>
+        }
+      >
+        <LazyCodeBlock code={code} lang={lang} />
+      </Suspense>
     </div>
   );
 }

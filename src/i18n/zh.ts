@@ -6,7 +6,9 @@ const zh: Record<string, string> = {
   today: "今天",
   yesterday: "昨天",
   previous7Days: "最近7天",
+  previous30Days: "最近30天",
   older: "更早",
+  noMatching: "无匹配对话",
   rename: "重命名",
   archive: "归档",
   archived: "已归档",
@@ -496,6 +498,17 @@ const zh: Record<string, string> = {
   quickFileSearchContentResultsCount: "在 {files} 个文件中找到 {count} 个匹配",
   commandPaletteSearchFiles: "搜索文件",
   commandPaletteSearchFilesDesc: "按文件名或内容快速搜索",
+
+  // --- Tabs ---
+  "tabs.close": "关闭",
+  "tabs.closeOthers": "关闭其他",
+  "tabs.closeLeft": "关闭左侧",
+  "tabs.closeRight": "关闭右侧",
+  "tabs.closeAll": "关闭全部",
+  "tabs.closeConfirmTitle": "关闭正在运行的会话？",
+  "tabs.closeConfirmMessage": "此会话仍在生成回复。您想怎么做？",
+  "tabs.closeConfirmKeep": "继续运行",
+  "tabs.closeConfirmStop": "停止并关闭",
 };
 
 export default zh;
