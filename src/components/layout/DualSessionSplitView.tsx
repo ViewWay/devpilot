@@ -73,20 +73,24 @@ export function DualSessionSplitView({ primary, secondary, className }: DualSess
       <div
         onMouseDown={handleMouseDown}
         className={cn(
-          "group relative hidden md:flex w-1.5 shrink-0 cursor-col-resize items-center justify-center transition-colors border-x border-border/50",
-          dragging ? "bg-primary/30" : "bg-transparent hover:bg-primary/20",
+          "group relative hidden md:flex w-1.5 shrink-0 cursor-col-resize items-center justify-center transition-colors border-x border-[var(--color-border)]/50",
+          dragging
+            ? "bg-[var(--color-brand)]/30"
+            : "bg-transparent hover:bg-[var(--color-brand)]/20",
         )}
       >
         <div
           className={cn(
             "h-8 w-0.5 rounded-full transition-colors",
-            dragging ? "bg-primary" : "bg-border group-hover:bg-primary/50",
+            dragging
+              ? "bg-[var(--color-brand)]"
+              : "bg-[var(--color-border)] group-hover:bg-[var(--color-brand)]/50",
           )}
         />
       </div>
 
       {/* Mobile divider — visible only on mobile */}
-      <div className="h-px bg-border md:hidden" />
+      <div className="h-px bg-[var(--color-border)] md:hidden" />
 
       {/* Secondary panel (right on desktop, bottom on mobile) */}
       <div className="min-w-0 min-h-0 flex-1 overflow-hidden">

@@ -6,6 +6,12 @@ All notable changes to DevPilot will be documented in this file.
 
 ### Added
 
+- **P11: Split View / Dual Session Polish**
+  - Migrated `DualSessionSplitView` to cc-haha CSS design tokens (replaced old `border-border`, `bg-primary` classes)
+  - Migrated `SessionPanelView` to cc-haha CSS design tokens — consistent visual style with the rest of the app
+  - Added session switcher dropdown in secondary split panel — users can switch which session appears in the right panel
+  - Polished secondary panel header with backdrop blur, hover states, and visual consistency
+
 - **P10-B: LLM Streaming Pipeline Optimization**
   - Backend: text delta batching in agent loop (flush interval instead of per-chunk emit)
   - Backend: `cancel_stream` Tauri command — aborts running agent task via `AbortHandle` stored in `AppState.active_streams`

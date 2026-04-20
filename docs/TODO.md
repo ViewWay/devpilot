@@ -17,11 +17,13 @@
 - [x] **P10-3** — Fix empty page (react-router removal)
 - [x] **P10-4** — Sidebar rewrite (cc-haha style)
 - [x] **P10-5** — ChatInput + MessageList + ChatPanel CSS migration
+- [x] **P10** — Full UI rewrite matching cc-haha design system (all components migrated)
+- [x] **P10-B** — LLM streaming optimization (backend batching, frontend chunk batching, abort/cancellation)
+- [x] **P11-1** — DualSessionSplitView + SessionPanelView cc-haha CSS migration + session switcher
 
 ## In Progress
 
-- [x] **P10** — Full UI rewrite matching cc-haha design system (all components migrated)
-- [x] **P10-B** — LLM streaming optimization (backend batching, frontend chunk batching, abort/cancellation)
+- [ ] **P11** — Split view / dual session polish (remaining: swap sessions, drag-to-reorder)
 
 ## Upcoming
 

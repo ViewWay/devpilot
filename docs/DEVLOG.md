@@ -1,5 +1,34 @@
 # DevPilot Development Log
 
+## 2026-04-21 Session — P11: Split View / Dual Session Polish
+
+### Goal
+
+Polish the split view / dual session feature: migrate remaining components to cc-haha design tokens, add session switcher in secondary panel, ensure visual consistency.
+
+### P11-1: DualSessionSplitView CSS migration ✅
+
+- Replaced old Tailwind classes (`border-border`, `bg-primary`, `bg-transparent`) with cc-haha CSS variable tokens
+- Now uses `border-[var(--color-border)]`, `bg-[var(--color-brand)]`, consistent with P10 migration
+
+### P11-2: SessionPanelView CSS migration + session switcher ✅
+
+- Migrated all classes from old tokens (`border-border`, `bg-background`, `text-muted-foreground`, `text-destructive`, `bg-accent`) to cc-haha vars
+- Added `SecondaryPanelHeader` component with session switcher dropdown
+- Dropdown shows all non-archived sessions, highlights current selection with brand color
+- Click-away backdrop to close dropdown
+- Polished hover states and visual treatment
+
+### P11-3: Verification ✅
+
+- `cargo clippy` — clean (0 warnings)
+- `cargo test` — all pass
+- `npm run build` — success
+- `npx tsc --noEmit` — clean
+- `npx vitest run` — 146/146 tests pass
+
+---
+
 ## 2026-04-21 Session — P10-B: LLM Streaming Pipeline Optimization
 
 ### Goal
