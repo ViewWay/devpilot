@@ -840,4 +840,227 @@ mod tests {
         // Ollama should not require an API key
         assert!(create_openai_provider(config).is_ok());
     }
+
+    #[test]
+    fn convert_tool_use_message() {
+        let msgs = vec![Message {
+            role: MessageRole::Assistant,
+            content: vec![ContentBlock::ToolUse {
+                id: "call_abc123".into(),
+                name: "read_file".into(),
+                input: serde_json::json!({"path": "/tmp/a.txt"}),
+            }],
+            name: None,
+            tool_call_id: None,
+        }];
+        let oai_msgs = OpenAiProvider::convert_messages(&msgs);
+        assert_eq!(oai_msgs.len(), 1);
+        // Tool calls go into the tool_calls field, not content
+        let tc = oai_msgs[0].tool_calls.as_ref().unwrap();
+        assert_eq!(tc.len(), 1);
+        assert_eq!(tc[0].id, "call_abc123");
+        assert_eq!(tc[0].call_type, "function");
+        assert_eq!(tc[0].function.name, "read_file");
+    }
+
+    #[test]
+    fn convert_tool_result_message() {
+        let msgs = vec![Message {
+            role: MessageRole::Tool,
+            content: vec![ContentBlock::ToolResult {
+                tool_use_id: "call_abc123".into(),
+                content: "file contents".into(),
+                is_error: false,
+            }],
+            name: None,
+            tool_call_id: Some("call_abc123".into()),
+        }];
+        let oai_msgs = OpenAiProvider::convert_messages(&msgs);
+        assert_eq!(oai_msgs.len(), 1);
+        assert_eq!(oai_msgs[0].role, "tool");
+        assert_eq!(oai_msgs[0].tool_call_id.as_deref(), Some("call_abc123"));
+    }
+
+    #[test]
+    fn convert_base64_image() {
+        let msgs = vec![Message {
+            role: MessageRole::User,
+            content: vec![ContentBlock::Image {
+                source: ImageSource::Base64 {
+                    media_type: "image/png".into(),
+                    data: "iVBORw0KGgo=".into(),
+                },
+            }],
+            name: None,
+            tool_call_id: None,
+        }];
+        let oai_msgs = OpenAiProvider::convert_messages(&msgs);
+        let content = oai_msgs[0].content.as_array().unwrap();
+        assert_eq!(content[0]["type"], "image_url");
+        // Should be data:image/png;base64,... format
+        let url = content[0]["image_url"]["url"].as_str().unwrap();
+        assert!(url.starts_with("data:image/png;base64,"));
+    }
+
+    #[test]
+    fn convert_thinking_block_skipped() {
+        // Thinking blocks should produce Null and be filtered out
+        let msgs = vec![Message {
+            role: MessageRole::Assistant,
+            content: vec![
+                ContentBlock::Thinking {
+                    thinking: "internal reasoning".into(),
+                    signature: None,
+                },
+                ContentBlock::Text {
+                    text: "actual response".into(),
+                },
+            ],
+            name: None,
+            tool_call_id: None,
+        }];
+        let oai_msgs = OpenAiProvider::convert_messages(&msgs);
+        // Thinking block is filtered, only text remains as array
+        let content = oai_msgs[0].content.as_array().unwrap();
+        assert_eq!(content.len(), 1);
+        assert_eq!(content[0]["type"], "text");
+    }
+
+    #[test]
+    fn convert_mixed_content_with_tool_use() {
+        let msgs = vec![Message {
+            role: MessageRole::Assistant,
+            content: vec![
+                ContentBlock::Text {
+                    text: "Let me read that file.".into(),
+                },
+                ContentBlock::ToolUse {
+                    id: "call_1".into(),
+                    name: "file_read".into(),
+                    input: serde_json::json!({"path": "/tmp/a.txt"}),
+                },
+            ],
+            name: None,
+            tool_call_id: None,
+        }];
+        let oai_msgs = OpenAiProvider::convert_messages(&msgs);
+        // Text goes to content, tool_use goes to tool_calls
+        assert!(oai_msgs[0].content.is_array());
+        let tc = oai_msgs[0].tool_calls.as_ref().unwrap();
+        assert_eq!(tc.len(), 1);
+    }
+
+    #[test]
+    fn convert_response_with_tool_calls() {
+        let msg = OaiResponseMessage {
+            role: "assistant".into(),
+            content: Some(serde_json::Value::String("Using tool...".into())),
+            tool_calls: Some(vec![OaiToolCall {
+                id: "call_1".into(),
+                call_type: "function".into(),
+                function: OaiFunction {
+                    name: "read_file".into(),
+                    arguments: r#"{"path":"/tmp/a.txt"}"#.into(),
+                },
+            }]),
+        };
+        let result = OpenAiProvider::convert_response_message(msg);
+        assert_eq!(result.role, MessageRole::Assistant);
+        // Should have both text and tool_use blocks
+        assert!(result.content.iter().any(|b| matches!(b, ContentBlock::Text { .. })));
+        assert!(result.content.iter().any(|b| matches!(b, ContentBlock::ToolUse { .. })));
+    }
+
+    #[test]
+    fn convert_response_empty_content() {
+        let msg = OaiResponseMessage {
+            role: "assistant".into(),
+            content: None,
+            tool_calls: None,
+        };
+        let result = OpenAiProvider::convert_response_message(msg);
+        assert_eq!(result.role, MessageRole::Assistant);
+        assert!(result.content.is_empty());
+    }
+
+    #[test]
+    fn convert_response_invalid_tool_arguments() {
+        let msg = OaiResponseMessage {
+            role: "assistant".into(),
+            content: None,
+            tool_calls: Some(vec![OaiToolCall {
+                id: "call_1".into(),
+                call_type: "function".into(),
+                function: OaiFunction {
+                    name: "read_file".into(),
+                    arguments: "invalid json {{{".into(),
+                },
+            }]),
+        };
+        let result = OpenAiProvider::convert_response_message(msg);
+        // Should still create ToolUse block with empty object fallback
+        assert_eq!(result.content.len(), 1);
+        if let ContentBlock::ToolUse { input, .. } = &result.content[0] {
+            assert_eq!(input, &serde_json::json!({}));
+        } else {
+            panic!("Expected ToolUse block");
+        }
+    }
+
+    #[test]
+    fn parse_finish_reason_function_call() {
+        assert_eq!(
+            OpenAiProvider::parse_finish_reason(Some("function_call")),
+            FinishReason::ToolUse
+        );
+    }
+
+    #[test]
+    fn parse_finish_reason_content_filter() {
+        assert_eq!(
+            OpenAiProvider::parse_finish_reason(Some("content_filter")),
+            FinishReason::ContentFilter
+        );
+    }
+
+    #[test]
+    fn models_url_construction() {
+        let provider = OpenAiProvider::new(test_config());
+        assert_eq!(
+            provider.models_url(),
+            "https://api.openai.com/v1/models"
+        );
+    }
+
+    #[test]
+    fn convert_message_with_name() {
+        let mut msgs = vec![Message::text(MessageRole::User, "Hello")];
+        msgs[0].name = Some("alice".into());
+        let oai_msgs = OpenAiProvider::convert_messages(&msgs);
+        assert_eq!(oai_msgs[0].name.as_deref(), Some("alice"));
+    }
+
+    #[test]
+    fn request_serialization_includes_stream() {
+        let oai_req = OaiRequest {
+            model: "gpt-4".into(),
+            messages: vec![],
+            system: None,
+            temperature: Some(0.7),
+            max_tokens: Some(100),
+            top_p: None,
+            stop: None,
+            tools: None,
+            stream: true,
+        };
+        let json = serde_json::to_value(&oai_req).unwrap();
+        assert_eq!(json["stream"], true);
+        assert_eq!(json["model"], "gpt-4");
+        // temperature is f32 which has float precision, just verify it's present
+        assert!(json.get("temperature").is_some());
+        // None fields should not be present
+        assert!(json.get("system").is_none());
+        assert!(json.get("tools").is_none());
+        assert!(json.get("stop").is_none());
+    }
 }

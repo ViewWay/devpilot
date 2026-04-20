@@ -329,12 +329,7 @@ impl AnthropicProvider {
             })
             .collect();
 
-        if parts.len() == 1 {
-            // For single text blocks, we can still use array form (Anthropic accepts both)
-            serde_json::Value::Array(parts)
-        } else {
-            serde_json::Value::Array(parts)
-        }
+        serde_json::Value::Array(parts)
     }
 
     /// Convert protocol tools to Anthropic format.
@@ -938,5 +933,329 @@ mod tests {
 
         let high = AnthropicProvider::thinking_config(Some(ReasoningEffort::High)).unwrap();
         assert_eq!(high["budget_tokens"], 32_768);
+    }
+
+    #[test]
+    fn convert_response_thinking_block() {
+        let blocks = vec![AntContentBlock {
+            block_type: "thinking".into(),
+            text: None,
+            id: None,
+            name: None,
+            input: None,
+            thinking: Some("Let me analyze this...".into()),
+            signature: Some("sig_abc123".into()),
+        }];
+        let content = AnthropicProvider::convert_response_content(blocks);
+        assert_eq!(content.len(), 1);
+        assert!(
+            matches!(&content[0], ContentBlock::Thinking { thinking, signature }
+                if thinking == "Let me analyze this..." && signature.as_deref() == Some("sig_abc123"))
+        );
+    }
+
+    #[test]
+    fn convert_response_ignores_unknown_block_type() {
+        let blocks = vec![AntContentBlock {
+            block_type: "unknown_type".into(),
+            text: None,
+            id: None,
+            name: None,
+            input: None,
+            thinking: None,
+            signature: None,
+        }];
+        let content = AnthropicProvider::convert_response_content(blocks);
+        assert!(content.is_empty());
+    }
+
+    #[test]
+    fn convert_tool_result_message() {
+        let msgs = vec![Message {
+            role: MessageRole::Tool,
+            content: vec![ContentBlock::ToolResult {
+                tool_use_id: "toolu_abc".into(),
+                content: "file contents here".into(),
+                is_error: false,
+            }],
+            name: None,
+            tool_call_id: None,
+        }];
+        let ant_msgs = AnthropicProvider::convert_messages(&msgs);
+        assert_eq!(ant_msgs.len(), 1);
+        assert_eq!(ant_msgs[0].role, "tool");
+        let content = ant_msgs[0].content.as_array().unwrap();
+        assert_eq!(content[0]["type"], "tool_result");
+        assert_eq!(content[0]["tool_use_id"], "toolu_abc");
+    }
+
+    #[test]
+    fn convert_tool_use_in_assistant_message() {
+        let msgs = vec![Message {
+            role: MessageRole::Assistant,
+            content: vec![ContentBlock::ToolUse {
+                id: "toolu_xyz".into(),
+                name: "read_file".into(),
+                input: serde_json::json!({"path": "/tmp/test.txt"}),
+            }],
+            name: None,
+            tool_call_id: None,
+        }];
+        let ant_msgs = AnthropicProvider::convert_messages(&msgs);
+        assert_eq!(ant_msgs.len(), 1);
+        let content = ant_msgs[0].content.as_array().unwrap();
+        assert_eq!(content[0]["type"], "tool_use");
+        assert_eq!(content[0]["name"], "read_file");
+        assert_eq!(content[0]["id"], "toolu_xyz");
+    }
+
+    #[test]
+    fn convert_thinking_in_message() {
+        let msgs = vec![Message {
+            role: MessageRole::Assistant,
+            content: vec![
+                ContentBlock::Thinking {
+                    thinking: "hmm...".into(),
+                    signature: Some("sig_1".into()),
+                },
+                ContentBlock::Text {
+                    text: "Here is the answer".into(),
+                },
+            ],
+            name: None,
+            tool_call_id: None,
+        }];
+        let ant_msgs = AnthropicProvider::convert_messages(&msgs);
+        assert_eq!(ant_msgs.len(), 1);
+        let content = ant_msgs[0].content.as_array().unwrap();
+        assert_eq!(content.len(), 2);
+        assert_eq!(content[0]["type"], "thinking");
+        assert_eq!(content[1]["type"], "text");
+    }
+
+    #[test]
+    fn convert_base64_image() {
+        let msgs = vec![Message {
+            role: MessageRole::User,
+            content: vec![ContentBlock::Image {
+                source: ImageSource::Base64 {
+                    media_type: "image/png".into(),
+                    data: "iVBORw0KGgo=".into(),
+                },
+            }],
+            name: None,
+            tool_call_id: None,
+        }];
+        let ant_msgs = AnthropicProvider::convert_messages(&msgs);
+        let content = ant_msgs[0].content.as_array().unwrap();
+        assert_eq!(content[0]["type"], "image");
+        assert_eq!(content[0]["source"]["type"], "base64");
+        assert_eq!(content[0]["source"]["media_type"], "image/png");
+    }
+
+    #[test]
+    fn stop_sequence_maps_to_stop() {
+        assert_eq!(
+            AnthropicProvider::parse_stop_reason(Some("stop_sequence")),
+            FinishReason::Stop
+        );
+    }
+
+    // ── Stream event deserialization tests ─────────────
+
+    #[test]
+    fn deserialize_message_start_event() {
+        let json = r#"{
+            "type": "message_start",
+            "message": {
+                "id": "msg_001",
+                "type": "message",
+                "role": "assistant",
+                "content": [],
+                "model": "claude-sonnet-4-20250514",
+                "usage": {
+                    "input_tokens": 25,
+                    "output_tokens": 0,
+                    "cache_creation_input_tokens": 0,
+                    "cache_read_input_tokens": 0
+                }
+            }
+        }"#;
+        let event: AntStreamEvent = serde_json::from_str(json).unwrap();
+        match event {
+            AntStreamEvent::MessageStart { message } => {
+                assert_eq!(message.id, "msg_001");
+                assert_eq!(message.usage.input_tokens, 25);
+            }
+            _ => panic!("Expected MessageStart"),
+        }
+    }
+
+    #[test]
+    fn deserialize_text_delta_event() {
+        let json = r#"{
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {
+                "type": "text_delta",
+                "text": "Hello"
+            }
+        }"#;
+        let event: AntStreamEvent = serde_json::from_str(json).unwrap();
+        match event {
+            AntStreamEvent::ContentBlockDelta { index, delta } => {
+                assert_eq!(index, 0);
+                match delta {
+                    AntStreamDelta::TextDelta { text } => assert_eq!(text, "Hello"),
+                    _ => panic!("Expected TextDelta"),
+                }
+            }
+            _ => panic!("Expected ContentBlockDelta"),
+        }
+    }
+
+    #[test]
+    fn deserialize_thinking_delta_event() {
+        let json = r#"{
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {
+                "type": "thinking_delta",
+                "thinking": "Let me think..."
+            }
+        }"#;
+        let event: AntStreamEvent = serde_json::from_str(json).unwrap();
+        match event {
+            AntStreamEvent::ContentBlockDelta { delta, .. } => {
+                match delta {
+                    AntStreamDelta::ThinkingDelta { thinking } => {
+                        assert_eq!(thinking, "Let me think...");
+                    }
+                    _ => panic!("Expected ThinkingDelta"),
+                }
+            }
+            _ => panic!("Expected ContentBlockDelta"),
+        }
+    }
+
+    #[test]
+    fn deserialize_tool_input_json_delta() {
+        let json = r#"{
+            "type": "content_block_delta",
+            "index": 1,
+            "delta": {
+                "type": "input_json_delta",
+                "partial_json": "{\"path\": \"/tmp/"
+            }
+        }"#;
+        let event: AntStreamEvent = serde_json::from_str(json).unwrap();
+        match event {
+            AntStreamEvent::ContentBlockDelta { index, delta } => {
+                assert_eq!(index, 1);
+                match delta {
+                    AntStreamDelta::InputJsonDelta { partial_json } => {
+                        assert_eq!(partial_json, "{\"path\": \"/tmp/");
+                    }
+                    _ => panic!("Expected InputJsonDelta"),
+                }
+            }
+            _ => panic!("Expected ContentBlockDelta"),
+        }
+    }
+
+    #[test]
+    fn deserialize_content_block_start_tool_use() {
+        let json = r#"{
+            "type": "content_block_start",
+            "index": 1,
+            "content_block": {
+                "type": "tool_use",
+                "id": "toolu_01A",
+                "name": "read_file"
+            }
+        }"#;
+        let event: AntStreamEvent = serde_json::from_str(json).unwrap();
+        match event {
+            AntStreamEvent::ContentBlockStart {
+                index,
+                content_block,
+            } => {
+                assert_eq!(index, 1);
+                assert_eq!(content_block.block_type, "tool_use");
+                assert_eq!(content_block.id.as_deref(), Some("toolu_01A"));
+                assert_eq!(content_block.name.as_deref(), Some("read_file"));
+            }
+            _ => panic!("Expected ContentBlockStart"),
+        }
+    }
+
+    #[test]
+    fn deserialize_message_delta_with_stop_reason() {
+        let json = r#"{
+            "type": "message_delta",
+            "delta": {
+                "stop_reason": "end_turn"
+            },
+            "usage": {
+                "output_tokens": 15
+            }
+        }"#;
+        let event: AntStreamEvent = serde_json::from_str(json).unwrap();
+        match event {
+            AntStreamEvent::MessageDelta { delta, usage } => {
+                assert_eq!(delta.stop_reason.as_deref(), Some("end_turn"));
+                assert_eq!(usage.output_tokens, 15);
+            }
+            _ => panic!("Expected MessageDelta"),
+        }
+    }
+
+    #[test]
+    fn deserialize_ping_event() {
+        let json = r#"{"type": "ping"}"#;
+        let event: AntStreamEvent = serde_json::from_str(json).unwrap();
+        assert!(matches!(event, AntStreamEvent::Ping));
+    }
+
+    #[test]
+    fn deserialize_message_stop_event() {
+        let json = r#"{"type": "message_stop"}"#;
+        let event: AntStreamEvent = serde_json::from_str(json).unwrap();
+        assert!(matches!(event, AntStreamEvent::MessageStop));
+    }
+
+    #[test]
+    fn deserialize_content_block_stop() {
+        let json = r#"{"type": "content_block_stop", "index": 0}"#;
+        let event: AntStreamEvent = serde_json::from_str(json).unwrap();
+        assert!(matches!(event, AntStreamEvent::ContentBlockStop { index } if index == 0));
+    }
+
+    #[test]
+    fn deserialize_message_start_with_cache_usage() {
+        let json = r#"{
+            "type": "message_start",
+            "message": {
+                "id": "msg_002",
+                "type": "message",
+                "role": "assistant",
+                "content": [],
+                "model": "claude-sonnet-4-20250514",
+                "usage": {
+                    "input_tokens": 10,
+                    "output_tokens": 0,
+                    "cache_creation_input_tokens": 50,
+                    "cache_read_input_tokens": 100
+                }
+            }
+        }"#;
+        let event: AntStreamEvent = serde_json::from_str(json).unwrap();
+        match event {
+            AntStreamEvent::MessageStart { message } => {
+                assert_eq!(message.usage.cache_creation_input_tokens, Some(50));
+                assert_eq!(message.usage.cache_read_input_tokens, Some(100));
+            }
+            _ => panic!("Expected MessageStart"),
+        }
     }
 }
