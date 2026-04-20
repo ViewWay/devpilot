@@ -21,8 +21,8 @@
 - [x] **P10-B** — LLM streaming optimization (backend batching, frontend chunk batching, abort/cancellation)
 - [x] **P11-1** — DualSessionSplitView + SessionPanelView cc-haha CSS migration + session switcher
 - [x] **P11** — Split view / dual session polish (swap sessions ✅, drag-to-reorder ✅)
+- [x] **P12** — Bridge (Telegram/Feishu) integration (5 platforms, Tauri commands, bridgeStore, SettingsPage bridge tab, BridgePage)
 
 ## Upcoming
 
-- [ ] **P12** — Bridge (Telegram/Feishu) integration
 - [ ] **P13** — Plugin system / MCP marketplace
