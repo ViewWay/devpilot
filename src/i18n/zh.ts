@@ -466,6 +466,21 @@ const zh: Record<string, string> = {
   // --- File Tree ---
   noFiles: "未找到文件",
   setWorkingDir: "请设置工作目录以浏览文件",
+
+  // --- Quick File Search ---
+  quickFileSearchPlaceholder: "按文件名或内容搜索...",
+  quickFileSearchByName: "按名称",
+  quickFileSearchByContent: "按内容",
+  quickFileSearchNoWorkingDir: "请先设置工作目录",
+  quickFileSearchSearching: "搜索中...",
+  quickFileSearchLine: "第 {line} 行",
+  quickFileSearchOpen: "打开文件",
+  quickFileSearchCopyPath: "复制路径",
+  quickFileSearchPathCopied: "路径已复制！",
+  quickFileSearchResultsCount: "找到 {count} 个文件",
+  quickFileSearchContentResultsCount: "在 {files} 个文件中找到 {count} 个匹配",
+  commandPaletteSearchFiles: "搜索文件",
+  commandPaletteSearchFilesDesc: "按文件名或内容快速搜索",
 };
 
 export default zh;

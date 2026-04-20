@@ -74,6 +74,11 @@ interface UIState {
   closeSplitView: () => void;
   setSecondarySession: (sessionId: string) => void;
   setSplitViewSize: (size: number) => void;
+
+  // Quick File Search
+  quickFileSearchOpen: boolean;
+  setQuickFileSearchOpen: (open: boolean) => void;
+  toggleQuickFileSearch: () => void;
 }
 
 /** Lazy reference to chatStore — avoids circular dependency at module level. */
@@ -158,4 +163,9 @@ export const useUIStore = create<UIState>((set, get) => ({
   closeSplitView: () => set({ splitViewActive: false, secondarySessionId: null }),
   setSecondarySession: (sessionId) => set({ secondarySessionId: sessionId }),
   setSplitViewSize: (size) => set({ splitViewSize: Math.max(20, Math.min(80, size)) }),
+
+  // Quick File Search
+  quickFileSearchOpen: false,
+  setQuickFileSearchOpen: (open) => set({ quickFileSearchOpen: open }),
+  toggleQuickFileSearch: () => set((s) => ({ quickFileSearchOpen: !s.quickFileSearchOpen })),
 }));

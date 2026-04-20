@@ -466,6 +466,21 @@ const en: Record<string, string> = {
   // --- File Tree ---
   noFiles: "No files found",
   setWorkingDir: "Set a working directory to browse files",
+
+  // --- Quick File Search ---
+  quickFileSearchPlaceholder: "Search files by name or content...",
+  quickFileSearchByName: "By Name",
+  quickFileSearchByContent: "By Content",
+  quickFileSearchNoWorkingDir: "Set a working directory first",
+  quickFileSearchSearching: "Searching...",
+  quickFileSearchLine: "Line {line}",
+  quickFileSearchOpen: "Open File",
+  quickFileSearchCopyPath: "Copy Path",
+  quickFileSearchPathCopied: "Path copied!",
+  quickFileSearchResultsCount: "{count} files found",
+  quickFileSearchContentResultsCount: "{count} matches in {files} files",
+  commandPaletteSearchFiles: "Search Files",
+  commandPaletteSearchFilesDesc: "Quick search files by name or content",
 };
 
 export default en;
