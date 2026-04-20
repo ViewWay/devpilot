@@ -73,6 +73,7 @@ interface UIState {
   toggleSplitView: (sessionId?: string) => void;
   closeSplitView: () => void;
   setSecondarySession: (sessionId: string) => void;
+  swapSplitView: () => void;
   setSplitViewSize: (size: number) => void;
 
   // Quick File Search
@@ -84,11 +85,19 @@ interface UIState {
 /** Lazy reference to chatStore — avoids circular dependency at module level. */
 let _getChatState: (() => { sessions: Array<{ id: string; archived?: boolean }>; activeSessionId: string | null }) | null = null;
 
+/** Lazy setter for active session — registered by chatStore. */
+let _setActiveSession: ((id: string) => void) | null = null;
+
 /** Called once from chatStore to register the accessor. */
 export function registerChatStoreAccessor(
   getter: () => { sessions: Array<{ id: string; archived?: boolean }>; activeSessionId: string | null },
 ) {
   _getChatState = getter;
+}
+
+/** Called once from chatStore to register the setActiveSession function. */
+export function registerChatStoreSetActiveSession(setter: (id: string) => void) {
+  _setActiveSession = setter;
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -162,6 +171,17 @@ export const useUIStore = create<UIState>((set, get) => ({
   },
   closeSplitView: () => set({ splitViewActive: false, secondarySessionId: null }),
   setSecondarySession: (sessionId) => set({ secondarySessionId: sessionId }),
+  swapSplitView: () => {
+    const s = get();
+    if (!s.splitViewActive || !s.secondarySessionId) { return; }
+    const chatState = _getChatState?.();
+    if (!chatState?.activeSessionId) { return; }
+    const oldPrimary = chatState.activeSessionId;
+    const oldSecondary = s.secondarySessionId;
+    // Swap: old secondary becomes the new primary (active), old primary becomes secondary
+    _setActiveSession?.(oldSecondary);
+    set({ secondarySessionId: oldPrimary });
+  },
   setSplitViewSize: (size) => set({ splitViewSize: Math.max(20, Math.min(80, size)) }),
 
   // Quick File Search

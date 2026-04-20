@@ -23,7 +23,7 @@
 
 ## In Progress
 
-- [ ] **P11** — Split view / dual session polish (remaining: swap sessions, drag-to-reorder)
+- [x] **P11** — Split view / dual session polish (swap sessions ✅, drag-to-reorder ✅)
 
 ## Upcoming
 

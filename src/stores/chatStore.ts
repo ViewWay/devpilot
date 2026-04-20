@@ -373,6 +373,8 @@ interface ChatState {
   searchMessages: (query: string) => Promise<MessageSearchResult[]>;
   /** Set the working directory for a specific session (persists to backend). */
   setSessionWorkingDir: (sessionId: string, workingDir: string) => void;
+  /** Reorder sessions (e.g. from drag-and-drop in sidebar). */
+  reorderSessions: (sessionId: string, targetIndex: number) => void;
 
   // Internal
   _streamCleanup: (() => void) | null;
@@ -982,6 +984,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   setError: (error) => set({ error }),
+
+  reorderSessions: (sessionId, targetIndex) => {
+    set((s) => {
+      const sessions = [...s.sessions];
+      const currentIndex = sessions.findIndex((sess) => sess.id === sessionId);
+      if (currentIndex === -1 || currentIndex === targetIndex) { return s; }
+      const removed = sessions.splice(currentIndex, 1);
+      if (removed.length === 0) { return s; }
+      sessions.splice(targetIndex, 0, removed[0]!);
+      return { sessions };
+    });
+  },
 
   resolveApproval: (requestId, approved) => {
     // Remove from pending list immediately for responsive UI

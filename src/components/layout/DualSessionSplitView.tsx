@@ -1,6 +1,8 @@
 import { useCallback, useRef, useState, type ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/uiStore";
+import { useI18n } from "../../i18n";
+import { ArrowLeftRight } from "lucide-react";
 
 interface DualSessionSplitViewProps {
   primary: ReactNode;
@@ -16,8 +18,10 @@ interface DualSessionSplitViewProps {
 export function DualSessionSplitView({ primary, secondary, className }: DualSessionSplitViewProps) {
   const splitViewSize = useUIStore((s) => s.splitViewSize);
   const setSplitViewSize = useUIStore((s) => s.setSplitViewSize);
+  const swapSplitView = useUIStore((s) => s.swapSplitView);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
+  const { t } = useI18n();
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -87,6 +91,25 @@ export function DualSessionSplitView({ primary, secondary, className }: DualSess
               : "bg-[var(--color-border)] group-hover:bg-[var(--color-brand)]/50",
           )}
         />
+
+        {/* Swap button — centered on the divider */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            swapSplitView();
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          className={cn(
+            "absolute z-10 flex h-6 w-6 items-center justify-center rounded-full",
+            "bg-[var(--color-surface-container-lowest)] border border-[var(--color-border)]/60",
+            "text-[var(--color-text-tertiary)] shadow-sm",
+            "opacity-0 group-hover:opacity-100 transition-opacity",
+            "hover:text-[var(--color-brand)] hover:border-[var(--color-brand)]/40",
+          )}
+          title={t("swapSessions")}
+        >
+          <ArrowLeftRight size={11} />
+        </button>
       </div>
 
       {/* Mobile divider — visible only on mobile */}

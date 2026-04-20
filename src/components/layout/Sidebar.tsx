@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useI18n } from "../../i18n";
 import { useChatStore } from "../../stores/chatStore";
 import { useUIStore } from "../../stores/uiStore";
@@ -191,6 +191,11 @@ function SidebarSessionList({
   const searchSessions = useChatStore((s) => s.searchSessions);
   const openTab = useTabStore((s) => s.openTab);
   const setActiveSession = useChatStore((s) => s.setActiveSession);
+  const reorderSessions = useChatStore((s) => s.reorderSessions);
+
+  // Drag-and-drop state (flat index across all groups)
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     let result = searchQuery ? searchSessions(searchQuery) : sessions;
@@ -203,6 +208,50 @@ function SidebarSessionList({
   }, [sessions, searchQuery, searchSessions]);
 
   const timeGroups = useMemo(() => groupByTime(filtered), [filtered]);
+
+  // Build a flat ordered list of session IDs for reordering
+  const flatSessionIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const group of TIME_GROUP_ORDER) {
+      const items = timeGroups.get(group);
+      if (items) {
+        for (const item of items) {
+          ids.push(item.id);
+        }
+      }
+    }
+    return ids;
+  }, [timeGroups]);
+
+  const handleDragOver = useCallback((e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDropTargetId(targetId);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (draggedId && draggedId !== targetId) {
+      const fromIndex = flatSessionIds.indexOf(draggedId);
+      const toIndex = flatSessionIds.indexOf(targetId);
+      if (fromIndex !== -1 && toIndex !== -1) {
+        // Find the actual session index in the full sessions array
+        const allSessions = sessions;
+        const fromSessionIndex = allSessions.findIndex((s) => s.id === draggedId);
+        const toSessionIndex = allSessions.findIndex((s) => s.id === targetId);
+        if (fromSessionIndex !== -1 && toSessionIndex !== -1) {
+          reorderSessions(draggedId, toSessionIndex);
+        }
+      }
+    }
+    setDraggedId(null);
+    setDropTargetId(null);
+  }, [draggedId, flatSessionIds, sessions, reorderSessions]);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedId(null);
+    setDropTargetId(null);
+  }, []);
 
   if (filtered.length === 0) {
     return (
@@ -229,11 +278,17 @@ function SidebarSessionList({
                 title={session.title}
                 updatedAt={session.updatedAt}
                 isActive={session.id === activeTabId}
+                isDragged={draggedId === session.id}
+                isDropTarget={dropTargetId === session.id}
                 onClick={() => {
                   setActiveSession(session.id);
                   openTab(session.id, session.title, "session");
                 }}
                 onContextMenu={(e) => onContextMenu(e, session.id)}
+                onDragStart={() => setDraggedId(session.id)}
+                onDragOver={(e) => handleDragOver(e, session.id)}
+                onDrop={(e) => handleDrop(e, session.id)}
+                onDragEnd={handleDragEnd}
               />
             ))}
           </div>
@@ -250,19 +305,32 @@ function SidebarSessionItem({
   title,
   updatedAt,
   isActive,
+  isDragged,
+  isDropTarget,
   onClick,
   onContextMenu,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
 }: {
   id: string;
   title: string;
   updatedAt: string;
   isActive: boolean;
+  isDragged: boolean;
+  isDropTarget: boolean;
   onClick: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
+  onDragStart: () => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDrop: (e: React.DragEvent) => void;
+  onDragEnd: () => void;
 }) {
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const updateSessionTitle = useChatStore((s) => s.updateSessionTitle);
+  const dragNodeRef = useRef<HTMLDivElement>(null);
 
   const handleFinishRename = useCallback(() => {
     if (renameValue.trim()) {
@@ -289,31 +357,52 @@ function SidebarSessionItem({
   }
 
   return (
-    <button
-      onClick={onClick}
-      onContextMenu={onContextMenu}
-      className={`
-        group w-full rounded-[var(--radius-md)] py-1.5 pl-4 pr-3 text-left text-sm transition-colors duration-200
-        ${isActive
-          ? "bg-[var(--color-surface-selected)] text-[var(--color-text-primary)]"
-          : "text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]"
+    <div
+      ref={dragNodeRef}
+      draggable
+      onDragStart={(e) => {
+        // Set drag image to the element itself
+        if (dragNodeRef.current) {
+          e.dataTransfer.setDragImage(dragNodeRef.current, 0, 0);
         }
+        e.dataTransfer.effectAllowed = "move";
+        onDragStart();
+      }}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+      className={`
+        rounded-[var(--radius-md)] transition-all duration-150
+        ${isDropTarget ? "ring-1 ring-[var(--color-brand)] ring-offset-1 ring-offset-[var(--color-surface-sidebar)]" : ""}
+        ${isDragged ? "opacity-40" : ""}
       `}
     >
-      <span className="flex items-center gap-2">
-        <span
-          className="h-1 w-1 flex-shrink-0 rounded-full"
-          style={{
-            backgroundColor: isActive ? "var(--color-brand)" : "var(--color-text-tertiary)",
-            opacity: isActive ? 1 : 0.5,
-          }}
-        />
-        <span className="flex-1 truncate">{title || "Untitled"}</span>
-        <span className="flex-shrink-0 text-[10px] text-[var(--color-text-tertiary)] opacity-0 transition-opacity group-hover:opacity-100">
-          {formatRelativeTime(updatedAt)}
+      <button
+        onClick={onClick}
+        onContextMenu={onContextMenu}
+        className={`
+          group w-full rounded-[var(--radius-md)] py-1.5 pl-4 pr-3 text-left text-sm transition-colors duration-200 cursor-grab active:cursor-grabbing
+          ${isActive
+            ? "bg-[var(--color-surface-selected)] text-[var(--color-text-primary)]"
+            : "text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]"
+          }
+        `}
+      >
+        <span className="flex items-center gap-2">
+          <span
+            className="h-1 w-1 flex-shrink-0 rounded-full"
+            style={{
+              backgroundColor: isActive ? "var(--color-brand)" : "var(--color-text-tertiary)",
+              opacity: isActive ? 1 : 0.5,
+            }}
+          />
+          <span className="flex-1 truncate">{title || "Untitled"}</span>
+          <span className="flex-shrink-0 text-[10px] text-[var(--color-text-tertiary)] opacity-0 transition-opacity group-hover:opacity-100">
+            {formatRelativeTime(updatedAt)}
+          </span>
         </span>
-      </span>
-    </button>
+      </button>
+    </div>
   );
 }
 

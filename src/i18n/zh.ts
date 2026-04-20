@@ -369,6 +369,7 @@ const zh: Record<string, string> = {
   // --- Split View ---
   splitView: "分屏视图",
   splitViewDesc: "并排查看两个聊天会话",
+  swapSessions: "交换会话",
   noSessionSelected: "未选择会话",
 
   // --- Data Management ---

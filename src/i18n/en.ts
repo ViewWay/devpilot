@@ -369,6 +369,7 @@ const en: Record<string, string> = {
   // --- Split View ---
   splitView: "Split View",
   splitViewDesc: "View two chat sessions side-by-side",
+  swapSessions: "Swap sessions",
   noSessionSelected: "No session selected",
 
   // --- Data Management ---
