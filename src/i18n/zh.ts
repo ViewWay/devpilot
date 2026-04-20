@@ -563,6 +563,11 @@ const zh: Record<string, string> = {
   onboardingBack: "返回",
   onboardingContinue: "继续",
   onboardingSkip: "跳过设置",
+
+  // --- Claude Import UI extras ---
+  scanning: "扫描中...",
+  selectAll: "全选",
+  deselectAll: "取消全选",
 };
 
 export default zh;

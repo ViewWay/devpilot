@@ -142,6 +142,17 @@
 
 ---
 
+## Phase 10: Claude Code Import — 1/1 完成 ✅
+
+### P10-A: Claude Code Session Import
+
+- [x] **P10-1** claude_import.rs: parse Claude Code .jsonl thread files → DevPilot sessions (534 lines)
+- [x] **P10-2** IPC commands: scan_claude_threads_cmd, scan_claude_threads_from, import_claude_thread, import_claude_threads_batch
+- [x] **P10-3** ClaudeImportSection UI: Settings > Data Management tab — scan, select, batch import with result summary
+- [x] **P10-4** i18n: 16+ Claude import keys (EN + ZH)
+
+---
+
 ## 已完成模块
 
 ### Rust Crates (13)

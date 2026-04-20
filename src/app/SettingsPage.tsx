@@ -4,7 +4,16 @@ import { useProviderStore, type Provider, type ModelConfig } from "../stores/pro
 import { useUIStore } from "../stores/uiStore";
 import { useUsageStore } from "../stores/usageStore";
 import { cn } from "../lib/utils";
-import { invoke, type BridgeInfoIPC, getAppDataDir } from "../lib/ipc";
+import {
+  invoke,
+  type BridgeInfoIPC,
+  getAppDataDir,
+  scanClaudeThreads,
+  scanClaudeThreadsFrom,
+  importClaudeThreadsBatch,
+  type ClaudeThreadInfoIPC,
+  type ClaudeImportResultIPC,
+} from "../lib/ipc";
 import { useMcpStore } from "../stores/mcpStore";
 import type { McpServerConfig } from "../types";
 import {
@@ -33,6 +42,10 @@ import {
   Database,
   Download,
   Upload,
+  FolderOpen,
+  CheckSquare,
+  Square,
+  FileText,
 } from "lucide-react";
 import {
   LineChart,
@@ -1953,6 +1966,9 @@ function DataTab() {
           )}
         </div>
       )}
+
+      {/* Claude Code Import Section */}
+      <ClaudeImportSection />
     </div>
   );
 }
@@ -1962,6 +1978,350 @@ function ResultStat({ label, value }: { label: string; value: number }) {
     <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-center">
       <div className="text-lg font-semibold text-foreground">{value}</div>
       <div className="text-[9px] text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
+// --- Claude Code Import Section ---
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function ClaudeImportSection() {
+  const { t } = useI18n();
+  const [threads, setThreads] = useState<ClaudeThreadInfoIPC[]>([]);
+  const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
+  const [scanning, setScanning] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [scanned, setScanned] = useState(false);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+  const [importResult, setImportResult] =
+    useState<ClaudeImportResultIPC | null>(null);
+
+  const handleScan = async () => {
+    setScanning(true);
+    setMessage(null);
+    setImportResult(null);
+    try {
+      const found = await scanClaudeThreads();
+      setThreads(found);
+      setScanned(true);
+      setSelectedPaths(new Set());
+      if (found.length === 0) {
+        setMessage({
+          type: "error",
+          text: t("claudeNoThreadsFound"),
+        });
+      }
+    } catch (e: unknown) {
+      setMessage({ type: "error", text: String(e) });
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const handleScanFrom = async () => {
+    const isTauriRuntime =
+      typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+    if (!isTauriRuntime) {
+      setMessage({
+        type: "error",
+        text: "Directory picker requires Tauri runtime.",
+      });
+      return;
+    }
+    try {
+      const dialog: Record<string, unknown> =
+        await import("@tauri-apps/plugin-dialog");
+      const dirPath = await (dialog.open as (opts: Record<string, unknown>) => Promise<string | null>)({
+        directory: true,
+        multiple: false,
+      });
+      if (!dirPath) {
+        return;
+      }
+
+      setScanning(true);
+      setMessage(null);
+      setImportResult(null);
+      const found = await scanClaudeThreadsFrom(dirPath);
+      setThreads(found);
+      setScanned(true);
+      setSelectedPaths(new Set());
+      if (found.length === 0) {
+        setMessage({
+          type: "error",
+          text: t("claudeNoThreadsFound"),
+        });
+      }
+    } catch (e: unknown) {
+      setMessage({ type: "error", text: String(e) });
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const toggleThread = (path: string) => {
+    setSelectedPaths((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selectedPaths.size === threads.length) {
+      setSelectedPaths(new Set());
+    } else {
+      setSelectedPaths(new Set(threads.map((t) => t.path)));
+    }
+  };
+
+  const handleImportSelected = async () => {
+    if (selectedPaths.size === 0) {
+      return;
+    }
+    setImporting(true);
+    setMessage(null);
+    setImportResult(null);
+    try {
+      const paths = Array.from(selectedPaths);
+      const result = await importClaudeThreadsBatch(paths);
+      setImportResult(result);
+      setMessage({
+        type: "success",
+        text: t("claudeImportSuccess")
+          .replace("{count}", String(result.sessionsImported))
+          .replace("{messages}", String(result.messagesImported)),
+      });
+      // Clear selection after successful import
+      setSelectedPaths(new Set());
+    } catch (e: unknown) {
+      setMessage({ type: "error", text: String(e) });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleImportAll = async () => {
+    if (threads.length === 0) {
+      return;
+    }
+    setImporting(true);
+    setMessage(null);
+    setImportResult(null);
+    try {
+      const paths = threads.map((t) => t.path);
+      const result = await importClaudeThreadsBatch(paths);
+      setImportResult(result);
+      setMessage({
+        type: "success",
+        text: t("claudeImportSuccess")
+          .replace("{count}", String(result.sessionsImported))
+          .replace("{messages}", String(result.messagesImported)),
+      });
+      setSelectedPaths(new Set());
+    } catch (e: unknown) {
+      setMessage({ type: "error", text: String(e) });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-4 space-y-4">
+      <div className="flex items-center gap-2">
+        <FileText size={16} className="text-primary" />
+        <span className="text-sm font-medium text-foreground">
+          {t("claudeImport")}
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground">{t("claudeImportDesc")}</p>
+
+      {/* Scan Buttons */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={handleScan}
+          disabled={scanning || importing}
+          className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-xs text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+        >
+          {scanning ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <FolderOpen size={14} />
+          )}
+          {scanning ? t("scanning") : t("claudeScan")}
+        </button>
+        <button
+          onClick={handleScanFrom}
+          disabled={scanning || importing}
+          className="flex items-center gap-2 rounded-md border border-border px-4 py-2 text-xs text-muted-foreground hover:bg-accent/50 transition-colors disabled:opacity-50"
+        >
+          <FolderOpen size={14} />
+          {t("claudeScanFrom")}
+        </button>
+      </div>
+
+      {/* Message */}
+      {message && (
+        <div
+          className={cn(
+            "flex items-center gap-2 rounded-lg px-4 py-3 text-xs",
+            message.type === "success"
+              ? "bg-green-500/10 text-green-600 dark:text-green-400"
+              : "bg-destructive/10 text-destructive",
+          )}
+        >
+          {message.type === "success" ? (
+            <Check size={14} />
+          ) : (
+            <AlertCircle size={14} />
+          )}
+          {message.text}
+        </div>
+      )}
+
+      {/* Thread List */}
+      {scanned && threads.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">
+              {t("claudeSelectThreads")} ({threads.length}{" "}
+              {t("claudeThreadMessages")})
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggleAll}
+                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {selectedPaths.size === threads.length ? (
+                  <CheckSquare size={12} />
+                ) : (
+                  <Square size={12} />
+                )}
+                {selectedPaths.size === threads.length
+                  ? t("deselectAll")
+                  : t("selectAll")}
+              </button>
+            </div>
+          </div>
+
+          <div className="max-h-64 space-y-1 overflow-y-auto rounded-md border border-border">
+            {threads.map((thread) => (
+              <button
+                key={thread.path}
+                onClick={() => toggleThread(thread.path)}
+                className={cn(
+                  "flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-accent/30",
+                  selectedPaths.has(thread.path) && "bg-primary/5",
+                )}
+              >
+                {selectedPaths.has(thread.path) ? (
+                  <CheckSquare size={14} className="shrink-0 text-primary" />
+                ) : (
+                  <Square
+                    size={14}
+                    className="shrink-0 text-muted-foreground"
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-xs font-medium text-foreground">
+                    {thread.filename}
+                  </div>
+                  <div className="truncate text-[10px] text-muted-foreground">
+                    {thread.preview}
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="text-[10px] text-muted-foreground">
+                    {thread.messageCount} {t("claudeThreadMessages")}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground/70">
+                    {formatBytes(thread.sizeBytes)}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Import Buttons */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleImportSelected}
+              disabled={importing || selectedPaths.size === 0}
+              className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-xs text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              {importing ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Upload size={14} />
+              )}
+              {importing
+                ? t("claudeImporting")
+                : `${t("claudeImportSelected")} (${selectedPaths.size})`}
+            </button>
+            <button
+              onClick={handleImportAll}
+              disabled={importing || threads.length === 0}
+              className="flex items-center gap-2 rounded-md border border-primary px-4 py-2 text-xs text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+            >
+              {t("claudeImportAll")} ({threads.length})
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Import Result */}
+      {importResult && (
+        <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+          <div className="text-sm font-medium text-foreground">
+            {t("importResult")}
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <ResultStat
+              label={t("sessionsImported")}
+              value={importResult.sessionsImported}
+            />
+            <ResultStat
+              label={t("messagesImported")}
+              value={importResult.messagesImported}
+            />
+            <ResultStat
+              label={t("skipped")}
+              value={importResult.messagesSkipped}
+            />
+          </div>
+          {importResult.warnings.length > 0 && (
+            <div className="space-y-1">
+              <div className="text-[10px] font-medium uppercase tracking-wider text-amber-500">
+                Warnings ({importResult.warnings.length})
+              </div>
+              {importResult.warnings.slice(0, 5).map((w, i) => (
+                <div
+                  key={i}
+                  className="text-[10px] text-muted-foreground truncate"
+                >
+                  {w}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

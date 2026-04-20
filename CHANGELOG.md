@@ -2,6 +2,20 @@
 
 All notable changes to DevPilot will be documented in this file.
 
+## [0.4.0] — 2026-04-21
+
+### Added — Claude Code Session Import
+
+- **ClaudeImportSection**: Full UI in Settings > Data Management for importing Claude Code sessions
+  - Auto-scan default Claude Code threads directory (~/.claude/threads/)
+  - Custom directory picker for non-default locations
+  - Thread list with filename, preview, message count, and file size
+  - Select/deselect individual threads or toggle all
+  - Batch import with progress feedback and result summary
+  - i18n keys (EN + ZH) for all import UI strings
+- **Backend**: claude_import.rs (534 lines) — parse JSONL thread files, scan directories, batch import
+- **IPC**: 4 new Tauri commands (scan_claude_threads_cmd, scan_claude_threads_from, import_claude_thread, import_claude_threads_batch)
+
 ## [0.4.0] — 2026-04-20
 
 ### Added — Phase 9 UI Density Optimization

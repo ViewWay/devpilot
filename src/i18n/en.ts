@@ -563,6 +563,11 @@ const en: Record<string, string> = {
   onboardingBack: "Back",
   onboardingContinue: "Continue",
   onboardingSkip: "Skip setup",
+
+  // --- Claude Import UI extras ---
+  scanning: "Scanning...",
+  selectAll: "Select all",
+  deselectAll: "Deselect all",
 };
 
 export default en;
