@@ -154,6 +154,17 @@
   --color-success: #16a34a;
   --color-warning: #ca8a04;
 
+  /* Semantic color aliases (map to :root CSS vars at runtime) */
+  --color-border: var(--color-outline-variant);
+  --color-card: var(--color-surface-container);
+  --color-popover: var(--color-surface-container-lowest);
+  --color-sidebar: var(--color-surface-container-low);
+  --color-muted: var(--color-surface-container);
+  --color-muted-foreground: var(--color-outline);
+  --color-foreground: var(--color-on-surface);
+  --color-accent: var(--color-surface-container-high);
+  --color-ring: var(--color-outline);
+
   --font-headline: "Manrope", sans-serif;
   --font-body: "Inter", sans-serif;
   --font-label: "Inter", sans-serif;
@@ -690,4 +701,25 @@ a,
   from {
     width: 0%;
   }
+}
+
+/* ─── Config Tab inputs ─────────────────────────────────────── */
+.cfg-input {
+  width: 100%;
+  border-radius: 0.375rem;
+  border: 1px solid var(--color-input, #333);
+  background: var(--color-background, #0a0a0a);
+  padding: 0.375rem 0.625rem;
+  font-size: 0.75rem;
+  color: var(--color-foreground, #e5e5e5);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.cfg-input:focus {
+  border-color: var(--color-ring, #6366f1);
+  box-shadow: 0 0 0 1px var(--color-ring, #6366f1);
+}
+.cfg-input::placeholder {
+  color: var(--color-muted-foreground, #737373);
+  opacity: 0.5;
 }

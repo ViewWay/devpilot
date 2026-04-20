@@ -22,6 +22,7 @@ export function AppShell() {
   const { t } = useI18n();
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
+  const onboardingCompleted = useOnboardingStore((s) => s.completed);
   const [ready, setReady] = useState(false);
   const [startupError, setStartupError] = useState<string | null>(null);
 
@@ -99,7 +100,6 @@ export function AppShell() {
   }
 
   // Show onboarding wizard for first-time users
-  const onboardingCompleted = useOnboardingStore.getState().completed;
   if (!onboardingCompleted) {
     return <OnboardingWizard />;
   }

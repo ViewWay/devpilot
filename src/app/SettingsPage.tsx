@@ -13,6 +13,11 @@ import {
   importClaudeThreadsBatch,
   type ClaudeThreadInfoIPC,
   type ClaudeImportResultIPC,
+  configLoadGlobal,
+  configSaveGlobal,
+  configDeleteGlobal,
+  configGlobalExists,
+  type ConfigFileIPC,
 } from "../lib/ipc";
 import { useMcpStore } from "../stores/mcpStore";
 import type { McpServerConfig } from "../types";
@@ -61,7 +66,7 @@ import {
 import { PersonaMemoryTab } from "../components/PersonaMemoryTab";
 import { useShortcutStore, SHORTCUT_DEFINITIONS, type ShortcutAction } from "../stores/shortcutStore";
 
-type TabId = "providers" | "appearance" | "shortcuts" | "usage" | "bridge" | "mcp" | "security" | "persona" | "data";
+type TabId = "providers" | "appearance" | "shortcuts" | "usage" | "bridge" | "mcp" | "security" | "persona" | "data" | "config";
 
 const TABS: { id: TabId; icon: typeof Settings; labelKey: string }[] = [
   { id: "providers", icon: Plug, labelKey: "providers" },
@@ -73,6 +78,7 @@ const TABS: { id: TabId; icon: typeof Settings; labelKey: string }[] = [
   { id: "security" as const, icon: Shield, labelKey: "security" },
   { id: "persona" as const, icon: BookOpen, labelKey: "personaAndMemory" },
   { id: "data" as const, icon: Database, labelKey: "dataManagement" },
+  { id: "config" as const, icon: FileText, labelKey: "config" },
 ];
 
 export function SettingsPage() {
@@ -118,6 +124,7 @@ export function SettingsPage() {
         {activeTab === "security" && <SecurityTab />}
         {activeTab === "persona" && <PersonaMemoryTabWrapper />}
         {activeTab === "data" && <DataTab />}
+        {activeTab === "config" && <ConfigTab />}
       </div>
     </div>
   );
@@ -2403,5 +2410,446 @@ function ClaudeImportSection() {
         </div>
       )}
     </div>
+  );
+}
+
+// --- Config Tab (P13) ---
+
+/** Default config matching Rust-side ConfigFile::default() */
+const DEFAULT_CONFIG: ConfigFileIPC = {
+  general: { theme: "dark", language: "en" },
+  chat: { maxContextTokens: 128000, compactThreshold: 0.8, stream: true, defaultMode: "code", showThinking: false },
+  sandbox: { policy: "moderate", allowedCommands: [], blockedCommands: [], timeoutSecs: 120, maxOutputBytes: 1000000 },
+  terminal: { fontFamily: "Menlo", fontSize: 14, scrollback: 10000 },
+  ui: { fontSize: 14, showSidebar: true, sidebarWidth: 280, messageMaxWidth: "max-w-3xl" },
+  providers: {},
+};
+
+function ConfigTab() {
+  const { t } = useI18n();
+  const [config, setConfig] = useState<ConfigFileIPC>(DEFAULT_CONFIG);
+  const [globalExists, setGlobalExists] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+
+  const loadConfig = useCallback(async () => {
+    try {
+      const exists = await configGlobalExists();
+      setGlobalExists(exists);
+      if (exists) {
+        const cfg = await configLoadGlobal();
+        setConfig(cfg);
+      } else {
+        setConfig(DEFAULT_CONFIG);
+      }
+    } catch {
+      setMessage({ text: t("configLoadError"), type: "error" });
+    }
+  }, [t]);
+
+  useEffect(() => {
+    loadConfig();
+  }, [loadConfig]);
+
+  async function handleSave() {
+    setSaving(true);
+    setMessage(null);
+    try {
+      await configSaveGlobal(config);
+      setGlobalExists(true);
+      setMessage({ text: t("configSaved"), type: "success" });
+    } catch {
+      setMessage({ text: t("configSaveError"), type: "error" });
+    }
+    setSaving(false);
+  }
+
+  async function handleDelete() {
+    try {
+      await configDeleteGlobal();
+      setGlobalExists(false);
+      setConfig(DEFAULT_CONFIG);
+      setMessage({ text: t("configDeleted"), type: "success" });
+    } catch {
+      setMessage({ text: t("configDeleteError"), type: "error" });
+    }
+  }
+
+  function updateGeneral<K extends keyof ConfigFileIPC["general"]>(key: K, value: ConfigFileIPC["general"][K]) {
+    setConfig((c) => ({ ...c, general: { ...c.general, [key]: value } }));
+  }
+  function updateChat<K extends keyof ConfigFileIPC["chat"]>(key: K, value: ConfigFileIPC["chat"][K]) {
+    setConfig((c) => ({ ...c, chat: { ...c.chat, [key]: value } }));
+  }
+  function updateSandbox<K extends keyof ConfigFileIPC["sandbox"]>(key: K, value: ConfigFileIPC["sandbox"][K]) {
+    setConfig((c) => ({ ...c, sandbox: { ...c.sandbox, [key]: value } }));
+  }
+  function updateTerminal<K extends keyof ConfigFileIPC["terminal"]>(key: K, value: ConfigFileIPC["terminal"][K]) {
+    setConfig((c) => ({ ...c, terminal: { ...c.terminal, [key]: value } }));
+  }
+  function updateUi<K extends keyof ConfigFileIPC["ui"]>(key: K, value: ConfigFileIPC["ui"][K]) {
+    setConfig((c) => ({ ...c, ui: { ...c.ui, [key]: value } }));
+  }
+  function updateProviders<K extends keyof ConfigFileIPC["providers"]>(key: K, value: ConfigFileIPC["providers"][K]) {
+    setConfig((c) => ({ ...c, providers: { ...c.providers, [key]: value } }));
+  }
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <div>
+        <h3 className="text-sm font-semibold">{t("configGlobal")}</h3>
+        <p className="text-[11px] text-muted-foreground mt-1">{t("configLayerInfo")}</p>
+        {globalExists && (
+          <span className="inline-block mt-1 text-[10px] text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+            {t("configHasGlobal")}
+          </span>
+        )}
+      </div>
+
+      {message && (
+        <div
+          className={cn(
+            "text-xs px-3 py-2 rounded-md",
+            message.type === "success"
+              ? "bg-emerald-500/10 text-emerald-600"
+              : "bg-red-500/10 text-red-600",
+          )}
+        >
+          {message.text}
+        </div>
+      )}
+
+      {/* General Section */}
+      <ConfigSection title={t("configGeneral")}>
+        <ConfigField label={t("configDefaultProvider")}>
+          <input
+            className="cfg-input"
+            value={config.general.defaultProvider ?? ""}
+            onChange={(e) => updateGeneral("defaultProvider", e.target.value || null)}
+            placeholder="e.g. anthropic"
+          />
+        </ConfigField>
+        <ConfigField label={t("configDefaultModel")}>
+          <input
+            className="cfg-input"
+            value={config.general.defaultModel ?? ""}
+            onChange={(e) => updateGeneral("defaultModel", e.target.value || null)}
+            placeholder="e.g. claude-sonnet-4-20250514"
+          />
+        </ConfigField>
+        <ConfigField label={t("configTheme")}>
+          <select
+            className="cfg-input"
+            value={config.general.theme}
+            onChange={(e) => updateGeneral("theme", e.target.value)}
+          >
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+            <option value="system">System</option>
+          </select>
+        </ConfigField>
+        <ConfigField label={t("configLanguage")}>
+          <select
+            className="cfg-input"
+            value={config.general.language}
+            onChange={(e) => updateGeneral("language", e.target.value)}
+          >
+            <option value="en">English</option>
+            <option value="zh">中文</option>
+          </select>
+        </ConfigField>
+        <ConfigField label={t("configWorkingDir")}>
+          <input
+            className="cfg-input"
+            value={config.general.workingDirectory ?? ""}
+            onChange={(e) => updateGeneral("workingDirectory", e.target.value || null)}
+            placeholder="Default: OS home"
+          />
+        </ConfigField>
+      </ConfigSection>
+
+      {/* Chat Section */}
+      <ConfigSection title={t("configChat")}>
+        <ConfigField label={t("configMaxContextTokens")}>
+          <input
+            className="cfg-input"
+            type="number"
+            value={config.chat.maxContextTokens}
+            onChange={(e) => updateChat("maxContextTokens", Number(e.target.value))}
+          />
+        </ConfigField>
+        <ConfigField label={t("configCompactThreshold")}>
+          <input
+            className="cfg-input"
+            type="number"
+            step="0.05"
+            min="0"
+            max="1"
+            value={config.chat.compactThreshold}
+            onChange={(e) => updateChat("compactThreshold", Number(e.target.value))}
+          />
+        </ConfigField>
+        <ConfigField label={t("configStream")}>
+          <ToggleSwitch
+            checked={config.chat.stream}
+            onChange={(v) => updateChat("stream", v)}
+          />
+        </ConfigField>
+        <ConfigField label={t("configDefaultMode")}>
+          <select
+            className="cfg-input"
+            value={config.chat.defaultMode}
+            onChange={(e) => updateChat("defaultMode", e.target.value)}
+          >
+            <option value="code">Code</option>
+            <option value="plan">Plan</option>
+            <option value="ask">Ask</option>
+          </select>
+        </ConfigField>
+        <ConfigField label={t("configReasoningEffort")}>
+          <select
+            className="cfg-input"
+            value={config.chat.reasoningEffort ?? ""}
+            onChange={(e) => updateChat("reasoningEffort", e.target.value || null)}
+          >
+            <option value="">Default</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </ConfigField>
+        <ConfigField label={t("configShowThinking")}>
+          <ToggleSwitch
+            checked={config.chat.showThinking}
+            onChange={(v) => updateChat("showThinking", v)}
+          />
+        </ConfigField>
+      </ConfigSection>
+
+      {/* Sandbox Section */}
+      <ConfigSection title={t("configSandbox")}>
+        <ConfigField label={t("configSandboxPolicy")}>
+          <select
+            className="cfg-input"
+            value={config.sandbox.policy}
+            onChange={(e) => updateSandbox("policy", e.target.value)}
+          >
+            <option value="strict">Strict</option>
+            <option value="moderate">Moderate</option>
+            <option value="permissive">Permissive</option>
+            <option value="none">None</option>
+          </select>
+        </ConfigField>
+        <ConfigField label={t("configTimeoutSecs")}>
+          <input
+            className="cfg-input"
+            type="number"
+            value={config.sandbox.timeoutSecs}
+            onChange={(e) => updateSandbox("timeoutSecs", Number(e.target.value))}
+          />
+        </ConfigField>
+        <ConfigField label={t("configMaxOutputBytes")}>
+          <input
+            className="cfg-input"
+            type="number"
+            value={config.sandbox.maxOutputBytes}
+            onChange={(e) => updateSandbox("maxOutputBytes", Number(e.target.value))}
+          />
+        </ConfigField>
+      </ConfigSection>
+
+      {/* Terminal Section */}
+      <ConfigSection title={t("configTerminal")}>
+        <ConfigField label={t("configShell")}>
+          <input
+            className="cfg-input"
+            value={config.terminal.shell ?? ""}
+            onChange={(e) => updateTerminal("shell", e.target.value || null)}
+            placeholder="Default: OS shell"
+          />
+        </ConfigField>
+        <ConfigField label={t("configFontFamily")}>
+          <input
+            className="cfg-input"
+            value={config.terminal.fontFamily}
+            onChange={(e) => updateTerminal("fontFamily", e.target.value)}
+          />
+        </ConfigField>
+        <ConfigField label={t("configFontSize")}>
+          <input
+            className="cfg-input"
+            type="number"
+            value={config.terminal.fontSize}
+            onChange={(e) => updateTerminal("fontSize", Number(e.target.value))}
+          />
+        </ConfigField>
+        <ConfigField label={t("configScrollback")}>
+          <input
+            className="cfg-input"
+            type="number"
+            value={config.terminal.scrollback}
+            onChange={(e) => updateTerminal("scrollback", Number(e.target.value))}
+          />
+        </ConfigField>
+      </ConfigSection>
+
+      {/* UI Section */}
+      <ConfigSection title={t("configUi")}>
+        <ConfigField label={t("configFontSize")}>
+          <input
+            className="cfg-input"
+            type="number"
+            value={config.ui.fontSize}
+            onChange={(e) => updateUi("fontSize", Number(e.target.value))}
+          />
+        </ConfigField>
+        <ConfigField label={t("configShowSidebar")}>
+          <ToggleSwitch
+            checked={config.ui.showSidebar}
+            onChange={(v) => updateUi("showSidebar", v)}
+          />
+        </ConfigField>
+        <ConfigField label={t("configSidebarWidth")}>
+          <input
+            className="cfg-input"
+            type="number"
+            value={config.ui.sidebarWidth}
+            onChange={(e) => updateUi("sidebarWidth", Number(e.target.value))}
+          />
+        </ConfigField>
+        <ConfigField label={t("configMessageMaxWidth")}>
+          <select
+            className="cfg-input"
+            value={config.ui.messageMaxWidth}
+            onChange={(e) => updateUi("messageMaxWidth", e.target.value)}
+          >
+            <option value="max-w-2xl">Small (max-w-2xl)</option>
+            <option value="max-w-3xl">Medium (max-w-3xl)</option>
+            <option value="max-w-4xl">Large (max-w-4xl)</option>
+            <option value="max-w-5xl">Extra Large (max-w-5xl)</option>
+            <option value="max-w-none">Full Width</option>
+          </select>
+        </ConfigField>
+      </ConfigSection>
+
+      {/* Providers Section */}
+      <ConfigSection title={t("configProviders")}>
+        <ConfigField label={t("configOpenaiBaseUrl")}>
+          <input
+            className="cfg-input"
+            value={config.providers.openaiBaseUrl ?? ""}
+            onChange={(e) => updateProviders("openaiBaseUrl", e.target.value || null)}
+            placeholder="https://api.openai.com/v1"
+          />
+        </ConfigField>
+        <ConfigField label={t("configAnthropicBaseUrl")}>
+          <input
+            className="cfg-input"
+            value={config.providers.anthropicBaseUrl ?? ""}
+            onChange={(e) => updateProviders("anthropicBaseUrl", e.target.value || null)}
+            placeholder="https://api.anthropic.com"
+          />
+        </ConfigField>
+        <ConfigField label={t("configOllamaBaseUrl")}>
+          <input
+            className="cfg-input"
+            value={config.providers.ollamaBaseUrl ?? ""}
+            onChange={(e) => updateProviders("ollamaBaseUrl", e.target.value || null)}
+            placeholder="http://localhost:11434"
+          />
+        </ConfigField>
+        <ConfigField label={t("configGoogleBaseUrl")}>
+          <input
+            className="cfg-input"
+            value={config.providers.googleBaseUrl ?? ""}
+            onChange={(e) => updateProviders("googleBaseUrl", e.target.value || null)}
+            placeholder="https://generativelanguage.googleapis.com"
+          />
+        </ConfigField>
+        <ConfigField label={t("configRequestTimeoutSecs")}>
+          <input
+            className="cfg-input"
+            type="number"
+            value={config.providers.requestTimeoutSecs ?? ""}
+            onChange={(e) => updateProviders("requestTimeoutSecs", e.target.value ? Number(e.target.value) : null)}
+            placeholder="Default: 300"
+          />
+        </ConfigField>
+        <ConfigField label={t("configRetryAttempts")}>
+          <input
+            className="cfg-input"
+            type="number"
+            value={config.providers.retryAttempts ?? ""}
+            onChange={(e) => updateProviders("retryAttempts", e.target.value ? Number(e.target.value) : null)}
+            placeholder="Default: 3"
+          />
+        </ConfigField>
+      </ConfigSection>
+
+      {/* Action Buttons */}
+      <div className="flex items-center gap-3 pt-2">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-xs font-medium text-accent-foreground hover:bg-accent/90 transition-colors disabled:opacity-50"
+        >
+          {saving && <Loader2 size={12} className="animate-spin" />}
+          <Check size={12} />
+          {t("configSave")}
+        </button>
+        {globalExists && (
+          <button
+            onClick={handleDelete}
+            className="flex items-center gap-2 rounded-md border border-red-500/30 px-4 py-2 text-xs font-medium text-red-500 hover:bg-red-500/10 transition-colors"
+          >
+            <Trash2 size={12} />
+            {t("configDelete")}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Reusable config section with title. */
+function ConfigSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-3">
+      <div className="text-xs font-semibold text-foreground/80 uppercase tracking-wider border-b border-border pb-1">
+        {title}
+      </div>
+      <div className="space-y-2.5 pl-1">{children}</div>
+    </div>
+  );
+}
+
+/** Reusable config field with label + value. */
+function ConfigField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-4">
+      <div className="w-40 shrink-0 text-[11px] text-muted-foreground">{label}</div>
+      <div className="flex-1">{children}</div>
+    </div>
+  );
+}
+
+/** Toggle switch component. */
+function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className={cn(
+        "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
+        checked ? "bg-accent" : "bg-muted",
+      )}
+    >
+      <span
+        className={cn(
+          "inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform",
+          checked ? "translate-x-4.5" : "translate-x-0.5",
+        )}
+      />
+    </button>
   );
 }

@@ -266,6 +266,34 @@ function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
       return null;
     case "search_skills":
       return [];
+    // Config
+    case "config_load":
+      return {
+        general: { theme: "dark", language: "en" },
+        chat: { maxContextTokens: 128000, compactThreshold: 0.8, stream: true, defaultMode: "code", showThinking: false },
+        sandbox: { policy: "moderate", allowedCommands: [], blockedCommands: [], timeoutSecs: 120, maxOutputBytes: 1000000 },
+        terminal: { fontFamily: "Menlo", fontSize: 14, scrollback: 10000 },
+        ui: { fontSize: 14, showSidebar: true, sidebarWidth: 280, messageMaxWidth: "max-w-3xl" },
+        providers: {},
+      };
+    case "config_load_global":
+      return {
+        general: { theme: "dark", language: "en" },
+        chat: { maxContextTokens: 128000, compactThreshold: 0.8, stream: true, defaultMode: "code", showThinking: false },
+        sandbox: { policy: "moderate", allowedCommands: [], blockedCommands: [], timeoutSecs: 120, maxOutputBytes: 1000000 },
+        terminal: { fontFamily: "Menlo", fontSize: 14, scrollback: 10000 },
+        ui: { fontSize: 14, showSidebar: true, sidebarWidth: 280, messageMaxWidth: "max-w-3xl" },
+        providers: {},
+      };
+    case "config_save_global":
+    case "config_save_project":
+    case "config_delete_global":
+    case "config_delete_project":
+      return null;
+    case "config_global_exists":
+      return false;
+    case "config_project_exists":
+      return false;
     default:
       console.warn(`[IPC mock] Unhandled command: ${cmd}`);
       return null;
@@ -796,4 +824,100 @@ export async function importClaudeThreadsBatch(
   jsonlPaths: string[],
 ): Promise<ClaudeImportResultIPC> {
   return invoke<ClaudeImportResultIPC>("import_claude_threads_batch", { jsonlPaths });
+}
+
+// ── Config Types & Helpers ────────────────────────────────
+
+export interface GeneralConfigIPC {
+  defaultProvider?: string | null;
+  defaultModel?: string | null;
+  theme: string;
+  language: string;
+  workingDirectory?: string | null;
+}
+
+export interface ChatConfigIPC {
+  maxContextTokens: number;
+  compactThreshold: number;
+  stream: boolean;
+  defaultMode: string;
+  reasoningEffort?: string | null;
+  showThinking: boolean;
+}
+
+export interface SandboxConfigIPC {
+  policy: string;
+  allowedCommands: string[];
+  blockedCommands: string[];
+  timeoutSecs: number;
+  maxOutputBytes: number;
+}
+
+export interface TerminalConfigIPC {
+  shell?: string | null;
+  fontFamily: string;
+  fontSize: number;
+  scrollback: number;
+}
+
+export interface UiConfigIPC {
+  fontSize: number;
+  showSidebar: boolean;
+  sidebarWidth: number;
+  messageMaxWidth: string;
+}
+
+export interface ProvidersConfigIPC {
+  openaiBaseUrl?: string | null;
+  anthropicBaseUrl?: string | null;
+  ollamaBaseUrl?: string | null;
+  googleBaseUrl?: string | null;
+  requestTimeoutSecs?: number | null;
+  retryAttempts?: number | null;
+}
+
+export interface ConfigFileIPC {
+  general: GeneralConfigIPC;
+  chat: ChatConfigIPC;
+  sandbox: SandboxConfigIPC;
+  terminal: TerminalConfigIPC;
+  ui: UiConfigIPC;
+  providers: ProvidersConfigIPC;
+}
+
+export async function configLoad(
+  projectDir?: string,
+): Promise<ConfigFileIPC> {
+  return invoke<ConfigFileIPC>("config_load", { projectDir: projectDir ?? null });
+}
+
+export async function configSaveGlobal(config: ConfigFileIPC): Promise<void> {
+  return invoke("config_save_global", { config });
+}
+
+export async function configSaveProject(
+  projectDir: string,
+  config: ConfigFileIPC,
+): Promise<void> {
+  return invoke("config_save_project", { projectDir, config });
+}
+
+export async function configLoadGlobal(): Promise<ConfigFileIPC> {
+  return invoke<ConfigFileIPC>("config_load_global");
+}
+
+export async function configDeleteGlobal(): Promise<void> {
+  return invoke("config_delete_global");
+}
+
+export async function configDeleteProject(projectDir: string): Promise<void> {
+  return invoke("config_delete_project", { projectDir });
+}
+
+export async function configGlobalExists(): Promise<boolean> {
+  return invoke<boolean>("config_global_exists");
+}
+
+export async function configProjectExists(projectDir: string): Promise<boolean> {
+  return invoke<boolean>("config_project_exists", { projectDir });
 }
