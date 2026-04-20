@@ -185,9 +185,80 @@ impl SandboxedCommand {
     }
 
     /// Apply Unix-specific resource limits (best-effort).
+    ///
+    /// Uses `rlimit` via `setrlimit` in the child process's `pre_exec` hook
+    /// to constrain: max file size, max CPU time, max address space, and
+    /// max file descriptors. Also disables core dumps.
     #[cfg(unix)]
-    fn apply_unix_limits(&self, _cmd: &mut Command) -> SandboxResult<()> {
-        // Future: use prlimit(2) or clone into PID namespace.
+    fn apply_unix_limits(&self, cmd: &mut Command) -> SandboxResult<()> {
+        let max_file_size: u64 = self
+            .policy
+            .limits
+            .max_output_size
+            .as_ref()
+            .map(|s| s.bytes as u64)
+            .unwrap_or(10 * 1024 * 1024); // 10 MB default
+        let max_cpu_secs: u64 = self.policy.limits.timeout.as_secs().saturating_add(5);
+        let max_memory_bytes: Option<u64> = self.policy.limits.max_memory_bytes.map(|m| m as u64);
+        let max_fds: Option<u64> = self.policy.limits.max_fds;
+
+        unsafe {
+            cmd.pre_exec(move || {
+                // Limit max file size (bytes)
+                #[cfg(any(target_os = "linux", target_os = "macos"))]
+                {
+                    let lim = libc::rlimit {
+                        rlim_cur: max_file_size,
+                        rlim_max: max_file_size,
+                    };
+                    libc::setrlimit(libc::RLIMIT_FSIZE, &lim);
+                }
+
+                // Limit CPU time (seconds) — kill if exceeds timeout + buffer
+                {
+                    let lim = libc::rlimit {
+                        rlim_cur: max_cpu_secs,
+                        rlim_max: max_cpu_secs,
+                    };
+                    libc::setrlimit(libc::RLIMIT_CPU, &lim);
+                }
+
+                // Limit address space (bytes) — prevent runaway memory usage
+                #[cfg(any(target_os = "linux", target_os = "macos"))]
+                {
+                    if let Some(mem) = max_memory_bytes {
+                        let lim = libc::rlimit {
+                            rlim_cur: mem,
+                            rlim_max: mem,
+                        };
+                        libc::setrlimit(libc::RLIMIT_AS, &lim);
+                    }
+                }
+
+                // Limit number of open file descriptors
+                {
+                    if let Some(fds) = max_fds {
+                        let lim = libc::rlimit {
+                            rlim_cur: fds,
+                            rlim_max: fds,
+                        };
+                        libc::setrlimit(libc::RLIMIT_NOFILE, &lim);
+                    }
+                }
+
+                // Disable core dumps
+                {
+                    let lim = libc::rlimit {
+                        rlim_cur: 0,
+                        rlim_max: 0,
+                    };
+                    libc::setrlimit(libc::RLIMIT_CORE, &lim);
+                }
+
+                Ok(())
+            });
+        }
+
         Ok(())
     }
 }

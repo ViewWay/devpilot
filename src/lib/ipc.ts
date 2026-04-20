@@ -283,6 +283,7 @@ export interface IPCCommands {
   get_session: { id: string };
   delete_session: { id: string };
   update_session_title: { id: string; title: string };
+  set_session_working_dir: { id: string; workingDir: string };
   get_session_messages: { sessionId: string };
   add_message: {
     sessionId: string;

@@ -44,6 +44,9 @@ pub fn run() {
             commands::list_settings,
             // Usage
             commands::get_total_usage,
+            commands::get_session_usage,
+            // Session Metadata
+            commands::set_session_working_dir,
             // Providers
             commands::list_providers,
             commands::get_provider,

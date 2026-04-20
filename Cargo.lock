@@ -926,6 +926,7 @@ dependencies = [
 name = "devpilot-sandbox"
 version = "0.4.0"
 dependencies = [
+ "libc",
  "serde",
  "serde_json",
  "thiserror 2.0.18",

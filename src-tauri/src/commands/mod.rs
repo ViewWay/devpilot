@@ -155,6 +155,30 @@ pub fn get_total_usage(state: State<'_, AppState>) -> Result<Vec<UsageRecord>, S
     db.get_total_usage().map_err(|e| e.to_string())
 }
 
+/// Get usage records for a specific session.
+#[tauri::command(rename_all = "camelCase")]
+pub fn get_session_usage(
+    state: State<'_, AppState>,
+    session_id: String,
+) -> Result<Vec<UsageRecord>, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.get_session_usage(&session_id).map_err(|e| e.to_string())
+}
+
+// ── Session Metadata ──────────────────────────────────
+
+/// Update the working directory for a session.
+#[tauri::command(rename_all = "camelCase")]
+pub fn set_session_working_dir(
+    state: State<'_, AppState>,
+    id: String,
+    working_dir: String,
+) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.set_session_working_dir(&id, &working_dir)
+        .map_err(|e| e.to_string())
+}
+
 // ── Providers ─────────────────────────────────────────
 
 /// List all persisted providers.
