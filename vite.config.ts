@@ -15,6 +15,47 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"),
     },
   },
+  build: {
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            // React core
+            if (id.includes("/react/") || id.includes("/react-dom/")) {
+              return "react-vendor";
+            }
+            // Radix UI + UI libs
+            if (id.includes("@radix-ui") || id.includes("lucide-react") || id.includes("class-variance-authority")) {
+              return "ui-vendor";
+            }
+            // Monaco Editor
+            if (id.includes("monaco-editor") || id.includes("@monaco-editor")) {
+              return "monaco-editor";
+            }
+            // xterm
+            if (id.includes("@xterm") || id.includes("xterm")) {
+              return "xterm-vendor";
+            }
+            // Shiki + grammars/themes
+            if (id.includes("shiki")) {
+              return "shiki-core";
+            }
+            // Marked / Markdown
+            if (id.includes("marked") || id.includes("remarkable") || id.includes("unified") || id.includes("rehype") || id.includes("remark")) {
+              return "markdown-vendor";
+            }
+            // Zustand + state
+            if (id.includes("zustand") || id.includes("immer")) {
+              return "state-vendor";
+            }
+            // All other node_modules
+            return "vendor";
+          }
+        },
+      },
+    },
+  },
   clearScreen: false,
   server: {
     port: 1420,

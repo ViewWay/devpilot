@@ -2264,7 +2264,7 @@ mod tests {
             .unwrap();
 
         // Add some messages
-        let msg1 = store
+        let _msg1 = store
             .add_message(&session.id, "user", "Hello", None, None, None)
             .unwrap();
         let msg2 = store
@@ -2320,7 +2320,7 @@ mod tests {
             .unwrap();
 
         // Add messages in sequence
-        let msg1 = store
+        let _msg1 = store
             .add_message(&session.id, "user", "First", None, None, None)
             .unwrap();
         let msg2 = store

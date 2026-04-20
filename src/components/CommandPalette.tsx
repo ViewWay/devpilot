@@ -48,9 +48,12 @@ export function CommandPalette() {
     }
   }, [open]);
 
-  const themeIcon = theme === "system" ? <Monitor size={16} /> : theme === "dark" ? <Moon size={16} /> : <Sun size={16} />;
   const themeNext = theme === "dark" ? "light" : theme === "light" ? "system" : "dark";
   const themeLabel = theme === "system" ? t("themeSystem") : theme === "dark" ? t("themeDark") : t("themeLight");
+  const themeIcon = useMemo(() =>
+    theme === "system" ? <Monitor size={16} /> : theme === "dark" ? <Moon size={16} /> : <Sun size={16} />,
+    [theme]
+  );
 
   const isMac = typeof navigator !== "undefined" && navigator.platform.startsWith("Mac");
   const mod = isMac ? "⌘" : "Ctrl";

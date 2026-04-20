@@ -5,17 +5,14 @@ import { SettingsPage } from "./app/SettingsPage";
 import { SchedulerPage } from "./app/SchedulerPage";
 import { GalleryPage } from "./app/GalleryPage";
 import { BridgePage } from "./app/BridgePage";
-import { useUIStore } from "./stores/uiStore";
+import { useUIStore, registerChatStoreAccessor } from "./stores/uiStore";
 import { useChatStore } from "./stores/chatStore";
 import type { ActiveView } from "./stores/uiStore";
 
 // Register lazy accessor so uiStore can query session state without circular import
-useUIStore.getState();
-import("./stores/uiStore").then(({ registerChatStoreAccessor }) => {
-  registerChatStoreAccessor(() => {
-    const s = useChatStore.getState();
-    return { sessions: s.sessions, activeSessionId: s.activeSessionId };
-  });
+registerChatStoreAccessor(() => {
+  const s = useChatStore.getState();
+  return { sessions: s.sessions, activeSessionId: s.activeSessionId };
 });
 
 /** Sync activeView with URL and handle navigation. */
