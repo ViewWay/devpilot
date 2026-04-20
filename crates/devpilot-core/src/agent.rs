@@ -11,11 +11,12 @@
 
 use devpilot_llm::provider::{ModelProvider, StreamResult};
 use devpilot_protocol::{ContentBlock, FinishReason, Message, MessageRole, StreamEvent, Usage};
-use devpilot_tools::{ToolContext, ToolExecutor};
+use devpilot_tools::{RiskLevel, ToolContext, ToolExecutor};
 use futures::StreamExt;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+use crate::approval::ApprovalGate;
 use crate::compact::{CompactStrategy, compact_messages, estimate_message_tokens};
 use crate::error::{CoreError, CoreResult};
 use crate::event_bus::{CoreEvent, EventBus};
@@ -47,6 +48,9 @@ pub struct Agent {
     config: AgentConfig,
     event_bus: EventBus,
     tool_executor: Arc<Mutex<ToolExecutor>>,
+    /// Gate for tool approval — the agent waits here until the user
+    /// approves or rejects a tool call via the frontend.
+    approval_gate: ApprovalGate,
 }
 
 impl Agent {
@@ -60,7 +64,13 @@ impl Agent {
             config,
             event_bus,
             tool_executor,
+            approval_gate: ApprovalGate::new(),
         }
+    }
+
+    /// Get a reference to the approval gate (for external resolution).
+    pub fn approval_gate(&self) -> &ApprovalGate {
+        &self.approval_gate
     }
 
     /// Run the agent loop: send user message, get response, execute tools, repeat.
@@ -359,6 +369,11 @@ impl Agent {
     }
 
     /// Execute a batch of tool calls.
+    ///
+    /// For each tool call, if the risk level is Medium or High:
+    /// 1. Emit `ApprovalRequired` via the event bus
+    /// 2. Wait for the user to approve/deny via `ApprovalGate`
+    /// 3. Skip the tool if denied
     async fn execute_tool_calls(
         &self,
         tool_calls: Vec<&ContentBlock>,
@@ -375,6 +390,46 @@ impl Agent {
                 _ => continue,
             };
 
+            // ── Approval gate ──────────────────────────────
+            let risk = ToolExecutor::classify_risk(&tool_name, &input);
+            if risk != RiskLevel::Low {
+                let risk_str = match risk {
+                    RiskLevel::Medium => "medium",
+                    RiskLevel::High => "high",
+                    RiskLevel::Low => "low",
+                };
+
+                // Emit approval request to frontend
+                self.event_bus.emit(CoreEvent::ApprovalRequired {
+                    session_id: session_id.to_string(),
+                    call_id: call_id.clone(),
+                    tool_name: tool_name.clone(),
+                    input: input.clone(),
+                    risk_level: risk_str.to_string(),
+                });
+
+                // Wait for the user to approve or reject
+                let approved = self.approval_gate.wait_for_approval(call_id.clone()).await;
+
+                if !approved {
+                    // User rejected — return a denied result
+                    self.event_bus.emit(CoreEvent::ToolCallResult {
+                        session_id: session_id.to_string(),
+                        call_id: call_id.clone(),
+                        output: "Tool call rejected by user".to_string(),
+                        is_error: true,
+                    });
+
+                    results.push(ContentBlock::ToolResult {
+                        tool_use_id: call_id,
+                        content: "Tool call rejected by user".to_string(),
+                        is_error: true,
+                    });
+                    continue;
+                }
+            }
+
+            // ── Execute the tool ───────────────────────────
             // Emit tool call started
             self.event_bus.emit(CoreEvent::ToolCallStarted {
                 session_id: session_id.to_string(),
@@ -383,7 +438,6 @@ impl Agent {
                 input: input.clone(),
             });
 
-            // Execute the tool
             let executor = self.tool_executor.lock().await;
             let ctx = ToolContext {
                 session_id: session_id.to_string(),

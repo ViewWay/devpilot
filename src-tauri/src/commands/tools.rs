@@ -101,14 +101,15 @@ pub async fn execute_tool(
 /// Resolve a pending tool approval request.
 ///
 /// Called by the frontend after the user approves or rejects a tool call.
+/// This resolves the approval gate that the agent is waiting on.
 #[tauri::command(rename_all = "camelCase")]
 pub async fn resolve_tool_approval(
     state: State<'_, AppState>,
     request: ResolveApprovalRequest,
 ) -> Result<(), String> {
-    let executor = state.tool_executor.lock().await;
-    executor
-        .resolve_approval(&request.request_id, request.approved)
+    state
+        .approval_gate
+        .resolve(&request.request_id, request.approved)
         .await
         .map_err(|e| format!("Failed to resolve approval: {e}"))
 }

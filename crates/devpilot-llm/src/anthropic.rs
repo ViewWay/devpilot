@@ -1126,14 +1126,12 @@ mod tests {
         }"#;
         let event: AntStreamEvent = serde_json::from_str(json).unwrap();
         match event {
-            AntStreamEvent::ContentBlockDelta { delta, .. } => {
-                match delta {
-                    AntStreamDelta::ThinkingDelta { thinking } => {
-                        assert_eq!(thinking, "Let me think...");
-                    }
-                    _ => panic!("Expected ThinkingDelta"),
+            AntStreamEvent::ContentBlockDelta { delta, .. } => match delta {
+                AntStreamDelta::ThinkingDelta { thinking } => {
+                    assert_eq!(thinking, "Let me think...");
                 }
-            }
+                _ => panic!("Expected ThinkingDelta"),
+            },
             _ => panic!("Expected ContentBlockDelta"),
         }
     }

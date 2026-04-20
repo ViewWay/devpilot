@@ -170,6 +170,8 @@ pub struct AppState {
     pub mcp_manager: Arc<AsyncMutex<Option<McpManager>>>,
     /// PTY manager — embedded terminal sessions.
     pub pty_manager: Arc<Mutex<PtyManager>>,
+    /// Approval gate — resolves tool approval requests from the frontend.
+    pub approval_gate: devpilot_core::ApprovalGate,
 }
 
 impl AppState {
@@ -197,6 +199,9 @@ impl AppState {
             Arc::clone(&executor_arc),
         );
 
+        // Store the agent's approval gate so the Tauri commands can resolve it
+        let approval_gate = agent.approval_gate().clone();
+
         let scheduler = Scheduler::new();
 
         Ok(Self {
@@ -214,6 +219,7 @@ impl AppState {
             },
             mcp_manager: Arc::new(AsyncMutex::new(None)),
             pty_manager: Arc::new(Mutex::new(PtyManager::new())),
+            approval_gate,
         })
     }
 }

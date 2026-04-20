@@ -967,8 +967,18 @@ mod tests {
         let result = OpenAiProvider::convert_response_message(msg);
         assert_eq!(result.role, MessageRole::Assistant);
         // Should have both text and tool_use blocks
-        assert!(result.content.iter().any(|b| matches!(b, ContentBlock::Text { .. })));
-        assert!(result.content.iter().any(|b| matches!(b, ContentBlock::ToolUse { .. })));
+        assert!(
+            result
+                .content
+                .iter()
+                .any(|b| matches!(b, ContentBlock::Text { .. }))
+        );
+        assert!(
+            result
+                .content
+                .iter()
+                .any(|b| matches!(b, ContentBlock::ToolUse { .. }))
+        );
     }
 
     #[test]
@@ -1026,10 +1036,7 @@ mod tests {
     #[test]
     fn models_url_construction() {
         let provider = OpenAiProvider::new(test_config());
-        assert_eq!(
-            provider.models_url(),
-            "https://api.openai.com/v1/models"
-        );
+        assert_eq!(provider.models_url(), "https://api.openai.com/v1/models");
     }
 
     #[test]

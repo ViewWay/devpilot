@@ -7,12 +7,14 @@
 //! - Context compression (auto-compact old messages)
 
 pub mod agent;
+pub mod approval;
 pub mod compact;
 pub mod error;
 pub mod event_bus;
 pub mod session;
 
 pub use agent::{Agent, AgentConfig};
+pub use approval::ApprovalGate;
 pub use compact::CompactStrategy;
 pub use error::CoreError;
 pub use event_bus::{CoreEvent, EventBus, EventBusReceiver};

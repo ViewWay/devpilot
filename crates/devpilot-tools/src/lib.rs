@@ -13,7 +13,7 @@ mod skill_loader;
 mod tools;
 
 pub use error::{ToolError, ToolResult};
-pub use executor::{ApprovalRequest, ApprovalStatus, ToolExecutor};
+pub use executor::{ApprovalRequest, ApprovalStatus, RiskLevel, ToolExecutor};
 pub use registry::ToolRegistry;
 pub use skill_loader::SkillLoader;
 pub use tools::{
