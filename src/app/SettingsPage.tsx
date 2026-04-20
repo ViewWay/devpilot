@@ -34,6 +34,17 @@ import {
   Download,
   Upload,
 } from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+} from "recharts";
 import { PersonaMemoryTab } from "../components/PersonaMemoryTab";
 import { useShortcutStore, SHORTCUT_DEFINITIONS, type ShortcutAction } from "../stores/shortcutStore";
 
@@ -869,6 +880,95 @@ function UsageTab() {
           <div className="mt-1 text-lg font-semibold text-foreground">${summary.totalCost.toFixed(4)}</div>
         </div>
       </div>
+
+      {/* Daily Cost Chart */}
+      {records.length >= 2 ? (
+        <div>
+          <h3 className="text-xs font-medium text-foreground mb-2">{t("costOverTime")}</h3>
+          <div className="rounded-lg border border-border bg-card p-3">
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart
+                data={(() => {
+                  const map = new Map<string, number>();
+                  for (const r of records) {
+                    const day = new Date(r.timestamp).toISOString().slice(0, 10);
+                    map.set(day, (map.get(day) ?? 0) + r.estimatedCost);
+                  }
+                  return Array.from(map.entries())
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .slice(-30)
+                    .map(([date, cost]) => ({ date, cost }));
+                })()}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} />
+                <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} />
+                <Tooltip
+                  formatter={(value) => [`$${Number(value ?? 0).toFixed(4)}`, t("dailyCost")]}
+                  labelStyle={{ color: "var(--foreground)" }}
+                  contentStyle={{
+                    backgroundColor: "var(--card)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "6px",
+                    fontSize: 12,
+                  }}
+                />
+                <Bar dataKey="cost" fill="hsl(var(--primary))" radius={[2, 2, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-border p-4 text-center">
+          <p className="text-xs text-muted-foreground">{t("costOverTime")} — {t("noUsageData")}</p>
+        </div>
+      )}
+
+      {/* Daily Tokens Chart */}
+      {records.length >= 2 ? (
+        <div>
+          <h3 className="text-xs font-medium text-foreground mb-2">{t("tokensOverTime")}</h3>
+          <div className="rounded-lg border border-border bg-card p-3">
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart
+                data={(() => {
+                  const map = new Map<string, { input: number; output: number }>();
+                  for (const r of records) {
+                    const day = new Date(r.timestamp).toISOString().slice(0, 10);
+                    const prev = map.get(day) ?? { input: 0, output: 0 };
+                    prev.input += r.inputTokens;
+                    prev.output += r.outputTokens;
+                    map.set(day, prev);
+                  }
+                  return Array.from(map.entries())
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .slice(-30)
+                    .map(([date, v]) => ({ date, input: v.input, output: v.output }));
+                })()}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} />
+                <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} />
+                <Tooltip
+                  formatter={(value, name) => [
+                    Number(value ?? 0).toLocaleString(),
+                    name === "input" ? t("input") : t("output"),
+                  ]}
+                  labelStyle={{ color: "var(--foreground)" }}
+                  contentStyle={{
+                    backgroundColor: "var(--card)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "6px",
+                    fontSize: 12,
+                  }}
+                />
+                <Line type="monotone" dataKey="input" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} name="input" />
+                <Line type="monotone" dataKey="output" stroke="hsl(var(--destructive))" strokeWidth={2} dot={false} name="output" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      ) : null}
 
       {/* By Provider */}
       {Object.keys(summary.byProvider).length > 0 && (

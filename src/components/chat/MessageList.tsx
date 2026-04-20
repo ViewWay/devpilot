@@ -7,6 +7,7 @@ import { useUIStore } from "../../stores/uiStore";
 import { CodeBlock } from "./CodeBlock";
 import { SandboxBlock } from "./SandboxBlock";
 import { ToolCallList } from "./ToolCallView";
+import { ThinkingBlock } from "./ThinkingBlock";
 import { useChatStore } from "../../stores/chatStore";
 import { toast } from "../../stores/toastStore";
 import type { Message } from "../../types";
@@ -177,6 +178,9 @@ function MessageBubble({ message, isLastAssistant }: { message: Message; isLastA
         <Bot size={12} className="text-primary-foreground" />
       </div>
       <div className="min-w-0 flex-1 space-y-2">
+        {message.thinkingContent && (
+          <ThinkingBlock content={message.thinkingContent} streaming={message.streaming} />
+        )}
         <div className="leading-relaxed text-assistant-bubble-foreground prose-sm" style={{ fontSize }}>
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}

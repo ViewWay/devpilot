@@ -171,14 +171,14 @@ describe("usageStore", () => {
       expect(record.estimatedCost).toBe(0);
     });
 
-    it("unknown model uses default pricing", () => {
+    it("unknown model is free (no pricing data)", () => {
       const record = useUsageStore.getState().recordUsage({
         sessionId: "s1", model: "unknown-model", provider: "Unknown",
         inputText: "A".repeat(1000),  // 250 tokens
         outputText: "B".repeat(1000), // 250 tokens
       });
-      // default: input 0.003, output 0.015
-      expect(record.estimatedCost).toBeCloseTo(0.0045, 4);
+      // No pricing data found in providerStore → defaults to free
+      expect(record.estimatedCost).toBe(0);
     });
   });
 });

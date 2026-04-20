@@ -42,6 +42,8 @@ const en: Record<string, string> = {
   webSearch: "Web search",
   stopGeneration: "Stop generation",
   thinking: "Thinking...",
+  showThinking: "Show thinking",
+  hideThinking: "Hide thinking",
 
   // --- Slash Commands ---
   slashHelp: "Show available commands",
@@ -111,6 +113,12 @@ const en: Record<string, string> = {
   recentRequests: "Recent Requests",
   clearAll: "Clear all",
   noUsageData: "No usage data yet. Send some messages to see usage stats.",
+  dailyCost: "Daily Cost",
+  dailyTokens: "Daily Tokens",
+  costOverTime: "Cost Over Time",
+  tokensOverTime: "Tokens Over Time",
+  input: "Input",
+  output: "Output",
 
   // --- Keyboard Shortcuts ---
   keyboardShortcuts: "Keyboard Shortcuts",
@@ -244,6 +252,13 @@ const en: Record<string, string> = {
   noImagesHint: "Write a prompt and click Generate to create images",
   noPreview: "No preview",
   revisedPrompt: "Revised prompt",
+  savedGenerations: "Saved Generations",
+  recentGenerations: "Recent",
+  searchGenerations: "Search by prompt or tag...",
+  addTag: "Add tag...",
+  downloadImage: "Download",
+  noTags: "No tags",
+  imageStatus: "Status",
 
   // --- Bridge ---
   bridges: "Notification Bridges",

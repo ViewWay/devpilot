@@ -6,6 +6,8 @@ export interface Message {
   timestamp: string;
   toolCalls?: ToolCall[];
   streaming?: boolean;
+  /** Accumulated "thinking" text from the model's reasoning process. */
+  thinkingContent?: string;
 }
 
 export interface ToolCall {

@@ -347,6 +347,8 @@ interface ChatState {
   deleteSession: (id: string) => void;
   addMessage: (sessionId: string, msg: Omit<Message, "id" | "timestamp">) => string;
   updateMessageContent: (sessionId: string, messageId: string, content: string, streaming?: boolean) => void;
+  /** Update the thinkingContent field on a streaming assistant message. */
+  updateMessageThinking: (sessionId: string, messageId: string, thinkingContent: string) => void;
   searchSessions: (query: string) => Session[];
   sendMessage: (content: string, model: string, attachments?: AttachmentIPC[]) => void;
   clearMessages: (sessionId: string) => void;
@@ -509,6 +511,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }));
   },
 
+  updateMessageThinking: (sessionId, messageId, thinkingContent) => {
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === sessionId
+          ? {
+              ...sess,
+              messages: sess.messages.map((m) =>
+                m.id === messageId ? { ...m, thinkingContent } : m,
+              ),
+            }
+          : sess,
+      ),
+    }));
+  },
+
   searchSessions: (query) => {
     const q = query.toLowerCase();
     return get().sessions.filter((s) => s.title.toLowerCase().includes(q));
@@ -544,7 +561,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   sendMessage: (content, model, attachments) => {
-    const { activeSessionId, addMessage, updateMessageContent, createSession, updateSessionTitle } = get();
+    const { activeSessionId, addMessage, updateMessageContent, updateMessageThinking, createSession, updateSessionTitle } = get();
 
     // Auto-create session if none active
     let sessionId = activeSessionId;
@@ -657,20 +674,32 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const activeToolCalls: Record<string, { msgId: string; startTime: number; toolName?: string; input?: unknown }> = {};
 
         unlistenChunk = await listen<{
-          event: "chunk"; sessionId: string; delta?: string;
+          event: "chunk"; sessionId: string; delta?: string; thinking?: string;
         }>(
           "stream-chunk",
           (payload) => {
             if (payload.sessionId !== sessionId) {return;}
+            const msg = get().sessions.find((s) => s.id === sessionId)
+              ?.messages.find((m) => m.id === assistantMsgId);
+            // Handle thinking deltas
+            const thinkingDelta = payload.thinking ?? "";
+            if (thinkingDelta) {
+              updateMessageThinking(
+                sessionId,
+                assistantMsgId,
+                (msg?.thinkingContent ?? "") + thinkingDelta,
+              );
+            }
+            // Handle text content deltas
             const delta = payload.delta ?? "";
-            if (!delta) {return;}
-            updateMessageContent(
-              sessionId,
-              assistantMsgId,
-              (get().sessions.find((s) => s.id === sessionId)?.messages
-                .find((m) => m.id === assistantMsgId)?.content as string ?? "") + delta,
-              true,
-            );
+            if (delta) {
+              updateMessageContent(
+                sessionId,
+                assistantMsgId,
+                (msg?.content as string ?? "") + delta,
+                true,
+              );
+            }
           },
         );
         // Tool call started — create a tool message

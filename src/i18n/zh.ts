@@ -42,6 +42,8 @@ const zh: Record<string, string> = {
   webSearch: "联网搜索",
   stopGeneration: "停止生成",
   thinking: "思考中...",
+  showThinking: "显示思考过程",
+  hideThinking: "隐藏思考过程",
 
   // --- Slash Commands ---
   slashHelp: "显示可用命令",
@@ -111,6 +113,12 @@ const zh: Record<string, string> = {
   recentRequests: "最近请求",
   clearAll: "清除全部",
   noUsageData: "暂无用量数据。发送消息后可查看统计。",
+  dailyCost: "每日费用",
+  dailyTokens: "每日 Token",
+  costOverTime: "费用趋势",
+  tokensOverTime: "Token 趋势",
+  input: "输入",
+  output: "输出",
 
   // --- Keyboard Shortcuts ---
   keyboardShortcuts: "快捷键",
@@ -244,6 +252,13 @@ const zh: Record<string, string> = {
   noImagesHint: "输入提示词并点击生成来创建图片",
   noPreview: "无预览",
   revisedPrompt: "修正后的提示词",
+  savedGenerations: "已保存",
+  recentGenerations: "最近生成",
+  searchGenerations: "按提示词或标签搜索...",
+  addTag: "添加标签...",
+  downloadImage: "下载",
+  noTags: "无标签",
+  imageStatus: "状态",
 
   // --- Bridge ---
   bridges: "通知桥接",
