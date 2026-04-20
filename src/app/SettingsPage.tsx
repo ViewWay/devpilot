@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useI18n } from "../i18n";
 import { useProviderStore, type Provider, type ModelConfig } from "../stores/providerStore";
 import { useUIStore } from "../stores/uiStore";
-import { useUsageStore } from "../stores/usageStore";
+import { useUsageStore, type BudgetPeriod } from "../stores/usageStore";
 import { cn } from "../lib/utils";
 import {
   invoke,
@@ -869,7 +869,20 @@ function UsageTab() {
   const getSummary = useUsageStore((s) => s.getSummary);
   const records = useUsageStore((s) => s.records);
   const clearUsage = useUsageStore((s) => s.clearUsage);
+  const budgetLimit = useUsageStore((s) => s.budgetLimit);
+  const budgetPeriod = useUsageStore((s) => s.budgetPeriod);
+  const setBudgetLimit = useUsageStore((s) => s.setBudgetLimit);
+  const setBudgetPeriod = useUsageStore((s) => s.setBudgetPeriod);
+  const getBudgetUsage = useUsageStore((s) => s.getBudgetUsage);
   const summary = getSummary();
+  const budgetUsage = getBudgetUsage();
+
+  const budgetPeriods: { value: BudgetPeriod; label: string }[] = [
+    { value: "daily", label: t("budgetDaily") },
+    { value: "weekly", label: t("budgetWeekly") },
+    { value: "monthly", label: t("budgetMonthly") },
+    { value: "total", label: t("budgetTotal") },
+  ];
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -892,6 +905,73 @@ function UsageTab() {
           <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{t("estCost")}</div>
           <div className="mt-1 text-lg font-semibold text-foreground">${summary.totalCost.toFixed(4)}</div>
         </div>
+      </div>
+
+      {/* Budget Settings */}
+      <div className="rounded-lg border border-border bg-card p-4 space-y-4">
+        <div className="flex items-center gap-2">
+          <AlertCircle size={16} className="text-primary" />
+          <span className="text-sm font-medium text-foreground">{t("budgetAlert")}</span>
+        </div>
+        <p className="text-xs text-muted-foreground">{t("budgetAlertDesc")}</p>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-muted-foreground">{t("budgetLimitLabel")}</label>
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-muted-foreground">$</span>
+              <input
+                type="number"
+                min={0}
+                step={0.5}
+                value={budgetLimit || ""}
+                onChange={(e) => setBudgetLimit(parseFloat(e.target.value) || 0)}
+                placeholder="0"
+                className="w-20 rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-muted-foreground">{t("budgetPeriodLabel")}</label>
+            <select
+              value={budgetPeriod}
+              onChange={(e) => setBudgetPeriod(e.target.value as BudgetPeriod)}
+              className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              {budgetPeriods.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Budget progress bar */}
+        {budgetLimit > 0 && (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+              <span>${budgetUsage.spent.toFixed(2)} {t("budgetSpent")}</span>
+              <span>${budgetUsage.limit.toFixed(2)} {t("budgetLimit")}</span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-muted">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all",
+                  budgetUsage.percentage >= 100
+                    ? "bg-destructive"
+                    : budgetUsage.percentage >= 80
+                      ? "bg-amber-500"
+                      : "bg-primary",
+                )}
+                style={{ width: `${Math.min(budgetUsage.percentage, 100)}%` }}
+              />
+            </div>
+            <div className="text-[10px] text-muted-foreground text-right">
+              {budgetUsage.percentage.toFixed(0)}% {t("budgetUsed")}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Daily Cost Chart */}

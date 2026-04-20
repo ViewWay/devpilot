@@ -568,6 +568,19 @@ const en: Record<string, string> = {
   scanning: "Scanning...",
   selectAll: "Select all",
   deselectAll: "Deselect all",
+
+  // --- Budget Alert ---
+  budgetAlert: "Budget Alert",
+  budgetAlertDesc: "Set a spending limit to get notified when you exceed your budget.",
+  budgetLimitLabel: "Limit",
+  budgetPeriodLabel: "Period",
+  budgetDaily: "Daily",
+  budgetWeekly: "Weekly",
+  budgetMonthly: "Monthly",
+  budgetTotal: "All time",
+  budgetSpent: "spent",
+  budgetLimit: "limit",
+  budgetUsed: "used",
 };
 
 export default en;

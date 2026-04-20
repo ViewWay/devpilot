@@ -568,6 +568,19 @@ const zh: Record<string, string> = {
   scanning: "扫描中...",
   selectAll: "全选",
   deselectAll: "取消全选",
+
+  // --- Budget Alert ---
+  budgetAlert: "预算提醒",
+  budgetAlertDesc: "设置消费上限，超出预算时自动提醒。",
+  budgetLimitLabel: "限额",
+  budgetPeriodLabel: "周期",
+  budgetDaily: "每天",
+  budgetWeekly: "每周",
+  budgetMonthly: "每月",
+  budgetTotal: "全部",
+  budgetSpent: "已用",
+  budgetLimit: "上限",
+  budgetUsed: "已使用",
 };
 
 export default zh;

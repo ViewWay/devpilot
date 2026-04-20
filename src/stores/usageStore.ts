@@ -31,8 +31,37 @@ function getModelPricing(modelId: string): { input: number; output: number } {
   return { input: 0, output: 0 };
 }
 
+/** Budget period for cost tracking. */
+export type BudgetPeriod = "daily" | "weekly" | "monthly" | "total";
+
+/** Get the start timestamp for a budget period. */
+function getPeriodStart(period: BudgetPeriod): Date {
+  const now = new Date();
+  switch (period) {
+    case "daily": {
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    }
+    case "weekly": {
+      const day = now.getDay();
+      const diff = day === 0 ? 6 : day - 1; // Start on Monday
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate() - diff);
+    }
+    case "monthly": {
+      return new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+    case "total": {
+      return new Date(0); // Beginning of time
+    }
+  }
+}
+
 interface UsageState {
   records: UsageRecord[];
+
+  // Budget settings
+  budgetLimit: number; // USD, 0 = disabled
+  budgetPeriod: BudgetPeriod;
+  budgetAlerted: boolean; // Whether we've already shown an alert this period
 
   // Actions
   recordUsage: (params: {
@@ -52,15 +81,38 @@ interface UsageState {
   }) => UsageRecord;
   getSummary: () => UsageSummary;
   getSessionUsage: (sessionId: string) => { tokens: number; cost: number };
+  getPeriodCost: () => number;
+  getBudgetUsage: () => { spent: number; limit: number; percentage: number; period: BudgetPeriod };
+  setBudgetLimit: (limit: number) => void;
+  setBudgetPeriod: (period: BudgetPeriod) => void;
+  checkBudget: () => void;
   clearUsage: () => void;
 }
 
 let usageIdCounter = Date.now();
 
+// Lazy-load toast to avoid circular imports
+let toastWarning: ((msg: string, duration?: number) => string) | null = null;
+function getToastWarning() {
+  if (!toastWarning) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const mod = require("./toastStore");
+      toastWarning = mod.toast.warning;
+    } catch {
+      // Will be loaded later
+    }
+  }
+  return toastWarning;
+}
+
 export const useUsageStore = create<UsageState>()(
   persist(
     (set, get) => ({
       records: [],
+      budgetLimit: 0,
+      budgetPeriod: "monthly" as BudgetPeriod,
+      budgetAlerted: false,
 
       recordUsage: ({ sessionId, model, provider, inputText, outputText }) => {
         const inputTokens = estimateTokens(inputText);
@@ -80,6 +132,7 @@ export const useUsageStore = create<UsageState>()(
         };
 
         set((s) => ({ records: [...s.records, record] }));
+        get().checkBudget();
         return record;
       },
 
@@ -99,6 +152,7 @@ export const useUsageStore = create<UsageState>()(
         };
 
         set((s) => ({ records: [...s.records, record] }));
+        get().checkBudget();
         return record;
       },
 
@@ -135,13 +189,68 @@ export const useUsageStore = create<UsageState>()(
         return { tokens, cost };
       },
 
-      clearUsage: () => set({ records: [] }),
+      /** Get total cost for the current budget period. */
+      getPeriodCost: () => {
+        const { records, budgetPeriod } = get();
+        const start = getPeriodStart(budgetPeriod);
+        const startTime = start.getTime();
+        let cost = 0;
+        for (const r of records) {
+          if (new Date(r.timestamp).getTime() >= startTime) {
+            cost += r.estimatedCost;
+          }
+        }
+        return cost;
+      },
+
+      /** Get budget usage info (spent, limit, percentage). */
+      getBudgetUsage: () => {
+        const { budgetLimit, budgetPeriod } = get();
+        const spent = get().getPeriodCost();
+        const percentage = budgetLimit > 0 ? Math.min((spent / budgetLimit) * 100, 100) : 0;
+        return { spent, limit: budgetLimit, percentage, period: budgetPeriod };
+      },
+
+      /** Set the budget limit in USD. Set to 0 to disable. */
+      setBudgetLimit: (limit: number) => {
+        set({ budgetLimit: limit, budgetAlerted: false });
+      },
+
+      /** Set the budget period. */
+      setBudgetPeriod: (period: BudgetPeriod) => {
+        set({ budgetPeriod: period, budgetAlerted: false });
+      },
+
+      /** Internal: check if budget has been exceeded and show toast. */
+      checkBudget: () => {
+        const { budgetLimit, budgetAlerted } = get();
+        if (budgetLimit <= 0 || budgetAlerted) {
+          return;
+        }
+        const spent = get().getPeriodCost();
+        if (spent >= budgetLimit) {
+          set({ budgetAlerted: true });
+          const warn = getToastWarning();
+          if (warn) {
+            warn(
+              `Budget limit reached: $${spent.toFixed(2)} of $${budgetLimit.toFixed(2)} used this ${get().budgetPeriod}.`,
+              8000,
+            );
+          }
+        }
+      },
+
+      clearUsage: () => set({ records: [], budgetAlerted: false }),
     }),
     {
       name: "devpilot-usage",
-      version: 1,
-      // Only persist records array
-      partialize: (state) => ({ records: state.records }),
+      version: 2,
+      // Persist records + budget settings
+      partialize: (state) => ({
+        records: state.records,
+        budgetLimit: state.budgetLimit,
+        budgetPeriod: state.budgetPeriod,
+      }),
     }
   )
 );
