@@ -14,6 +14,8 @@ All notable changes to DevPilot will be documented in this file.
   - `AppShell` layout with Sidebar + ContentRouter
   - Rewritten `Sidebar` matching cc-haha style: nav buttons, search, time-grouped sessions
   - Migrated all chat components (ChatInput, MessageList, ChatPanel) to cc-haha CSS variables
+  - Migrated remaining components to semantic design tokens (ToastContainer, ApprovalOverlay, UpdateChecker, DiffView, ToolCallView, TerminalPanel)
+  - All 33 component files now fully tokenized — no hardcoded colors remain
   - Removed react-router dependency (replaced with tabStore navigation)
   - `useKeyboardShortcuts` rewritten to use tabStore
 

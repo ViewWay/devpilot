@@ -20,7 +20,7 @@
 
 ## In Progress
 
-- [ ] **P10** — Full UI rewrite matching cc-haha (remaining: remaining component CSS, visual polish)
+- [x] **P10** — Full UI rewrite matching cc-haha design system (all components migrated)
 
 ## Upcoming
 

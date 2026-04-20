@@ -1019,3 +1019,31 @@ Complete visual overhaul matching cc-haha design system — oklch colors, Materi
 - `npx vite build` — built in 1.64s
 - `cargo test --workspace` — 384 passed, 0 failed
 - Browser renders correctly: Sidebar with sessions, empty state in main area
+
+---
+
+## P10-6 — Complete cc-haha design token migration (c5540dc)
+
+**Date**: 2025-04-21
+**Scope**: Final P10 visual polish — migrate all remaining hardcoded Tailwind colors to semantic design system tokens
+
+### Changes
+
+Migrated 6 components from hardcoded colors (bg-green-500, text-blue-400, etc.) to cc-haha semantic tokens (success, warning, error, secondary, on-primary, inverse-surface, etc.):
+
+1. **ToastContainer.tsx** — Full overhaul: replaced all `dark:` variant patterns with semantic tokens (bg-success/10, text-warning, etc.)
+2. **ApprovalOverlay.tsx** — Risk level colors (low→success, medium→warning, high→error), approve/deny buttons (bg-success/bg-error), command block (bg-inverse-surface, text-inverse-on-surface)
+3. **UpdateChecker.tsx** — Error banner (bg-warning), primary banner buttons (bg-on-primary/20), progress bar (bg-on-primary/80)
+4. **DiffView.tsx** — Add/remove line colors, file icon (text-secondary), hunk headers (bg-secondary/5), change badges, DiffSummary
+5. **ToolCallView.tsx** — Status icons: running→text-secondary, done→text-success, error→text-error; error output text
+6. **TerminalPanel.tsx** — Tab status dots: active→bg-success/70, inactive→bg-warning/70
+
+### Verification
+
+- `npx tsc --noEmit` — 0 errors
+- `npx vitest run` — 146/146 passed
+- `npm run build` — clean build
+
+### Result
+
+All 33 component files now fully migrated to cc-haha design tokens. P10 UI rewrite is complete.
