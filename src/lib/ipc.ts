@@ -253,6 +253,62 @@ function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
       return [];
     case "cancel_stream":
       return false;
+    // Diagnostics
+    case "diagnose_provider": {
+      const cfg = (args?.config ?? {}) as Record<string, unknown>;
+      return {
+        providerId: cfg.id ?? "mock",
+        providerName: cfg.name ?? "Mock Provider",
+        healthy: true,
+        durationMs: 150,
+        checks: [
+          { name: "Configuration", severity: "ok", message: "Configuration is complete" },
+          { name: "Connectivity", severity: "ok", message: "Provider is reachable" },
+          { name: "Models", severity: "ok", message: "Found 3 available models", modelsCount: 3 },
+        ],
+        modelsCount: 3,
+      };
+    }
+    // Message search
+    case "search_messages":
+      return [];
+    // Bridge saved channels
+    case "bridge_list_saved":
+      return [
+        { id: "saved-1", name: "Dev Alerts", platform: "Telegram", channel: "@devalerts", enabled: true, createdAt: new Date().toISOString() },
+        { id: "saved-2", name: "CI Notify", platform: "Discord", channel: "#ci", enabled: false, createdAt: new Date().toISOString() },
+      ];
+    case "bridge_save":
+      return null;
+    case "bridge_delete_saved":
+      return null;
+    case "bridge_update_status":
+      return null;
+    // Scheduler saved records
+    case "scheduler_list_saved":
+      return [
+        { id: "task-1", name: "Daily Backup", cronExpr: "0 2 * * *", status: "Active", executionCount: 42, maxExecutions: null },
+        { id: "task-2", name: "Health Check", cronExpr: "*/15 * * * *", status: "Paused", executionCount: 120, maxExecutions: null },
+      ];
+    case "scheduler_list_runs":
+      return [];
+    case "scheduler_save_task":
+      return null;
+    case "scheduler_delete_saved":
+      return null;
+    case "scheduler_save_run":
+      return null;
+    // Media saved records
+    case "media_list_saved":
+      return [];
+    case "media_save":
+      return null;
+    case "media_update_status":
+      return null;
+    case "media_update_tags":
+      return null;
+    case "media_delete":
+      return null;
     // Skills
     case "list_skills":
       return [];
@@ -366,6 +422,7 @@ export interface IPCCommands {
   };
   check_provider: { config: ProviderConfigIPC };
   list_provider_models: { config: ProviderConfigIPC };
+  diagnose_provider: { config: ProviderConfigIPC };
   cancel_stream: { sessionId: string };
 
   // Settings
@@ -406,6 +463,11 @@ export interface IPCCommands {
   scheduler_remove_task: { taskId: string };
   scheduler_pause_task: { taskId: string };
   scheduler_resume_task: { taskId: string };
+  scheduler_list_saved: void;
+  scheduler_save_task: { task: { id: string; name: string; cronExpr: string; action: unknown; maxExecutions?: number; status?: string } };
+  scheduler_delete_saved: { taskId: string };
+  scheduler_list_runs: { taskId?: string };
+  scheduler_save_run: { run: { id: string; taskId: string; status: string; output?: string; startedAt: string; finishedAt?: string } };
 
   // Bridge
   bridge_create: {
@@ -420,6 +482,10 @@ export interface IPCCommands {
   bridge_send: { bridgeId: string; content: string; title?: string };
   bridge_enable: { bridgeId: string };
   bridge_disable: { bridgeId: string };
+  bridge_list_saved: void;
+  bridge_save: { channel: { id: string; name: string; platform: string; url: string; channel?: string; token?: string; enabled: boolean } };
+  bridge_delete_saved: { bridgeId: string };
+  bridge_update_status: { bridgeId: string; status: string };
 
   // Media
   media_generate: {
@@ -432,6 +498,11 @@ export interface IPCCommands {
     apiBase?: string;
   };
   media_providers: void;
+  media_list_saved: void;
+  media_save: { record: { id: string; prompt: string; provider: string; model: string; url?: string; status?: string; tags?: string[]; createdAt: string } };
+  media_update_status: { mediaId: string; status: string; filePath?: string };
+  media_update_tags: { mediaId: string; tags: string[] };
+  media_delete: { mediaId: string };
 
   // Data Import / Export
   export_sessions: void;

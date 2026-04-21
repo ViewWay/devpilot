@@ -19,6 +19,8 @@ export interface ModelConfig {
   id: string;
   name: string;
   maxTokens: number;
+  /** Max output tokens. Defaults to 8192 if not specified. */
+  maxOutputTokens?: number;
   supportsStreaming: boolean;
   supportsVision: boolean;
   inputPrice?: number; // per 1M tokens
@@ -74,9 +76,9 @@ const DEFAULT_PROVIDERS: Provider[] = [
     baseUrl: "https://api.anthropic.com",
     apiKey: "",
     models: [
-      { id: "claude-4-sonnet", name: "Claude 4 Sonnet", maxTokens: 200000, supportsStreaming: true, supportsVision: true, inputPrice: 3, outputPrice: 15 },
-      { id: "claude-4-opus", name: "Claude 4 Opus", maxTokens: 200000, supportsStreaming: true, supportsVision: true, inputPrice: 15, outputPrice: 75 },
-      { id: "claude-4-haiku", name: "Claude 4 Haiku", maxTokens: 200000, supportsStreaming: true, supportsVision: true, inputPrice: 0.8, outputPrice: 4 },
+      { id: "claude-4-sonnet", name: "Claude 4 Sonnet", maxTokens: 200000, maxOutputTokens: 16384, supportsStreaming: true, supportsVision: true, inputPrice: 3, outputPrice: 15 },
+      { id: "claude-4-opus", name: "Claude 4 Opus", maxTokens: 200000, maxOutputTokens: 32768, supportsStreaming: true, supportsVision: true, inputPrice: 15, outputPrice: 75 },
+      { id: "claude-4-haiku", name: "Claude 4 Haiku", maxTokens: 200000, maxOutputTokens: 8192, supportsStreaming: true, supportsVision: true, inputPrice: 0.8, outputPrice: 4 },
     ],
     enabled: true,
   },
@@ -86,9 +88,9 @@ const DEFAULT_PROVIDERS: Provider[] = [
     baseUrl: "https://api.openai.com/v1",
     apiKey: "",
     models: [
-      { id: "gpt-5.2", name: "GPT-5.2", maxTokens: 128000, supportsStreaming: true, supportsVision: true, inputPrice: 2.5, outputPrice: 10 },
-      { id: "gpt-5.2-mini", name: "GPT-5.2 Mini", maxTokens: 128000, supportsStreaming: true, supportsVision: false, inputPrice: 0.6, outputPrice: 2.4 },
-      { id: "o3-pro", name: "o3 Pro", maxTokens: 200000, supportsStreaming: true, supportsVision: true, inputPrice: 10, outputPrice: 40 },
+      { id: "gpt-5.2", name: "GPT-5.2", maxTokens: 128000, maxOutputTokens: 16384, supportsStreaming: true, supportsVision: true, inputPrice: 2.5, outputPrice: 10 },
+      { id: "gpt-5.2-mini", name: "GPT-5.2 Mini", maxTokens: 128000, maxOutputTokens: 16384, supportsStreaming: true, supportsVision: false, inputPrice: 0.6, outputPrice: 2.4 },
+      { id: "o3-pro", name: "o3 Pro", maxTokens: 200000, maxOutputTokens: 32768, supportsStreaming: true, supportsVision: true, inputPrice: 10, outputPrice: 40 },
     ],
     enabled: true,
   },
@@ -109,8 +111,8 @@ const DEFAULT_PROVIDERS: Provider[] = [
     baseUrl: "https://api.deepseek.com/v1",
     apiKey: "",
     models: [
-      { id: "deepseek-v3", name: "DeepSeek V3", maxTokens: 64000, supportsStreaming: true, supportsVision: false, inputPrice: 0.14, outputPrice: 0.28 },
-      { id: "deepseek-r1", name: "DeepSeek R1", maxTokens: 64000, supportsStreaming: true, supportsVision: false, inputPrice: 0.55, outputPrice: 2.19 },
+      { id: "deepseek-v3", name: "DeepSeek V3", maxTokens: 64000, maxOutputTokens: 8192, supportsStreaming: true, supportsVision: false, inputPrice: 0.14, outputPrice: 0.28 },
+      { id: "deepseek-r1", name: "DeepSeek R1", maxTokens: 64000, maxOutputTokens: 16384, supportsStreaming: true, supportsVision: false, inputPrice: 0.55, outputPrice: 2.19 },
     ],
     enabled: true,
   },
@@ -120,8 +122,8 @@ const DEFAULT_PROVIDERS: Provider[] = [
     baseUrl: "https://generativelanguage.googleapis.com/v1beta",
     apiKey: "",
     models: [
-      { id: "gemini-3-pro", name: "Gemini 3 Pro", maxTokens: 1000000, supportsStreaming: true, supportsVision: true, inputPrice: 1.25, outputPrice: 10 },
-      { id: "gemini-3-flash", name: "Gemini 3 Flash", maxTokens: 1000000, supportsStreaming: true, supportsVision: true, inputPrice: 0.15, outputPrice: 0.6 },
+      { id: "gemini-3-pro", name: "Gemini 3 Pro", maxTokens: 1000000, maxOutputTokens: 65536, supportsStreaming: true, supportsVision: true, inputPrice: 1.25, outputPrice: 10 },
+      { id: "gemini-3-flash", name: "Gemini 3 Flash", maxTokens: 1000000, maxOutputTokens: 65536, supportsStreaming: true, supportsVision: true, inputPrice: 0.15, outputPrice: 0.6 },
     ],
     enabled: true,
   },
@@ -214,7 +216,7 @@ async function persistProvider(provider: Provider): Promise<void> {
           name: m.name,
           provider: mapProviderType(provider.id),
           maxInputTokens: m.maxTokens,
-          maxOutputTokens: 4096,
+          maxOutputTokens: m.maxOutputTokens ?? 8192,
           supportsStreaming: m.supportsStreaming,
           supportsTools: true,
           supportsVision: m.supportsVision,
