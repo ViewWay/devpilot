@@ -628,6 +628,8 @@ mod tests {
         for pt in [
             ProviderType::Anthropic,
             ProviderType::OpenAI,
+            ProviderType::OpenRouter,
+            ProviderType::Google,
             ProviderType::GLM,
             ProviderType::Qwen,
             ProviderType::DeepSeek,
@@ -635,10 +637,282 @@ mod tests {
             ProviderType::Kimi,
             ProviderType::MiniMax,
             ProviderType::VolcEngine,
+            ProviderType::Custom,
         ] {
             let json = serde_json::to_string(&pt).unwrap();
             let parsed: ProviderType = serde_json::from_str(&json).unwrap();
             assert_eq!(pt, parsed);
         }
+    }
+
+    #[test]
+    fn message_role_display() {
+        assert_eq!(MessageRole::User.to_string(), "user");
+        assert_eq!(MessageRole::Assistant.to_string(), "assistant");
+        assert_eq!(MessageRole::System.to_string(), "system");
+        assert_eq!(MessageRole::Tool.to_string(), "tool");
+    }
+
+    #[test]
+    fn message_role_serde_roundtrip() {
+        for role in [
+            MessageRole::User,
+            MessageRole::Assistant,
+            MessageRole::System,
+            MessageRole::Tool,
+        ] {
+            let json = serde_json::to_string(&role).unwrap();
+            let parsed: MessageRole = serde_json::from_str(&json).unwrap();
+            assert_eq!(role, parsed);
+        }
+    }
+
+    #[test]
+    fn finish_reason_serde_roundtrip() {
+        for fr in [
+            FinishReason::Stop,
+            FinishReason::Length,
+            FinishReason::ToolUse,
+            FinishReason::ContentFilter,
+        ] {
+            let json = serde_json::to_string(&fr).unwrap();
+            let parsed: FinishReason = serde_json::from_str(&json).unwrap();
+            assert_eq!(fr, parsed);
+        }
+    }
+
+    #[test]
+    fn usage_default_is_zero() {
+        let u = Usage::default();
+        assert_eq!(u.input_tokens, 0);
+        assert_eq!(u.output_tokens, 0);
+        assert_eq!(u.total_tokens(), 0);
+    }
+
+    #[test]
+    fn usage_total_with_cache() {
+        let u = Usage {
+            input_tokens: 1000,
+            output_tokens: 500,
+            cache_read_tokens: Some(200),
+            cache_write_tokens: Some(100),
+        };
+        assert_eq!(u.total_tokens(), 1800);
+    }
+
+    #[test]
+    fn session_mode_default_is_code() {
+        assert_eq!(SessionMode::default(), SessionMode::Code);
+    }
+
+    #[test]
+    fn session_mode_serde_roundtrip() {
+        for mode in [SessionMode::Code, SessionMode::Plan, SessionMode::Ask] {
+            let json = serde_json::to_string(&mode).unwrap();
+            let parsed: SessionMode = serde_json::from_str(&json).unwrap();
+            assert_eq!(mode, parsed);
+        }
+    }
+
+    #[test]
+    fn reasoning_effort_from_number() {
+        assert_eq!(ReasoningEffort::from_number(0), ReasoningEffort::Low);
+        assert_eq!(ReasoningEffort::from_number(33), ReasoningEffort::Low);
+        assert_eq!(ReasoningEffort::from_number(34), ReasoningEffort::Medium);
+        assert_eq!(ReasoningEffort::from_number(50), ReasoningEffort::Medium);
+        assert_eq!(ReasoningEffort::from_number(66), ReasoningEffort::Medium);
+        assert_eq!(ReasoningEffort::from_number(67), ReasoningEffort::High);
+        assert_eq!(ReasoningEffort::from_number(100), ReasoningEffort::High);
+    }
+
+    #[test]
+    fn reasoning_effort_default_is_medium() {
+        assert_eq!(ReasoningEffort::default(), ReasoningEffort::Medium);
+    }
+
+    #[test]
+    fn reasoning_effort_serde_roundtrip() {
+        for effort in [
+            ReasoningEffort::Low,
+            ReasoningEffort::Medium,
+            ReasoningEffort::High,
+        ] {
+            let json = serde_json::to_string(&effort).unwrap();
+            let parsed: ReasoningEffort = serde_json::from_str(&json).unwrap();
+            assert_eq!(effort, parsed);
+        }
+    }
+
+    #[test]
+    fn stream_event_done_serialization() {
+        let ev = StreamEvent::Done {
+            session_id: "s1".into(),
+            usage: Usage {
+                input_tokens: 100,
+                output_tokens: 50,
+                cache_read_tokens: None,
+                cache_write_tokens: None,
+            },
+            finish_reason: FinishReason::Stop,
+        };
+        let json = serde_json::to_string(&ev).unwrap();
+        assert!(json.contains("\"event\":\"done\""));
+        let parsed: StreamEvent = serde_json::from_str(&json).unwrap();
+        match parsed {
+            StreamEvent::Done {
+                session_id, usage, ..
+            } => {
+                assert_eq!(session_id, "s1");
+                assert_eq!(usage.input_tokens, 100);
+            }
+            _ => panic!("Expected Done event"),
+        }
+    }
+
+    #[test]
+    fn stream_event_error_serialization() {
+        let ev = StreamEvent::Error {
+            session_id: "s1".into(),
+            message: "Rate limited".into(),
+            code: Some("429".into()),
+        };
+        let json = serde_json::to_string(&ev).unwrap();
+        assert!(json.contains("\"event\":\"error\""));
+        let parsed: StreamEvent = serde_json::from_str(&json).unwrap();
+        match parsed {
+            StreamEvent::Error { message, code, .. } => {
+                assert_eq!(message, "Rate limited");
+                assert_eq!(code.unwrap(), "429");
+            }
+            _ => panic!("Expected Error event"),
+        }
+    }
+
+    #[test]
+    fn tool_use_delta_serialization() {
+        let delta = ToolUseDelta {
+            id: Some("tu-1".into()),
+            name: Some("read_file".into()),
+            input_json: Some("{\"path\":\"/tmp/test\"}".into()),
+        };
+        let json = serde_json::to_string(&delta).unwrap();
+        let parsed: ToolUseDelta = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.id.unwrap(), "tu-1");
+        assert_eq!(parsed.name.unwrap(), "read_file");
+    }
+
+    #[test]
+    fn content_block_tool_use_and_result() {
+        let tool_use = ContentBlock::ToolUse {
+            id: "tu-1".into(),
+            name: "shell_exec".into(),
+            input: serde_json::json!({"command": "ls"}),
+        };
+        let json = serde_json::to_string(&tool_use).unwrap();
+        assert!(json.contains("\"type\":\"tool_use\""));
+        let parsed: ContentBlock = serde_json::from_str(&json).unwrap();
+        match parsed {
+            ContentBlock::ToolUse { id, name, .. } => {
+                assert_eq!(id, "tu-1");
+                assert_eq!(name, "shell_exec");
+            }
+            _ => panic!("Expected ToolUse"),
+        }
+
+        let tool_result = ContentBlock::ToolResult {
+            tool_use_id: "tu-1".into(),
+            content: "file1.txt\nfile2.txt".into(),
+            is_error: false,
+        };
+        let json2 = serde_json::to_string(&tool_result).unwrap();
+        assert!(json2.contains("\"type\":\"tool_result\""));
+        let parsed2: ContentBlock = serde_json::from_str(&json2).unwrap();
+        match parsed2 {
+            ContentBlock::ToolResult {
+                tool_use_id,
+                content,
+                is_error,
+            } => {
+                assert_eq!(tool_use_id, "tu-1");
+                assert_eq!(content, "file1.txt\nfile2.txt");
+                assert!(!is_error);
+            }
+            _ => panic!("Expected ToolResult"),
+        }
+    }
+
+    #[test]
+    fn provider_config_serialization() {
+        let config = ProviderConfig {
+            id: "test-provider".into(),
+            name: "Test Provider".into(),
+            provider_type: ProviderType::OpenAI,
+            base_url: "https://api.openai.com/v1".into(),
+            api_key: Some("sk-test123".into()),
+            models: vec![ModelInfo {
+                id: "gpt-4o".into(),
+                name: "GPT-4o".into(),
+                provider: ProviderType::OpenAI,
+                max_input_tokens: 128000,
+                max_output_tokens: 4096,
+                supports_streaming: true,
+                supports_tools: true,
+                supports_vision: true,
+                input_price_per_million: Some(2.5),
+                output_price_per_million: Some(10.0),
+            }],
+            enabled: true,
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        let parsed: ProviderConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.id, "test-provider");
+        assert_eq!(parsed.models.len(), 1);
+        assert_eq!(parsed.models[0].input_price_per_million.unwrap(), 2.5);
+    }
+
+    #[test]
+    fn skill_info_serialization() {
+        let skill = SkillInfo {
+            name: "test-skill".into(),
+            description: "A test skill".into(),
+            version: Some("1.0.0".into()),
+            author: None,
+            category: Some("testing".into()),
+            tags: vec!["test".into()],
+            trigger: Some("when user says test".into()),
+            content: "Do the test thing".into(),
+            enabled: true,
+            installed_at: Some("2026-01-01T00:00:00Z".into()),
+            updated_at: None,
+        };
+        let json = serde_json::to_string(&skill).unwrap();
+        let parsed: SkillInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.name, "test-skill");
+        assert_eq!(parsed.tags.len(), 1);
+    }
+
+    #[test]
+    fn message_text_content_concatenates_multiple_text_blocks() {
+        let msg = Message {
+            role: MessageRole::Assistant,
+            content: vec![
+                ContentBlock::Text {
+                    text: "Hello ".into(),
+                },
+                ContentBlock::Text {
+                    text: "World".into(),
+                },
+                ContentBlock::ToolUse {
+                    id: "tu-1".into(),
+                    name: "test".into(),
+                    input: serde_json::json!({}),
+                },
+                ContentBlock::Text { text: "!".into() },
+            ],
+            name: None,
+            tool_call_id: None,
+        };
+        // text_content should only concatenate Text blocks, skipping ToolUse
+        assert_eq!(msg.text_content(), "Hello World!");
     }
 }
