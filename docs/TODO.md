@@ -25,7 +25,7 @@
 
 ## Upcoming
 
-- [ ] **P13** — Plugin system / MCP marketplace
+- [ ] **P13** — Plugin system / MCP marketplace (in progress — presets added, marketplace catalog TBD)
 
 ## Fixes & Improvements (unreleased)
 

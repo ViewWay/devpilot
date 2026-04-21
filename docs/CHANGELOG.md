@@ -2,6 +2,20 @@
 
 All notable changes to DevPilot will be documented in this file.
 
+## [0.5.2] — 2026-04-21
+
+### Added
+
+- **P13: MCP Server Presets (Marketplace Foundation)**
+  - 10 curated MCP server presets for one-click quick-add: Filesystem, GitHub, Memory, Fetch, PostgreSQL, SQLite, Brave Search, Puppeteer, Sentry, Everything
+  - Grid-based preset browser in Settings → MCP tab with emoji icons, descriptions, and Add/Added state
+  - Auto-detection of already-installed presets (disabled "Added" button)
+  - 24 new i18n keys (EN + CN) for preset names, descriptions, and UI labels
+
+### Fixed
+
+- **MCP Connect IPC Bug** — `mcp_connect_server` Tauri command now accepts `id: String` and looks up the server record from SQLite, matching the frontend `mcpStore.connect(id)` call signature (previously expected full `McpServerRecord` from frontend, causing deserialization failure)
+
 ## [0.5.1] — 2026-04-21
 
 ### Added

@@ -1514,6 +1514,28 @@ function McpTab() {
   const [formUrl, setFormUrl] = useState("");
   const [formEnabled, setFormEnabled] = useState(true);
 
+  // MCP server presets for quick-add
+  const MCP_PRESETS: Array<{
+    id: string;
+    nameKey: string;
+    descKey: string;
+    transport: "stdio";
+    command: string;
+    args: string[];
+    icon: string;
+  }> = [
+    { id: "mcp-preset-filesystem", nameKey: "mcpPresetFilesystem", descKey: "mcpPresetFilesystemDesc", transport: "stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-filesystem", "~/Documents"], icon: "📁" },
+    { id: "mcp-preset-github", nameKey: "mcpPresetGithub", descKey: "mcpPresetGithubDesc", transport: "stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-github"], icon: "🐙" },
+    { id: "mcp-preset-memory", nameKey: "mcpPresetMemory", descKey: "mcpPresetMemoryDesc", transport: "stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-memory"], icon: "🧠" },
+    { id: "mcp-preset-fetch", nameKey: "mcpPresetFetch", descKey: "mcpPresetFetchDesc", transport: "stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-fetch"], icon: "🌐" },
+    { id: "mcp-preset-postgres", nameKey: "mcpPresetPostgres", descKey: "mcpPresetPostgresDesc", transport: "stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-postgres"], icon: "🐘" },
+    { id: "mcp-preset-sqlite", nameKey: "mcpPresetSqlite", descKey: "mcpPresetSqliteDesc", transport: "stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-sqlite", "--db", "devpilot.db"], icon: "🗄️" },
+    { id: "mcp-preset-brave-search", nameKey: "mcpPresetBraveSearch", descKey: "mcpPresetBraveSearchDesc", transport: "stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-brave-search"], icon: "🔍" },
+    { id: "mcp-preset-puppeteer", nameKey: "mcpPresetPuppeteer", descKey: "mcpPresetPuppeteerDesc", transport: "stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-puppeteer"], icon: "🎭" },
+    { id: "mcp-preset-sentry", nameKey: "mcpPresetSentry", descKey: "mcpPresetSentryDesc", transport: "stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-sentry"], icon: "🛡️" },
+    { id: "mcp-preset-everything", nameKey: "mcpPresetEverything", descKey: "mcpPresetEverythingDesc", transport: "stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-everything"], icon: "🧪" },
+  ];
+
   useEffect(() => {
     fetchServers();
     fetchConnected();
@@ -1663,6 +1685,55 @@ function McpTab() {
           </div>
         )}
       </div>
+
+      {/* Popular presets */}
+      {!showAddForm && (
+        <div className="space-y-2">
+          <div>
+            <h3 className="text-xs font-semibold text-foreground">{t("mcpPresets")}</h3>
+            <p className="text-[10px] text-muted-foreground mt-0.5">{t("mcpPresetsDesc")}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {MCP_PRESETS.map((preset) => {
+              const alreadyAdded = servers.some((s) => s.id === preset.id);
+              return (
+                <div key={preset.id} className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm shrink-0">{preset.icon}</span>
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-medium text-foreground truncate">{t(preset.nameKey)}</div>
+                      <div className="text-[9px] text-muted-foreground truncate">{t(preset.descKey)}</div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (alreadyAdded) { return; }
+                      await addServer({
+                        id: preset.id,
+                        name: t(preset.nameKey),
+                        transport: preset.transport,
+                        command: preset.command,
+                        args: preset.args,
+                        enabled: true,
+                        createdAt: new Date().toISOString(),
+                      });
+                    }}
+                    disabled={alreadyAdded}
+                    className={cn(
+                      "shrink-0 rounded-md px-2 py-1 text-[10px] font-medium transition-colors",
+                      alreadyAdded
+                        ? "bg-muted text-muted-foreground"
+                        : "bg-primary/10 text-primary hover:bg-primary/20",
+                    )}
+                  >
+                    {alreadyAdded ? t("mcpQuickAdded") : t("mcpQuickAdd")}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Add/Edit form */}
       {showAddForm && (

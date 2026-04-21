@@ -39,12 +39,19 @@ async fn ensure_mcp_manager(state: &State<'_, AppState>) -> McpManager {
     guard.clone().unwrap()
 }
 
+/// Connect an MCP server by ID.
+///
+/// Looks up the server configuration from SQLite, then connects via McpManager.
+/// Accepts an `id` string from the frontend rather than a full record.
 #[tauri::command]
-pub async fn mcp_connect_server(
-    state: State<'_, AppState>,
-    server: McpServerRecord,
-) -> Result<(), String> {
-    let config = record_to_config(&server);
+pub async fn mcp_connect_server(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    // Look up the server record from SQLite
+    let record = {
+        let db = state.db.lock().unwrap();
+        db.get_mcp_server(&id).map_err(|e| e.to_string())?
+    };
+
+    let config = record_to_config(&record);
     let manager = ensure_mcp_manager(&state).await;
     manager
         .connect_server(&config)

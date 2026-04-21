@@ -1,5 +1,41 @@
 # DevPilot Development Log
 
+## 2026-04-21 Session — P13: MCP Server Presets
+
+### Goal
+
+Implement MCP server marketplace foundation: fix MCP connect bug, add popular server presets for one-click quick-add.
+
+### P13-1: Fix MCP Connect IPC Bug ✅
+
+**Problem:** Frontend `mcpStore.connect(id)` sends `{ id: "..." }` via IPC, but backend `mcp_connect_server` expected a full `McpServerRecord` struct, causing deserialization failure at runtime.
+
+**Fix:** Changed `mcp_connect_server` Tauri command to accept `id: String` instead of `server: McpServerRecord`. The command now looks up the server record from SQLite via `db.get_mcp_server(&id)`, then converts to `McpServerConfig` and connects.
+
+**File:** `src-tauri/src/commands/mcp.rs`
+
+### P13-2: MCP Server Presets + UI ✅
+
+**Implementation:**
+
+- Added 10 curated MCP server presets in `McpTab` component:
+  - Filesystem, GitHub, Memory, Fetch, PostgreSQL, SQLite, Brave Search, Puppeteer, Sentry, Everything
+- Grid-based preset cards with emoji icons, name, description
+- One-click "Add" button per preset, auto-detects already-added servers
+- Presets section hidden when add/edit form is open
+- Added 24 new i18n keys (EN + CN) for preset names, descriptions, and button labels
+
+**Files:** `src/app/SettingsPage.tsx`, `src/i18n/en.ts`, `src/i18n/zh.ts`
+
+### Quality Gates ✅
+
+- `cargo build` — PASS
+- `cargo clippy` — 0 warnings
+- `cargo test` — all pass (404 tests)
+- `npm run build` — PASS
+
+---
+
 ## 2026-04-21 Session — P11: Split View / Dual Session Polish
 
 ### Goal
