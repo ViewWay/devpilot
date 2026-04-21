@@ -33,6 +33,8 @@ vi.mock("../../stores/tabStore", () => ({
   SETTINGS_TAB_ID: "__settings__",
   SCHEDULED_TAB_ID: "__scheduled__",
   SKILLS_TAB_ID: "__skills__",
+  GALLERY_TAB_ID: "__gallery__",
+  BRIDGE_TAB_ID: "__bridge__",
 }));
 
 describe("Sidebar", () => {
