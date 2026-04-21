@@ -359,7 +359,6 @@ const zh: Record<string, string> = {
   mcpNoCatalogResults: "没有匹配的服务器",
   mcpServersAvailable: "个可用服务器",
   mcpCatalogUpdated: "更新于",
-  refresh: "刷新",
 
   // --- Security ---
   security: "安全",

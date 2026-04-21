@@ -441,6 +441,7 @@ function SidebarContextMenu({
   const deleteSession = useChatStore((s) => s.deleteSession);
   const updateSessionTitle = useChatStore((s) => s.updateSessionTitle);
   const archiveSession = useChatStore((s) => s.archiveSession);
+  const exportSession = useChatStore((s) => s.exportSession);
   const closeTab = useTabStore((s) => s.closeTab);
   const sessions = useChatStore((s) => s.sessions);
   const [renaming, setRenaming] = useState(false);
@@ -501,6 +502,29 @@ function SidebarContextMenu({
       >
         {t("archive")}
       </button>
+
+      {/* Export sub-items */}
+      <div className="my-1 border-t border-[var(--color-border)]" />
+      <button
+        onClick={() => {
+          exportSession(sessionId, "markdown");
+          onClose();
+        }}
+        className="w-full px-3 py-1.5 text-left text-xs text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-hover)]"
+      >
+        {t("exportMarkdown")}
+      </button>
+      <button
+        onClick={() => {
+          exportSession(sessionId, "json");
+          onClose();
+        }}
+        className="w-full px-3 py-1.5 text-left text-xs text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-hover)]"
+      >
+        {t("exportJson")}
+      </button>
+      <div className="my-1 border-t border-[var(--color-border)]" />
+
       <button
         onClick={() => {
           deleteSession(sessionId);

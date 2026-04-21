@@ -51,6 +51,9 @@ import {
   CheckSquare,
   Square,
   FileText,
+  Search,
+  ExternalLink,
+  RefreshCw,
 } from "lucide-react";
 import {
   LineChart,

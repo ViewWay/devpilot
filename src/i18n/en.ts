@@ -359,7 +359,6 @@ const en: Record<string, string> = {
   mcpNoCatalogResults: "No servers match your search",
   mcpServersAvailable: "servers available",
   mcpCatalogUpdated: "Updated",
-  refresh: "Refresh",
 
   // --- Security ---
   security: "Security",
