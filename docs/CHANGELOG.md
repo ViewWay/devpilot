@@ -2,6 +2,21 @@
 
 All notable changes to DevPilot will be documented in this file.
 
+## [0.5.1] — 2026-04-21
+
+### Added
+
+- **Frontend Provider Catalog: Kimi, MiniMax, VolcEngine**
+  - Added Kimi (月之暗面/Moonshot AI) provider with Moonshot V1 8K/32K/128K models
+  - Added MiniMax provider with MiniMax-Text-01 and ABAB 6.5s Chat models
+  - Added VolcEngine (火山引擎/豆包) provider with Doubao 1.5 Pro and Lite models
+  - Updated `mapProviderType()` in `src/lib/utils.ts` to route kimi, minimax, volcengine IDs to correct backend ProviderType
+  - Frontend catalog now matches backend `devpilot-llm/chinese.rs` model definitions (all 11 Chinese providers available)
+
+### Fixed
+
+- Sidebar test missing `GALLERY_TAB_ID` and `BRIDGE_TAB_ID` mocks
+
 ## [0.5.0] — 2026-04-21
 
 ### Added
