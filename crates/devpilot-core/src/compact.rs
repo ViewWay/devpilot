@@ -181,4 +181,106 @@ mod tests {
         assert!(tokens > 0);
         assert!(tokens < 50);
     }
+
+    #[test]
+    fn estimate_tokens_empty_messages() {
+        let tokens = estimate_message_tokens(&[]);
+        assert_eq!(tokens, 0);
+    }
+
+    #[test]
+    fn estimate_tokens_with_tool_use() {
+        let messages = vec![Message {
+            role: MessageRole::Assistant,
+            content: vec![
+                ContentBlock::Text {
+                    text: "Let me check.".into(),
+                },
+                ContentBlock::ToolUse {
+                    id: "tu-1".into(),
+                    name: "read_file".into(),
+                    input: serde_json::json!({"path": "/tmp/test.txt"}),
+                },
+            ],
+            name: None,
+            tool_call_id: None,
+        }];
+        let tokens = estimate_message_tokens(&messages);
+        assert!(tokens > 0);
+    }
+
+    #[test]
+    fn estimate_tokens_with_tool_result() {
+        let messages = vec![Message {
+            role: MessageRole::Tool,
+            content: vec![ContentBlock::ToolResult {
+                tool_use_id: "tu-1".into(),
+                content: "file contents here".into(),
+                is_error: false,
+            }],
+            name: None,
+            tool_call_id: None,
+        }];
+        let tokens = estimate_message_tokens(&messages);
+        assert!(tokens > 0);
+    }
+
+    #[test]
+    fn compact_with_exact_keep_count() {
+        let mut messages: Vec<Message> = (0..5)
+            .map(|i| Message::text(MessageRole::User, format!("msg {i}")))
+            .collect();
+
+        let result = compact_messages(&mut messages, CompactStrategy::Truncate { keep_last: 5 });
+        assert_eq!(result.messages_removed, 0);
+        assert!(!result.summary_added);
+        assert_eq!(messages.len(), 5);
+    }
+
+    #[test]
+    fn compact_truncate_keep_one() {
+        let mut messages: Vec<Message> = (0..10)
+            .map(|i| Message::text(MessageRole::User, format!("msg {i}")))
+            .collect();
+
+        let result = compact_messages(&mut messages, CompactStrategy::Truncate { keep_last: 1 });
+        assert_eq!(result.messages_removed, 9);
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].text_content(), "msg 9");
+    }
+
+    #[test]
+    fn summarize_long_message_truncated_in_summary() {
+        let long_text: String = "x".repeat(300);
+        let mut messages: Vec<Message> = (0..5)
+            .map(|_| Message::text(MessageRole::User, long_text.clone()))
+            .collect();
+
+        let result = compact_messages(&mut messages, CompactStrategy::Summarize { keep_last: 2 });
+        assert_eq!(result.messages_removed, 3);
+        assert!(result.summary_added);
+        // Summary message should contain truncated text (200 chars + ...)
+        let summary_text = messages[0].text_content();
+        assert!(summary_text.contains("[Conversation Summary"));
+    }
+
+    #[test]
+    fn summarize_mixed_roles() {
+        let mut messages: Vec<Message> = vec![
+            Message::text(MessageRole::System, "You are helpful."),
+            Message::text(MessageRole::User, "Hello"),
+            Message::text(MessageRole::Assistant, "Hi there!"),
+            Message::text(MessageRole::User, "How are you?"),
+            Message::text(MessageRole::Assistant, "Great!"),
+        ];
+
+        let result = compact_messages(&mut messages, CompactStrategy::Summarize { keep_last: 2 });
+        assert_eq!(result.messages_removed, 3);
+        assert!(result.summary_added);
+        // Summary should contain role labels
+        let summary = messages[0].text_content();
+        assert!(summary.contains("[User]"));
+        assert!(summary.contains("[Assistant]"));
+        assert!(summary.contains("[System]"));
+    }
 }

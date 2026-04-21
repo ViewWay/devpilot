@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useChatStore } from "../../stores/chatStore";
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
@@ -18,7 +18,7 @@ export function EnvVarsEditor({ sessionId }: { sessionId?: string | null }) {
   );
   const setSessionEnvVars = useChatStore((s) => s.setSessionEnvVars);
 
-  const envVars = session?.envVars ?? [];
+  const envVars = useMemo(() => session?.envVars ?? [], [session?.envVars]);
   const sid = sessionId ?? useChatStore.getState().activeSessionId;
 
   const handleAdd = useCallback(() => {

@@ -40,3 +40,60 @@ pub enum CoreError {
 
 /// Convenience alias.
 pub type CoreResult<T> = Result<T, CoreError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn session_not_found_display() {
+        let err = CoreError::SessionNotFound("sess-123".into());
+        assert_eq!(err.to_string(), "session not found: sess-123");
+    }
+
+    #[test]
+    fn invalid_state_display() {
+        let err = CoreError::InvalidState {
+            expected: "idle".into(),
+            actual: "running".into(),
+        };
+        assert_eq!(
+            err.to_string(),
+            "invalid session state: expected idle, got running"
+        );
+    }
+
+    #[test]
+    fn tool_denied_display() {
+        let err = CoreError::ToolDenied("shell_exec: rm -rf /".into());
+        assert_eq!(err.to_string(), "tool call denied: shell_exec: rm -rf /");
+    }
+
+    #[test]
+    fn max_turns_exceeded_display() {
+        let err = CoreError::MaxTurnsExceeded(50);
+        assert_eq!(err.to_string(), "maximum agent turns exceeded (50)");
+    }
+
+    #[test]
+    fn internal_error_display() {
+        let err = CoreError::Internal("something went wrong".into());
+        assert_eq!(err.to_string(), "something went wrong");
+    }
+
+    #[test]
+    fn json_error_from() {
+        let json_err = serde_json::from_str::<serde_json::Value>("not json");
+        assert!(json_err.is_err());
+        let core_err: CoreError = json_err.unwrap_err().into();
+        assert!(matches!(core_err, CoreError::Json(_)));
+        assert!(core_err.to_string().starts_with("JSON error:"));
+    }
+
+    #[test]
+    fn error_debug_format() {
+        let err = CoreError::SessionNotFound("test".into());
+        let debug_str = format!("{err:?}");
+        assert!(debug_str.contains("SessionNotFound"));
+    }
+}
