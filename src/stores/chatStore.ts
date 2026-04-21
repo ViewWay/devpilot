@@ -617,6 +617,66 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     // Try Tauri backend first, fall back to mock streaming
     const tryTauri = async () => {
+      // Pre-declare cleanup variables so they're accessible in catch block
+      let unlistenChunk = () => {};
+      let unlistenToolStart = () => {};
+      let unlistenToolResult = () => {};
+      let unlistenApproval = () => {};
+      let unlistenDone = () => {};
+      let unlistenTurnDone = () => {};
+      let unlistenError = () => {};
+      let unlistenCompacted = () => {};
+
+      // Streaming buffer declarations (moved outside try for catch access)
+      let textBuffer = "";
+      let thinkingBuffer = "";
+      let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+      const flushStreamBuffers = () => {
+        const text = textBuffer;
+        const think = thinkingBuffer;
+        textBuffer = "";
+        thinkingBuffer = "";
+        flushTimer = null;
+
+        if (!text && !think) { return; }
+
+        const msg = get().sessions.find((s) => s.id === sessionId)
+          ?.messages.find((m) => m.id === assistantMsgId);
+
+        if (think) {
+          updateMessageThinking(
+            sessionId,
+            assistantMsgId,
+            (msg?.thinkingContent ?? "") + think,
+          );
+        }
+        if (text) {
+          updateMessageContent(
+            sessionId,
+            assistantMsgId,
+            (msg?.content as string ?? "") + text,
+            true,
+          );
+        }
+      };
+
+      const cleanup = () => {
+        if (flushTimer) {
+          clearTimeout(flushTimer);
+          flushTimer = null;
+        }
+        flushStreamBuffers();
+        unlistenChunk();
+        unlistenToolStart();
+        unlistenToolResult();
+        unlistenApproval();
+        unlistenTurnDone();
+        unlistenDone();
+        unlistenError();
+        unlistenCompacted();
+      };
+
       try {
         if (!isTauriRuntime()) {
           // Not in Tauri — use mock streaming
@@ -676,71 +736,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         //   "stream-done"         → agent loop finished
         //   "stream-error"        → error occurred
         // We filter by sessionId in the handler.
-        const cleanup = () => {
-          // Flush any remaining buffered text before cleaning up
-          if (flushTimer) {
-            clearTimeout(flushTimer);
-            flushTimer = null;
-          }
-          flushStreamBuffers();
-          unlistenChunk();
-          unlistenToolStart();
-          unlistenToolResult();
-          unlistenApproval();
-          unlistenTurnDone();
-          unlistenDone();
-          unlistenError();
-          unlistenCompacted();
-        };
-
-        let unlistenChunk = () => {};
-        let unlistenToolStart = () => {};
-        let unlistenToolResult = () => {};
-        let unlistenApproval = () => {};
-        let unlistenDone = () => {};
-        let unlistenTurnDone = () => {};
-        let unlistenError = () => {};
-        let unlistenCompacted = () => {};
 
         // Track active tool calls for this session
         const activeToolCalls: Record<string, { msgId: string; startTime: number; toolName?: string; input?: unknown }> = {};
-
-        // ── Streaming buffer for chunk batching ──
-        // Accumulate text/thinking deltas in mutable refs and flush at
-        // ~60 fps (16 ms) to avoid triggering a full Zustand immutable
-        // state tree update on every single SSE chunk (~40-50/sec).
-        let textBuffer = "";
-        let thinkingBuffer = "";
-        let flushTimer: ReturnType<typeof setTimeout> | null = null;
-
-        const flushStreamBuffers = () => {
-          const text = textBuffer;
-          const think = thinkingBuffer;
-          textBuffer = "";
-          thinkingBuffer = "";
-          flushTimer = null;
-
-          if (!text && !think) { return; }
-
-          const msg = get().sessions.find((s) => s.id === sessionId)
-            ?.messages.find((m) => m.id === assistantMsgId);
-
-          if (think) {
-            updateMessageThinking(
-              sessionId,
-              assistantMsgId,
-              (msg?.thinkingContent ?? "") + think,
-            );
-          }
-          if (text) {
-            updateMessageContent(
-              sessionId,
-              assistantMsgId,
-              (msg?.content as string ?? "") + text,
-              true,
-            );
-          }
-        };
 
         const scheduleFlush = () => {
           if (!flushTimer) {
