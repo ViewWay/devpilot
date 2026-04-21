@@ -11,6 +11,7 @@ import {
   persistSetSessionWorkingDir,
   persistSetSessionEnvVars,
   persistAddMessage,
+  persistUpdateMessageContent,
   hydrateSessions,
   type HydratedSession,
 } from "../lib/persistence";
@@ -18,9 +19,16 @@ import { invoke, listen, isTauriRuntime } from "../lib/ipc";
 import { buildSystemPromptWithPersona } from "../lib/systemPrompt";
 import { mapProviderType } from "../lib/utils";
 
-let nextId = 100;
-function genId() {
-  return String(++nextId);
+/**
+ * Generate a unique ID using crypto.randomUUID() to avoid collision
+ * with backend-generated IDs after hydration.
+ * Falls back to timestamp + random for very old browsers.
+ */
+function genId(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
 const MOCK_SESSIONS: Session[] = [
@@ -355,6 +363,8 @@ interface ChatState {
   clearMessages: (sessionId: string) => void;
   updateSessionTitle: (sessionId: string, title: string) => void;
   archiveSession: (id: string) => void;
+  /** Restore an archived session back to active. */
+  unarchiveSession: (id: string) => void;
   setError: (error: string | null) => void;
   /** Abort an in-progress streaming response, cleaning up listeners. */
   abortStreaming: () => void;
@@ -496,7 +506,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           : sess,
       ),
     }));
-    persistAddMessage(sessionId, message.id, msg.role, msg.content ?? "", msg.model);
+    persistAddMessage(sessionId, message.id, msg.role, msg.content ?? "", msg.model, msg.toolCalls);
     return message.id;
   },
 
@@ -677,6 +687,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           unlistenToolStart();
           unlistenToolResult();
           unlistenApproval();
+          unlistenTurnDone();
           unlistenDone();
           unlistenError();
           unlistenCompacted();
@@ -687,6 +698,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         let unlistenToolResult = () => {};
         let unlistenApproval = () => {};
         let unlistenDone = () => {};
+        let unlistenTurnDone = () => {};
         let unlistenError = () => {};
         let unlistenCompacted = () => {};
 
@@ -857,6 +869,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
           },
         );
 
+        // Turn done — emitted after each LLM↔tool iteration in the agent loop.
+        // Persists the current content after each turn so partial progress is saved
+        // even if the agent crashes before the final "done" event.
+        unlistenTurnDone = await listen<{
+          sessionId: string;
+          usage: { inputTokens: number; outputTokens: number };
+          finishReason: string;
+        }>(
+          "stream-turn-done",
+          (payload) => {
+            if (payload.sessionId !== sessionId) { return; }
+            // Persist current streaming content after each agent turn
+            const currentContent =
+              get().sessions.find((s) => s.id === sessionId)
+                ?.messages.find((m) => m.id === assistantMsgId)?.content as string ?? "";
+            persistUpdateMessageContent(sessionId, assistantMsgId, currentContent);
+          },
+        );
+
         unlistenDone = await listen<{
           event: string; sessionId: string;
           usage: { inputTokens: number; outputTokens: number; cacheReadTokens?: number; cacheWriteTokens?: number };
@@ -876,11 +907,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 });
               } catch { /* ignore */ }
             }
-            updateMessageContent(sessionId, assistantMsgId,
-              get().sessions.find((s) => s.id === sessionId)?.messages
-                .find((m) => m.id === assistantMsgId)?.content as string ?? "",
-              false,
-            );
+            // Finalize the streaming message and persist content to backend
+            const finalContent =
+              get().sessions.find((s) => s.id === sessionId)
+                ?.messages.find((m) => m.id === assistantMsgId)?.content as string ?? "";
+            updateMessageContent(sessionId, assistantMsgId, finalContent, false);
+            // Persist final content to SQLite so it survives app restart
+            persistUpdateMessageContent(sessionId, assistantMsgId, finalContent);
             set({ isLoading: false, streamingMessageId: null, _streamCleanup: null });
             cleanup();
           },
@@ -993,6 +1026,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
           : s.activeSessionId,
     }));
     persistArchiveSession(id, true);
+  },
+
+  unarchiveSession: (id) => {
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === id ? { ...sess, archived: false } : sess,
+      ),
+    }));
+    persistArchiveSession(id, false);
   },
 
   setError: (error) => set({ error }),
@@ -1210,6 +1252,7 @@ function convertHydratedSession(hs: HydratedSession): Session {
       model: hm.model,
       timestamp: hm.timestamp,
       streaming: hm.streaming,
+      toolCalls: hm.toolCalls ? JSON.parse(hm.toolCalls) : undefined,
     })),
   };
 }
@@ -1324,14 +1367,20 @@ async function handleSlashCommand(
               >("get_session_messages", { sessionId });
               const session = get().sessions.find((s) => s.id === sessionId);
               if (session) {
-                session.messages = dbMessages.map((m) => ({
+                const updatedMessages = dbMessages.map((m) => ({
                   id: m.id,
                   role: m.role as Message["role"],
                   content: m.content,
                   model: m.model ?? undefined,
                   timestamp: m.createdAt,
                 }));
-                _set({ sessions: [...get().sessions] });
+                _set((s) => ({
+                  sessions: s.sessions.map((sess) =>
+                    sess.id === sessionId
+                      ? { ...sess, messages: updatedMessages, updatedAt: new Date().toISOString() }
+                      : sess,
+                  ),
+                }));
               }
             } catch {
               // Silently ignore reload failure

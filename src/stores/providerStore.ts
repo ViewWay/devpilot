@@ -276,6 +276,7 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
               id: m.id as string,
               name: m.name as string,
               maxTokens: (m.maxInputTokens as number) || 128000,
+              maxOutputTokens: (m.maxOutputTokens as number) || undefined,
               supportsStreaming: (m.supportsStreaming as boolean) ?? true,
               supportsVision: (m.supportsVision as boolean) ?? false,
               inputPrice: m.inputPricePerMillion as number | undefined,

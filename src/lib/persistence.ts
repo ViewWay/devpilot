@@ -125,6 +125,7 @@ export async function persistAddMessage(
   role: string,
   content: string,
   model?: string,
+  toolCalls?: unknown,
 ): Promise<void> {
   if (!isTauriRuntime()) { return; }
   try {
@@ -134,6 +135,7 @@ export async function persistAddMessage(
       role,
       content,
       model: model ?? null,
+      toolCalls: toolCalls ? JSON.stringify(toolCalls) : null,
     });
   } catch (err) {
     reportError(err, "persistence.add_message");
@@ -177,6 +179,8 @@ export interface HydratedMessage {
   model?: string;
   timestamp: string;
   streaming?: boolean;
+  toolCalls?: string; // JSON-serialized tool call data
+  toolCallId?: string;
 }
 
 /**
@@ -224,6 +228,8 @@ export async function hydrateSessions(): Promise<HydratedSession[] | null> {
           content: m.content,
           model: m.model ?? undefined,
           timestamp: m.createdAt,
+          toolCalls: m.toolCalls ?? undefined,
+          toolCallId: m.toolCallId ?? undefined,
         })),
       });
     }
