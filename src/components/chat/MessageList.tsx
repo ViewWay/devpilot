@@ -3,7 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { Bot, Wrench, Sparkles, Code, MessageSquare, Zap, Copy, Check, RefreshCw } from "lucide-react";
-import { useUIStore } from "../../stores/uiStore";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { CodeBlock } from "./CodeBlock";
 import { SandboxBlock } from "./SandboxBlock";
 import { ToolCallList } from "./ToolCallView";
@@ -82,7 +82,7 @@ function EmptyState() {
 
 function SuggestionCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
   const handleClick = () => {
-    const model = useUIStore.getState().selectedModel.id;
+    const model = useSettingsStore.getState().selectedModel.id;
     useChatStore.getState().sendMessage(description, model);
   };
   return (
@@ -138,7 +138,7 @@ function MessageBubble({ message, isLastAssistant }: { message: Message; isLastA
   const { t } = useI18n();
   const isUser = message.role === "user";
   const isTool = message.role === "tool";
-  const fontSize = useUIStore((s) => s.fontSize);
+  const fontSize = useSettingsStore((s) => s.fontSize);
 
   if (isUser) {
     return (

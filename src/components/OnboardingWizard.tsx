@@ -10,7 +10,7 @@
 
 import { useState, useCallback } from "react";
 import { useI18n } from "../i18n";
-import { useUIStore } from "../stores/uiStore";
+import { useSettingsStore } from "../stores/settingsStore";
 import {
   useOnboardingStore,
   nextOnboardingStep,
@@ -98,8 +98,8 @@ export function OnboardingWizard() {
   const { t, locale, setLocale } = useI18n();
   const currentStep = useOnboardingStore((s) => s.currentStep);
   const preferences = useOnboardingStore((s) => s.preferences);
-  const theme = useUIStore((s) => s.theme);
-  const setTheme = useUIStore((s) => s.setTheme);
+  const theme = useSettingsStore((s) => s.theme);
+  const setTheme = useSettingsStore((s) => s.setTheme);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-surface)] p-4">

@@ -1,4 +1,4 @@
-const en: Record<string, string> = {
+const en = {
   // --- Sidebar ---
   newChat: "New Chat",
   recentChats: "Recent",
@@ -726,6 +726,34 @@ const en: Record<string, string> = {
   messageSearchOpen: "open",
   messageSearchClose: "close",
   scMessageSearch: "Search messages",
-};
+
+  // Session templates
+  "template.codeReview": "Code Review",
+  "template.codeReviewDesc": "Systematic code review with security, performance, and readability focus",
+  "template.debugging": "Debugging",
+  "template.debuggingDesc": "Systematic bug investigation and root cause analysis",
+  "template.bugHunter": "Bug Hunter",
+  "template.bugHunterDesc": "Systematically find bugs, analyze root causes, and provide fix proposals",
+  "template.refactoring": "Refactoring",
+  "template.refactoringDesc": "Improve code quality while preserving behavior",
+  "template.testGen": "Test Generation",
+  "template.testGenDesc": "Generate comprehensive unit, integration, and edge case tests",
+  "template.documentation": "Documentation",
+  "template.documentationDesc": "Create API docs, README, and inline documentation",
+  "template.architecture": "Architecture",
+  "template.architectureDesc": "System design analysis and architecture planning",
+  "template.security": "Security Audit",
+  "template.securityDesc": "Identify vulnerabilities and recommend mitigations",
+  "template.performance": "Performance",
+  "template.performanceDesc": "Profile and optimize bottlenecks",
+  "template.gitWorkflow": "Git Workflow",
+  "template.gitWorkflowDesc": "Branch management, conflict resolution, and commit hygiene",
+  "template.blank": "Blank Chat",
+  "template.blankDesc": "Start a blank conversation with no preset",
+  templatePicker: "New from Template",
+  templatePickerDesc: "Choose a template to get started",
+} as const;
+
+export type TranslationKey = keyof typeof en;
 
 export default en;

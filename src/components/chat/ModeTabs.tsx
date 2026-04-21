@@ -1,5 +1,5 @@
 import { useI18n } from "../../i18n";
-import { useUIStore } from "../../stores/uiStore";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { cn } from "../../lib/utils";
 import type { AgentMode } from "../../types";
 
@@ -14,8 +14,8 @@ const MODES: { key: AgentMode; icon: string }[] = [
  */
 export function ModeTabs() {
   const { t } = useI18n();
-  const activeMode = useUIStore((s) => s.activeMode);
-  const setActiveMode = useUIStore((s) => s.setActiveMode);
+  const activeMode = useSettingsStore((s) => s.activeMode);
+  const setActiveMode = useSettingsStore((s) => s.setActiveMode);
 
   return (
     <div

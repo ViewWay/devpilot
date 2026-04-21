@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { useUIStore } from "../../stores/uiStore";
+import { useSettingsStore } from "../../stores/settingsStore";
 
 
 describe("uiStore", () => {
@@ -7,14 +8,16 @@ describe("uiStore", () => {
     // Reset to initial state
     useUIStore.setState({
       sidebarOpen: true,
-      selectedModel: useUIStore.getState().models[0]!,
-      activeMode: "code",
-      reasoningEffort: 50,
       activeView: "chat",
       rightPanel: "none",
       panelSize: 50,
-      theme: "system",
       commandPaletteOpen: false,
+    });
+    useSettingsStore.setState({
+      selectedModel: useSettingsStore.getState().models[0]!,
+      activeMode: "code",
+      reasoningEffort: 50,
+      theme: "system",
     });
   });
 
@@ -37,44 +40,44 @@ describe("uiStore", () => {
 
   describe("model selection", () => {
     it("has default models list", () => {
-      const models = useUIStore.getState().models;
+      const models = useSettingsStore.getState().models;
       expect(models.length).toBeGreaterThanOrEqual(7);
       expect(models[0]!.name).toBe("Claude 4 Sonnet");
     });
 
     it("sets selected model", () => {
-      const glmModel = useUIStore.getState().models.find((m) => m.id === "glm-5")!;
-      useUIStore.getState().setSelectedModel(glmModel);
-      expect(useUIStore.getState().selectedModel.id).toBe("glm-5");
-      expect(useUIStore.getState().selectedModel.provider).toBe("智谱");
+      const glmModel = useSettingsStore.getState().models.find((m) => m.id === "glm-5")!;
+      useSettingsStore.getState().setSelectedModel(glmModel);
+      expect(useSettingsStore.getState().selectedModel.id).toBe("glm-5");
+      expect(useSettingsStore.getState().selectedModel.provider).toBe("智谱");
     });
   });
 
   describe("agent mode", () => {
     it("defaults to code mode", () => {
-      expect(useUIStore.getState().activeMode).toBe("code");
+      expect(useSettingsStore.getState().activeMode).toBe("code");
     });
 
     it("switches between modes", () => {
-      useUIStore.getState().setActiveMode("ask");
-      expect(useUIStore.getState().activeMode).toBe("ask");
-      useUIStore.getState().setActiveMode("plan");
-      expect(useUIStore.getState().activeMode).toBe("plan");
+      useSettingsStore.getState().setActiveMode("ask");
+      expect(useSettingsStore.getState().activeMode).toBe("ask");
+      useSettingsStore.getState().setActiveMode("plan");
+      expect(useSettingsStore.getState().activeMode).toBe("plan");
     });
   });
 
   describe("reasoning effort", () => {
     it("defaults to 50", () => {
-      expect(useUIStore.getState().reasoningEffort).toBe(50);
+      expect(useSettingsStore.getState().reasoningEffort).toBe(50);
     });
 
     it("clamps to 0-100 range", () => {
-      useUIStore.getState().setReasoningEffort(150);
-      expect(useUIStore.getState().reasoningEffort).toBe(100);
-      useUIStore.getState().setReasoningEffort(-50);
-      expect(useUIStore.getState().reasoningEffort).toBe(0);
-      useUIStore.getState().setReasoningEffort(75);
-      expect(useUIStore.getState().reasoningEffort).toBe(75);
+      useSettingsStore.getState().setReasoningEffort(150);
+      expect(useSettingsStore.getState().reasoningEffort).toBe(100);
+      useSettingsStore.getState().setReasoningEffort(-50);
+      expect(useSettingsStore.getState().reasoningEffort).toBe(0);
+      useSettingsStore.getState().setReasoningEffort(75);
+      expect(useSettingsStore.getState().reasoningEffort).toBe(75);
     });
   });
 
@@ -119,14 +122,14 @@ describe("uiStore", () => {
 
   describe("theme", () => {
     it("defaults to system", () => {
-      expect(useUIStore.getState().theme).toBe("system");
+      expect(useSettingsStore.getState().theme).toBe("system");
     });
 
     it("switches themes", () => {
-      useUIStore.getState().setTheme("dark");
-      expect(useUIStore.getState().theme).toBe("dark");
-      useUIStore.getState().setTheme("light");
-      expect(useUIStore.getState().theme).toBe("light");
+      useSettingsStore.getState().setTheme("dark");
+      expect(useSettingsStore.getState().theme).toBe("dark");
+      useSettingsStore.getState().setTheme("light");
+      expect(useSettingsStore.getState().theme).toBe("light");
     });
   });
 

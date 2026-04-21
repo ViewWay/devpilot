@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useI18n } from "../../i18n";
-import { useUIStore } from "../../stores/uiStore";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { cn } from "../../lib/utils";
 import { Brain } from "lucide-react";
 
@@ -19,8 +19,8 @@ export function ReasoningEffort() {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const reasoningEffort = useUIStore((s) => s.reasoningEffort);
-  const setReasoningEffort = useUIStore((s) => s.setReasoningEffort);
+  const reasoningEffort = useSettingsStore((s) => s.reasoningEffort);
+  const setReasoningEffort = useSettingsStore((s) => s.setReasoningEffort);
 
   // Find closest preset for display
   const closest = EFFORT_PRESETS.reduce((prev, curr) =>

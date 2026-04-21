@@ -6,6 +6,7 @@ import { CheckpointPanel } from "./CheckpointPanel";
 import { EnvVarsEditor } from "./EnvVarsEditor";
 import { useChatStore } from "../../stores/chatStore";
 import { useUIStore } from "../../stores/uiStore";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { Loader2, AlertCircle, History, X, ChevronsUpDown } from "lucide-react";
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
@@ -230,8 +231,8 @@ function SecondaryPanelHeader({
 /** Compact system prompt editor for split view panels. */
 function SystemPromptEditorSlim() {
   const [open, setOpen] = useState(false);
-  const systemPrompt = useUIStore((s) => s.systemPrompt);
-  const setSystemPrompt = useUIStore((s) => s.setSystemPrompt);
+  const systemPrompt = useSettingsStore((s) => s.systemPrompt);
+  const setSystemPrompt = useSettingsStore((s) => s.setSystemPrompt);
   const { t } = useI18n();
 
   return (

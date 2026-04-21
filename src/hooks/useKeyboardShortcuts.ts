@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useMemo } from "react";
 import { useUIStore } from "../stores/uiStore";
+import { useSettingsStore } from "../stores/settingsStore";
 import { useChatStore } from "../stores/chatStore";
 import { useShortcutStore, parseCombo, SHORTCUT_DEFINITIONS, type ShortcutAction } from "../stores/shortcutStore";
 import { useTabStore, SETTINGS_TAB_ID } from "../stores/tabStore";
@@ -20,7 +21,7 @@ export function useKeyboardShortcuts() {
   const createSession = useChatStore((s) => s.createSession);
   const setCommandPaletteOpen = useUIStore((s) => s.setCommandPaletteOpen);
   const commandPaletteOpen = useUIStore((s) => s.commandPaletteOpen);
-  const selectedModel = useUIStore((s) => s.selectedModel);
+  const selectedModel = useSettingsStore((s) => s.selectedModel);
   const toggleQuickFileSearch = useUIStore((s) => s.toggleQuickFileSearch);
   const toggleMessageSearch = useUIStore((s) => s.toggleMessageSearch);
   const shortcuts = useShortcutStore((s) => s.shortcuts);

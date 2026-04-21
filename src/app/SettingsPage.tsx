@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useI18n } from "../i18n";
 import { useProviderStore, type Provider, type ModelConfig } from "../stores/providerStore";
 import { useUIStore } from "../stores/uiStore";
+import { useSettingsStore } from "../stores/settingsStore";
 import { useUsageStore, type BudgetPeriod } from "../stores/usageStore";
 import { cn } from "../lib/utils";
 import {
@@ -671,10 +672,10 @@ function DiagnosticReportPanel({ providerId }: { providerId: string }) {
 
 function AppearanceTab() {
   const { t } = useI18n();
-  const theme = useUIStore((s) => s.theme);
-  const setTheme = useUIStore((s) => s.setTheme);
-  const fontSize = useUIStore((s) => s.fontSize);
-  const setFontSize = useUIStore((s) => s.setFontSize);
+  const theme = useSettingsStore((s) => s.theme);
+  const setTheme = useSettingsStore((s) => s.setTheme);
+  const fontSize = useSettingsStore((s) => s.fontSize);
+  const setFontSize = useSettingsStore((s) => s.setFontSize);
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -1547,8 +1548,8 @@ const SANDBOX_POLICIES: { id: "default" | "permissive" | "strict"; labelKey: str
 
 function SecurityTab() {
   const { t } = useI18n();
-  const sandboxPolicy = useUIStore((s) => s.sandboxPolicy);
-  const setSandboxPolicy = useUIStore((s) => s.setSandboxPolicy);
+  const sandboxPolicy = useSettingsStore((s) => s.sandboxPolicy);
+  const setSandboxPolicy = useSettingsStore((s) => s.setSandboxPolicy);
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">

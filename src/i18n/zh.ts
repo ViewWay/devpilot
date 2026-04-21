@@ -1,4 +1,4 @@
-const zh: Record<string, string> = {
+const zh = {
   // --- Sidebar ---
   newChat: "新对话",
   recentChats: "最近",
@@ -726,6 +726,32 @@ const zh: Record<string, string> = {
   messageSearchOpen: "打开",
   messageSearchClose: "关闭",
   scMessageSearch: "搜索消息",
-};
+
+  // Session templates / 会话模板
+  "template.codeReview": "代码审查",
+  "template.codeReviewDesc": "系统性代码审查，关注安全性、性能和可读性",
+  "template.debugging": "调试排错",
+  "template.debuggingDesc": "系统性 Bug 排查和根因分析",
+  "template.bugHunter": "Bug 猎手",
+  "template.bugHunterDesc": "系统性查找 Bug、分析根因并提供修复方案",
+  "template.refactoring": "代码重构",
+  "template.refactoringDesc": "在保持行为不变的前提下提升代码质量",
+  "template.testGen": "测试生成",
+  "template.testGenDesc": "生成全面的单元测试、集成测试和边界用例",
+  "template.documentation": "文档编写",
+  "template.documentationDesc": "创建 API 文档、README 和内联注释",
+  "template.architecture": "架构设计",
+  "template.architectureDesc": "系统设计分析和架构规划",
+  "template.security": "安全审计",
+  "template.securityDesc": "识别安全漏洞并提供修复建议",
+  "template.performance": "性能优化",
+  "template.performanceDesc": "分析性能瓶颈并进行优化",
+  "template.gitWorkflow": "Git 工作流",
+  "template.gitWorkflowDesc": "分支管理、冲突解决和提交规范",
+  "template.blank": "空白对话",
+  "template.blankDesc": "无预设的空白对话",
+  templatePicker: "从模板新建",
+  templatePickerDesc: "选择模板快速开始",
+} as const;
 
 export default zh;

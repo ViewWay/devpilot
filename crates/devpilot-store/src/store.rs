@@ -18,6 +18,7 @@
 //! # }
 //! ```
 
+use crate::StoreError;
 use crate::types::*;
 use anyhow::{Context, Result};
 use rusqlite::Connection;
@@ -213,6 +214,18 @@ impl Store {
                     status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'generating', 'done', 'error')),
                     tags TEXT,
                     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+
+                CREATE TABLE IF NOT EXISTS templates (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    description TEXT NOT NULL DEFAULT '',
+                    icon TEXT NOT NULL DEFAULT '',
+                    system_prompt TEXT NOT NULL DEFAULT '',
+                    default_mode TEXT CHECK(default_mode IN ('code', 'plan', 'ask')),
+                    is_builtin INTEGER NOT NULL DEFAULT 0,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
                 );",
 
             )
@@ -1642,6 +1655,176 @@ impl Store {
 
         Ok(results)
     }
+
+    // ── Templates ──────────────────────────────────────
+
+    /// List all templates (both built-in and user-created), ordered by built-in first, then name.
+    pub fn list_templates(&self) -> Result<Vec<TemplateRecord>> {
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT id, name, description, icon, system_prompt, default_mode, is_builtin, created_at, updated_at FROM templates ORDER BY is_builtin DESC, name ASC",
+            )
+            .context("Failed to prepare list_templates query")?;
+
+        let rows = stmt
+            .query_map([], |row| {
+                Ok(TemplateRecord {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    description: row.get(2)?,
+                    icon: row.get(3)?,
+                    system_prompt: row.get(4)?,
+                    default_mode: row.get(5)?,
+                    is_builtin: row.get::<_, i32>(6)? != 0,
+                    created_at: row.get(7)?,
+                    updated_at: row.get(8)?,
+                })
+            })
+            .context("Failed to query templates")?;
+
+        let mut templates = Vec::new();
+        for row in rows {
+            templates.push(row.context("Failed to read template row")?);
+        }
+        Ok(templates)
+    }
+
+    /// Get a single template by ID.
+    pub fn get_template(&self, id: &str) -> Result<TemplateRecord> {
+        self.conn
+            .query_row(
+                "SELECT id, name, description, icon, system_prompt, default_mode, is_builtin, created_at, updated_at FROM templates WHERE id = ?1",
+                rusqlite::params![id],
+                |row| {
+                    Ok(TemplateRecord {
+                        id: row.get(0)?,
+                        name: row.get(1)?,
+                        description: row.get(2)?,
+                        icon: row.get(3)?,
+                        system_prompt: row.get(4)?,
+                        default_mode: row.get(5)?,
+                        is_builtin: row.get::<_, i32>(6)? != 0,
+                        created_at: row.get(7)?,
+                        updated_at: row.get(8)?,
+                    })
+                },
+            )
+            .context("Template not found")
+    }
+
+    /// Create a new user template. Returns the created template.
+    pub fn create_template(
+        &self,
+        id: &str,
+        name: &str,
+        description: &str,
+        icon: &str,
+        system_prompt: &str,
+        default_mode: Option<&str>,
+    ) -> Result<TemplateRecord> {
+        self.conn
+            .execute(
+                "INSERT INTO templates (id, name, description, icon, system_prompt, default_mode, is_builtin) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0)",
+                rusqlite::params![id, name, description, icon, system_prompt, default_mode],
+            )
+            .context("Failed to create template")?;
+
+        self.get_template(id)
+    }
+
+    /// Update a template. For built-in templates, only `system_prompt` can be modified.
+    pub fn update_template(
+        &self,
+        id: &str,
+        name: Option<&str>,
+        description: Option<&str>,
+        icon: Option<&str>,
+        system_prompt: Option<&str>,
+        default_mode: Option<&str>,
+    ) -> Result<()> {
+        let template = self.get_template(id)?;
+
+        // For built-in templates, only system_prompt can be updated
+        if template.is_builtin {
+            if let Some(prompt) = system_prompt {
+                self.conn
+                    .execute(
+                        "UPDATE templates SET system_prompt = ?1, updated_at = datetime('now') WHERE id = ?2",
+                        rusqlite::params![prompt, id],
+                    )
+                    .context("Failed to update built-in template system_prompt")?;
+            }
+            return Ok(());
+        }
+
+        // User templates: all fields are updatable
+        let name = name.unwrap_or(&template.name);
+        let description = description.unwrap_or(&template.description);
+        let icon = icon.unwrap_or(&template.icon);
+        let system_prompt = system_prompt.unwrap_or(&template.system_prompt);
+        let default_mode = default_mode.or(template.default_mode.as_deref());
+
+        self.conn
+            .execute(
+                "UPDATE templates SET name = ?1, description = ?2, icon = ?3, system_prompt = ?4, default_mode = ?5, updated_at = datetime('now') WHERE id = ?6",
+                rusqlite::params![name, description, icon, system_prompt, default_mode, id],
+            )
+            .context("Failed to update template")?;
+
+        Ok(())
+    }
+
+    /// Delete a user template. Built-in templates cannot be deleted.
+    pub fn delete_template(&self, id: &str) -> Result<()> {
+        let template = self.get_template(id)?;
+        if template.is_builtin {
+            return Err(
+                StoreError::Migration(format!("Cannot delete built-in template: {}", id)).into(),
+            );
+        }
+
+        self.conn
+            .execute("DELETE FROM templates WHERE id = ?1", rusqlite::params![id])
+            .context("Failed to delete template")?;
+
+        Ok(())
+    }
+
+    /// Check if built-in templates have been initialized.
+    /// Returns true if at least one built-in template exists.
+    pub fn has_builtin_templates(&self) -> Result<bool> {
+        let count: i64 = self
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM templates WHERE is_builtin = 1",
+                [],
+                |row| row.get(0),
+            )
+            .context("Failed to count built-in templates")?;
+
+        Ok(count > 0)
+    }
+
+    /// Insert a built-in template (used during first-time initialization).
+    pub fn insert_builtin_template(
+        &self,
+        id: &str,
+        name: &str,
+        description: &str,
+        icon: &str,
+        system_prompt: &str,
+        default_mode: Option<&str>,
+    ) -> Result<()> {
+        self.conn
+            .execute(
+                "INSERT OR IGNORE INTO templates (id, name, description, icon, system_prompt, default_mode, is_builtin) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1)",
+                rusqlite::params![id, name, description, icon, system_prompt, default_mode],
+            )
+            .context("Failed to insert built-in template")?;
+
+        Ok(())
+    }
 }
 
 /// Helper to read a search result row from the database.
@@ -2648,5 +2831,215 @@ mod tests {
         assert_eq!(msgs[0].token_input, 500);
         assert_eq!(msgs[0].token_output, 100);
         assert!((msgs[0].cost_usd - 0.02).abs() < f64::EPSILON);
+    }
+
+    // ── Template tests ──────────────────────────────────
+
+    #[test]
+    fn test_template_crud() {
+        let store = test_store();
+
+        // Create a user template
+        let template = store
+            .create_template(
+                "my-template",
+                "My Template",
+                "A custom template",
+                "🚀",
+                "You are a helpful assistant.",
+                Some("code"),
+            )
+            .unwrap();
+
+        assert_eq!(template.id, "my-template");
+        assert_eq!(template.name, "My Template");
+        assert_eq!(template.icon, "🚀");
+        assert_eq!(template.default_mode.as_deref(), Some("code"));
+        assert!(!template.is_builtin);
+
+        // List
+        let templates = store.list_templates().unwrap();
+        assert_eq!(templates.len(), 1);
+        assert_eq!(templates[0].id, "my-template");
+
+        // Get
+        let got = store.get_template("my-template").unwrap();
+        assert_eq!(got.system_prompt, "You are a helpful assistant.");
+
+        // Update
+        store
+            .update_template(
+                "my-template",
+                Some("Updated Template"),
+                Some("Updated description"),
+                Some("✨"),
+                Some("Updated prompt"),
+                Some("plan"),
+            )
+            .unwrap();
+        let got = store.get_template("my-template").unwrap();
+        assert_eq!(got.name, "Updated Template");
+        assert_eq!(got.description, "Updated description");
+        assert_eq!(got.icon, "✨");
+        assert_eq!(got.system_prompt, "Updated prompt");
+        assert_eq!(got.default_mode.as_deref(), Some("plan"));
+
+        // Delete
+        store.delete_template("my-template").unwrap();
+        let templates = store.list_templates().unwrap();
+        assert!(templates.is_empty());
+    }
+
+    #[test]
+    fn test_builtin_template_cannot_be_deleted() {
+        let store = test_store();
+
+        // Insert a built-in template
+        store
+            .insert_builtin_template(
+                "code-review",
+                "Code Review",
+                "Review code for issues",
+                "🔍",
+                "You are a code reviewer.",
+                Some("ask"),
+            )
+            .unwrap();
+
+        // Verify it's marked as built-in
+        let template = store.get_template("code-review").unwrap();
+        assert!(template.is_builtin);
+
+        // Try to delete — should fail
+        let result = store.delete_template("code-review");
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Cannot delete built-in")
+        );
+
+        // Template should still exist
+        let templates = store.list_templates().unwrap();
+        assert_eq!(templates.len(), 1);
+    }
+
+    #[test]
+    fn test_builtin_template_only_system_prompt_updatable() {
+        let store = test_store();
+
+        store
+            .insert_builtin_template(
+                "debugging",
+                "Debugging",
+                "Debug assistant",
+                "🐛",
+                "You are a debugger.",
+                Some("code"),
+            )
+            .unwrap();
+
+        // Update system_prompt — should work
+        store
+            .update_template("debugging", None, None, None, Some("New prompt."), None)
+            .unwrap();
+        let got = store.get_template("debugging").unwrap();
+        assert_eq!(got.system_prompt, "New prompt.");
+        // Name/description/icon should remain unchanged
+        assert_eq!(got.name, "Debugging");
+        assert_eq!(got.icon, "🐛");
+
+        // Update name on built-in — should be ignored (only system_prompt changes)
+        store
+            .update_template("debugging", Some("New Name"), None, None, None, None)
+            .unwrap();
+        let got = store.get_template("debugging").unwrap();
+        assert_eq!(got.name, "Debugging"); // unchanged
+    }
+
+    #[test]
+    fn test_has_builtin_templates() {
+        let store = test_store();
+        assert!(!store.has_builtin_templates().unwrap());
+
+        store
+            .insert_builtin_template("blank", "Blank", "Empty template", "💬", "", None)
+            .unwrap();
+        assert!(store.has_builtin_templates().unwrap());
+    }
+
+    #[test]
+    fn test_builtin_template_insert_or_ignore() {
+        let store = test_store();
+
+        // Insert first time
+        store
+            .insert_builtin_template("blank", "Blank", "Empty", "💬", "", None)
+            .unwrap();
+
+        // Insert again with same ID — should be ignored (INSERT OR IGNORE)
+        store
+            .insert_builtin_template("blank", "Blank v2", "Updated", "📝", "prompt", Some("plan"))
+            .unwrap();
+
+        let got = store.get_template("blank").unwrap();
+        assert_eq!(got.name, "Blank"); // still original
+        assert_eq!(got.description, "Empty");
+        assert_eq!(got.system_prompt, "");
+    }
+
+    #[test]
+    fn test_template_not_found() {
+        let store = test_store();
+        let result = store.get_template("nonexistent");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_template_ordering_builtin_first() {
+        let store = test_store();
+
+        // Create a user template first
+        store
+            .create_template(
+                "user-tpl",
+                "User Template",
+                "desc",
+                "🎯",
+                "prompt",
+                Some("code"),
+            )
+            .unwrap();
+
+        // Insert a built-in template
+        store
+            .insert_builtin_template(
+                "builtin-tpl",
+                "Builtin Template",
+                "desc",
+                "🔧",
+                "prompt",
+                Some("ask"),
+            )
+            .unwrap();
+
+        // Another user template
+        store
+            .create_template("aaa-user", "AAA User", "desc", "⭐", "prompt", Some("plan"))
+            .unwrap();
+
+        let templates = store.list_templates().unwrap();
+        assert_eq!(templates.len(), 3);
+
+        // Built-in should come first
+        assert!(templates[0].is_builtin);
+        assert_eq!(templates[0].id, "builtin-tpl");
+
+        // User templates sorted by name
+        assert!(!templates[1].is_builtin);
+        assert_eq!(templates[1].id, "aaa-user");
+        assert!(!templates[2].is_builtin);
+        assert_eq!(templates[2].id, "user-tpl");
     }
 }

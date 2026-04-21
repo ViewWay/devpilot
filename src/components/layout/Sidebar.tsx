@@ -2,8 +2,11 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useI18n } from "../../i18n";
 import { useChatStore } from "../../stores/chatStore";
 import { useUIStore } from "../../stores/uiStore";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { useTabStore, SETTINGS_TAB_ID, SCHEDULED_TAB_ID, SKILLS_TAB_ID, GALLERY_TAB_ID, BRIDGE_TAB_ID } from "../../stores/tabStore";
-import { Package, ImageIcon, Radio } from "lucide-react";
+import { Package, ImageIcon, Radio, ChevronDown } from "lucide-react";
+import { SESSION_TEMPLATES } from "../../lib/sessionTemplates";
+import type { SessionTemplate } from "../../lib/sessionTemplates";
 
 type TimeGroup = "today" | "yesterday" | "last7days" | "last30days" | "older";
 
@@ -14,11 +17,13 @@ export function Sidebar() {
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const createSession = useChatStore((s) => s.createSession);
-  const selectedModel = useUIStore((s) => s.selectedModel);
+  const selectedModel = useSettingsStore((s) => s.selectedModel);
   const openTab = useTabStore((s) => s.openTab);
   const activeTabId = useTabStore((s) => s.activeTabId);
   const [searchQuery, setSearchQuery] = useState("");
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
+  const templateMenuRef = useRef<HTMLDivElement>(null);
 
   // Close context menu on outside click
   useEffect(() => {
@@ -27,6 +32,24 @@ export function Sidebar() {
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
   }, [contextMenu]);
+
+  // Close template menu on outside click
+  useEffect(() => {
+    if (!templateMenuOpen) { return; }
+    const close = (e: MouseEvent) => {
+      if (templateMenuRef.current && !templateMenuRef.current.contains(e.target as Node)) {
+        setTemplateMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [templateMenuOpen]);
+
+  // Close template menu when sidebar closes
+  useEffect(() => {
+    if (!templateMenuOpen || sidebarOpen) { return; }
+    setTemplateMenuOpen(false);
+  }, [templateMenuOpen, sidebarOpen]);
 
   // Close context menu when sidebar closes
   useEffect(() => {
@@ -86,18 +109,78 @@ export function Sidebar() {
 
       {/* New Session + Scheduled buttons */}
       <div className={`px-3 pb-3 flex flex-col ${sidebarOpen ? "gap-0.5" : "items-center gap-2"}`}>
-        <NavItem
-          active={false}
-          collapsed={!sidebarOpen}
-          label={t("newChat")}
-          onClick={() => {
-            const id = createSession(selectedModel.name, selectedModel.provider);
-            openTab(id, t("newChat"), "session");
-          }}
-          icon={<PlusIcon />}
-        >
-          {t("newChat")}
-        </NavItem>
+        {/* New Chat with template dropdown */}
+        <div ref={templateMenuRef} className="relative">
+          <div className="flex">
+            <button
+              onClick={() => {
+                const id = createSession(selectedModel.name, selectedModel.provider);
+                openTab(id, t("newChat"), "session");
+              }}
+              aria-label={t("newChat")}
+              title={!sidebarOpen ? t("newChat") : undefined}
+              className={`
+                flex items-center rounded-[var(--radius-md)] transition-all duration-200
+                ${!sidebarOpen ? "h-10 w-10 justify-center px-0 py-0" : "gap-2.5 px-3 py-2 text-sm"}
+                text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]
+              `}
+            >
+              <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">
+                <PlusIcon />
+              </span>
+              <span className={`sidebar-copy ${!sidebarOpen ? "sidebar-copy--hidden" : "sidebar-copy--visible"}`}>
+                {t("newChat")}
+              </span>
+            </button>
+            {sidebarOpen && (
+              <button
+                onClick={() => setTemplateMenuOpen((v) => !v)}
+                aria-label={t("templatePicker")}
+                className={`
+                  flex items-center justify-center rounded-[var(--radius-md)] transition-all duration-200
+                  px-1.5 py-2 text-sm
+                  ${templateMenuOpen
+                    ? "bg-[var(--color-surface-selected)] text-[var(--color-text-primary)]"
+                    : "text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-secondary)]"
+                  }
+                `}
+              >
+                <ChevronDown size={14} className={`transition-transform duration-150 ${templateMenuOpen ? "rotate-180" : ""}`} />
+              </button>
+            )}
+          </div>
+
+          {/* Template dropdown menu */}
+          {templateMenuOpen && sidebarOpen && (
+            <div
+              className="absolute top-full left-0 right-0 mt-1 z-50 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg overflow-hidden"
+              role="menu"
+              aria-label={t("templatePicker")}
+            >
+              <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)] border-b border-[var(--color-border)]/40">
+                {t("templatePicker")}
+              </div>
+              <div className="max-h-[320px] overflow-y-auto py-1">
+                {SESSION_TEMPLATES.map((tmpl) => (
+                  <TemplateMenuItem
+                    key={tmpl.id}
+                    template={tmpl}
+                    t={t}
+                    onSelect={() => {
+                      setTemplateMenuOpen(false);
+                      const id = createSession(selectedModel.name, selectedModel.provider);
+                      openTab(id, t(tmpl.nameKey), "session");
+                      // Set the system prompt from the template
+                      if (tmpl.systemPrompt) {
+                        useSettingsStore.getState().setSystemPrompt(tmpl.systemPrompt);
+                      }
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
         <NavItem
           active={activeTabId === SCHEDULED_TAB_ID}
           collapsed={!sidebarOpen}
@@ -421,6 +504,38 @@ function SidebarSessionItem({
         </span>
       </button>
     </div>
+  );
+}
+
+/* ─── Template menu item ───────────────────────────────────── */
+
+function TemplateMenuItem({
+  template,
+  t,
+  onSelect,
+}: {
+  template: SessionTemplate;
+  t: (key: string) => string;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      role="menuitem"
+      onClick={onSelect}
+      className="w-full flex items-start gap-2.5 px-3 py-2 text-left transition-colors duration-150 hover:bg-[var(--color-surface-hover)]"
+    >
+      <span className="flex-shrink-0 text-base leading-5 mt-0.5">{template.icon}</span>
+      <div className="min-w-0 flex-1">
+        <div className="text-xs font-medium text-[var(--color-text-primary)] truncate">
+          {t(template.nameKey)}
+        </div>
+        {template.descKey && (
+          <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)] leading-tight line-clamp-2">
+            {t(template.descKey)}
+          </div>
+        )}
+      </div>
+    </button>
   );
 }
 

@@ -1,17 +1,8 @@
 import { create } from "zustand";
-import type { ModelInfo, AgentMode } from "../types";
 
-const DEFAULT_MODELS: ModelInfo[] = [
-  { id: "claude-4-sonnet", name: "Claude 4 Sonnet", provider: "Anthropic", color: "bg-orange-500" },
-  { id: "gpt-5.2", name: "GPT-5.2", provider: "OpenAI", color: "bg-emerald-500" },
-  { id: "glm-5", name: "GLM-5", provider: "智谱", color: "bg-[var(--color-brand)]" },
-  { id: "deepseek-v3", name: "DeepSeek V3", provider: "DeepSeek", color: "bg-violet-500" },
-  { id: "qwen-max", name: "通义千问 Max", provider: "阿里云", color: "bg-purple-500" },
-  { id: "gemini-3-pro", name: "Gemini 3 Pro", provider: "Google", color: "bg-red-500" },
-  { id: "ollama-llama4", name: "Llama 4 (local)", provider: "Ollama", color: "bg-[var(--color-outline)]" },
-];
+// Re-export Theme for backward compatibility
+export type { Theme } from "./settingsStore";
 
-export type Theme = "dark" | "light" | "system";
 export type ActiveView = "chat" | "settings" | "scheduler" | "gallery";
 export type RightPanel = "none" | "files" | "terminal" | "preview";
 
@@ -19,16 +10,6 @@ interface UIState {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
-
-  selectedModel: ModelInfo;
-  models: ModelInfo[];
-  setSelectedModel: (model: ModelInfo) => void;
-
-  activeMode: AgentMode;
-  setActiveMode: (mode: AgentMode) => void;
-
-  reasoningEffort: number; // 0-100, default 50
-  setReasoningEffort: (effort: number) => void;
 
   activeView: ActiveView;
   setActiveView: (view: ActiveView) => void;
@@ -40,9 +21,6 @@ interface UIState {
   panelSize: number; // percentage 20-80, default 50
   setPanelSize: (size: number) => void;
 
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
-
   commandPaletteOpen: boolean;
   setCommandPaletteOpen: (open: boolean) => void;
   toggleCommandPalette: () => void;
@@ -50,17 +28,8 @@ interface UIState {
   workingDir: string;
   setWorkingDir: (dir: string) => void;
 
-  systemPrompt: string;
-  setSystemPrompt: (prompt: string) => void;
-
   previewFile: string;
   setPreviewFile: (path: string) => void;
-
-  fontSize: number; // 12-18, default 14
-  setFontSize: (size: number) => void;
-
-  sandboxPolicy: "default" | "permissive" | "strict";
-  setSandboxPolicy: (policy: "default" | "permissive" | "strict") => void;
 
   // Diff data for PreviewPanel — populated from apply_patch tool results
   diffData: { original: string; modified: string; language: string } | null;
@@ -110,16 +79,6 @@ export const useUIStore = create<UIState>((set, get) => ({
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
 
-  selectedModel: DEFAULT_MODELS[0]!,
-  models: DEFAULT_MODELS,
-  setSelectedModel: (model) => set({ selectedModel: model }),
-
-  activeMode: "code",
-  setActiveMode: (mode) => set({ activeMode: mode }),
-
-  reasoningEffort: 50,
-  setReasoningEffort: (effort) => set({ reasoningEffort: Math.max(0, Math.min(100, effort)) }),
-
   activeView: "chat",
   setActiveView: (view) => set({ activeView: view }),
 
@@ -131,9 +90,6 @@ export const useUIStore = create<UIState>((set, get) => ({
   panelSize: 50,
   setPanelSize: (size) => set({ panelSize: Math.max(20, Math.min(80, size)) }),
 
-  theme: "system",
-  setTheme: (theme) => set({ theme }),
-
   commandPaletteOpen: false,
   setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
   toggleCommandPalette: () => set((s) => ({ commandPaletteOpen: !s.commandPaletteOpen })),
@@ -141,17 +97,8 @@ export const useUIStore = create<UIState>((set, get) => ({
   workingDir: "",
   setWorkingDir: (dir) => set({ workingDir: dir }),
 
-  systemPrompt: "",
-  setSystemPrompt: (prompt) => set({ systemPrompt: prompt }),
-
   previewFile: "",
   setPreviewFile: (path: string) => set({ previewFile: path }),
-
-  fontSize: 14,
-  setFontSize: (size: number) => set({ fontSize: Math.max(12, Math.min(18, size)) }),
-
-  sandboxPolicy: "default",
-  setSandboxPolicy: (policy) => set({ sandboxPolicy: policy }),
 
   diffData: null,
   setDiffData: (data) => set({ diffData: data }),

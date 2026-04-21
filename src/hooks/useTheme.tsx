@@ -1,5 +1,5 @@
 import { useEffect, useCallback, type ReactNode } from "react";
-import { useUIStore, type Theme } from "../stores/uiStore";
+import { useSettingsStore, type Theme } from "../stores/settingsStore";
 
 /**
  * Resolves "system" theme to actual "dark" or "light" based on OS preference.
@@ -23,8 +23,8 @@ function applyThemeClass(resolved: "dark" | "light") {
  * Wraps the app in main.tsx. Listens to system preference changes when theme is "system".
  */
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const theme = useUIStore((s) => s.theme);
-  const setTheme = useUIStore((s) => s.setTheme);
+  const theme = useSettingsStore((s) => s.theme);
+  const setTheme = useSettingsStore((s) => s.setTheme);
 
   // Apply theme class whenever theme changes
   useEffect(() => {
@@ -61,8 +61,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
  * Hook to cycle theme: dark -> light -> system -> dark ...
  */
 export function useThemeCycle() {
-  const theme = useUIStore((s) => s.theme);
-  const setTheme = useUIStore((s) => s.setTheme);
+  const theme = useSettingsStore((s) => s.theme);
+  const setTheme = useSettingsStore((s) => s.setTheme);
 
   const cycleTheme = useCallback(() => {
     const order: Theme[] = ["dark", "light", "system"];

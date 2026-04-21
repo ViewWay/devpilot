@@ -5,6 +5,7 @@ import { ApprovalQueue } from "./ApprovalOverlay";
 import { CheckpointPanel } from "./CheckpointPanel";
 import { SessionPanelView } from "./SessionPanelView";
 import { useChatStore } from "../../stores/chatStore";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { useUIStore } from "../../stores/uiStore";
 import { SplitView } from "../layout/SplitView";
 import { DualSessionSplitView } from "../layout/DualSessionSplitView";
@@ -58,8 +59,8 @@ function ChatContent() {
 /** Collapsible system prompt editor above the message input. */
 function SystemPromptEditor() {
   const [open, setOpen] = useState(false);
-  const systemPrompt = useUIStore((s) => s.systemPrompt);
-  const setSystemPrompt = useUIStore((s) => s.setSystemPrompt);
+  const systemPrompt = useSettingsStore((s) => s.systemPrompt);
+  const setSystemPrompt = useSettingsStore((s) => s.setSystemPrompt);
   const { t } = useI18n();
 
   return (

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ModeTabs } from "../../components/chat/ModeTabs";
-import { useUIStore } from "../../stores/uiStore";
+import { useSettingsStore } from "../../stores/settingsStore";
 
 // Mock useI18n
 vi.mock("../../i18n", () => ({
@@ -13,7 +13,7 @@ vi.mock("../../i18n", () => ({
 describe("ModeTabs", () => {
   beforeEach(() => {
     // Reset to default mode
-    useUIStore.setState({ activeMode: "code" });
+    useSettingsStore.setState({ activeMode: "code" });
   });
 
   it("renders all three mode buttons", () => {
@@ -46,12 +46,12 @@ describe("ModeTabs", () => {
 
   it("updates global store on mode switch", () => {
     render(<ModeTabs />);
-    expect(useUIStore.getState().activeMode).toBe("code");
+    expect(useSettingsStore.getState().activeMode).toBe("code");
 
     const askButton = screen.getByRole("radio", { name: /ask/i });
     fireEvent.click(askButton);
 
-    expect(useUIStore.getState().activeMode).toBe("ask");
+    expect(useSettingsStore.getState().activeMode).toBe("ask");
   });
 
   it("renders all mode icons", () => {

@@ -118,6 +118,25 @@ pub struct McpServerRecord {
     pub created_at: String,
 }
 
+// ── Template types ──────────────────────────────────────
+
+/// Template record for session templates.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TemplateRecord {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub icon: String,
+    pub system_prompt: String,
+    /// "code" | "plan" | "ask"
+    pub default_mode: Option<String>,
+    /// true = built-in template (cannot be deleted)
+    pub is_builtin: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
 // ── Phase 5: Bridge, Scheduler, Media types ─────────────
 
 /// Bridge channel record for persistent bridge configuration.

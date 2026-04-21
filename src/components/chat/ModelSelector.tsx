@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useI18n } from "../../i18n";
-import { useUIStore } from "../../stores/uiStore";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { ChevronDown, Check } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -12,9 +12,9 @@ export function ModelSelector() {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const selectedModel = useUIStore((s) => s.selectedModel);
-  const models = useUIStore((s) => s.models);
-  const setSelectedModel = useUIStore((s) => s.setSelectedModel);
+  const selectedModel = useSettingsStore((s) => s.selectedModel);
+  const models = useSettingsStore((s) => s.models);
+  const setSelectedModel = useSettingsStore((s) => s.setSelectedModel);
 
   // Close on outside click
   useEffect(() => {

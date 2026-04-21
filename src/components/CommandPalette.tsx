@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useUIStore } from "../stores/uiStore";
+import { useSettingsStore } from "../stores/settingsStore";
 import { useChatStore } from "../stores/chatStore";
 import { useI18n } from "../i18n";
 import {
@@ -24,11 +25,11 @@ export function CommandPalette() {
   const setOpen = useUIStore((s) => s.setCommandPaletteOpen);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const toggleRightPanel = useUIStore((s) => s.toggleRightPanel);
-  const theme = useUIStore((s) => s.theme);
-  const setTheme = useUIStore((s) => s.setTheme);
+  const theme = useSettingsStore((s) => s.theme);
+  const setTheme = useSettingsStore((s) => s.setTheme);
   const setActiveView = useUIStore((s) => s.setActiveView);
   const toggleMessageSearch = useUIStore((s) => s.toggleMessageSearch);
-  const selectedModel = useUIStore((s) => s.selectedModel);
+  const selectedModel = useSettingsStore((s) => s.selectedModel);
   const createSession = useChatStore((s) => s.createSession);
   const sessions = useChatStore((s) => s.sessions);
   const activeSessionId = useChatStore((s) => s.activeSessionId);

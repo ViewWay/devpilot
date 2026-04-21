@@ -3,6 +3,7 @@ import type { Session, Message, ApprovalRequest, AttachmentIPC, MessageSearchRes
 import { useUsageStore } from "./usageStore";
 import { useProviderStore } from "./providerStore";
 import { useUIStore } from "./uiStore";
+import { useSettingsStore } from "./settingsStore";
 import {
   persistCreateSession,
   persistDeleteSession,
@@ -320,7 +321,7 @@ function mockStreamReply(
       useUsageStore.getState().recordUsage({
         sessionId,
         model,
-        provider: useUIStore.getState().selectedModel.provider ?? "",
+        provider: useSettingsStore.getState().selectedModel.provider ?? "",
         inputText: content,
         outputText: replyContent,
       });
@@ -720,7 +721,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }));
 
         // Inject system prompt with persona data (SOUL/USER/MEMORY.md)
-        const customPrompt = useUIStore.getState().systemPrompt;
+        const customPrompt = useSettingsStore.getState().systemPrompt;
         const workspaceDir = useUIStore.getState().workingDir || "";
         const systemPrompt = await buildSystemPromptWithPersona(workspaceDir, customPrompt);
         messages.unshift({ role: "system", content: [{ type: "text" as const, text: systemPrompt }] });
@@ -971,7 +972,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
         // NOW start streaming — listeners are already registered
         const workingDir = useUIStore.getState().workingDir || undefined;
-        const { activeMode, reasoningEffort } = useUIStore.getState();
+        const { activeMode, reasoningEffort } = useSettingsStore.getState();
         await invoke("send_message_stream", {
           provider: providerConfig,
           chatRequest: { model, messages, stream: true },
@@ -1294,7 +1295,7 @@ async function handleSlashCommand(
       get().clearMessages(sessionId);
       break;
     case "/model": {
-      const models = useUIStore.getState().models;
+      const models = useSettingsStore.getState().models;
       if (!args) {
         const list = models
           .map((m) => `- ${m.name} (${m.provider})`)
@@ -1315,7 +1316,7 @@ async function handleSlashCommand(
           m.provider.toLowerCase() === argLower,
       );
       if (matched) {
-        useUIStore.getState().setSelectedModel(matched);
+        useSettingsStore.getState().setSelectedModel(matched);
         get().addMessage(sessionId, {
           role: "assistant",
           content: `Switched model to **${matched.name}** (${matched.provider}).`,

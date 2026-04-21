@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ModelSelector } from "../../components/chat/ModelSelector";
-import { useUIStore } from "../../stores/uiStore";
+import { useSettingsStore } from "../../stores/settingsStore";
 
 // Mock useI18n
 vi.mock("../../i18n", () => ({
@@ -18,7 +18,7 @@ const defaultModels = [
 
 describe("ModelSelector", () => {
   beforeEach(() => {
-    useUIStore.setState({
+    useSettingsStore.setState({
       selectedModel: defaultModels[0],
       models: defaultModels,
     });
@@ -79,7 +79,7 @@ describe("ModelSelector", () => {
     fireEvent.click(gptOption);
 
     // Store should update
-    expect(useUIStore.getState().selectedModel.id).toBe("gpt-4o");
+    expect(useSettingsStore.getState().selectedModel.id).toBe("gpt-4o");
   });
 
   it("shows provider labels for each model", () => {

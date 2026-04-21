@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useI18n } from "../../i18n";
 import { useChatStore } from "../../stores/chatStore";
-import { useUIStore } from "../../stores/uiStore";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { ModelSelector } from "./ModelSelector";
 import { ModeTabs } from "./ModeTabs";
 import { ReasoningEffort } from "./ReasoningEffort";
@@ -104,7 +104,7 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
   const isLoading = useChatStore((s) => s.isLoading);
   const streamingMessageId = useChatStore((s) => s.streamingMessageId);
   const isStreaming = !!streamingMessageId;
-  const selectedModel = useUIStore((s) => s.selectedModel);
+  const selectedModel = useSettingsStore((s) => s.selectedModel);
   const sendMessage = useChatStore((s) => s.sendMessage);
   const setActiveSession = useChatStore((s) => s.setActiveSession);
 
