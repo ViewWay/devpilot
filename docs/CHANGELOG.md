@@ -2,6 +2,22 @@
 
 All notable changes to DevPilot will be documented in this file.
 
+## [0.5.3] — 2026-04-21
+
+### Added
+
+- **Test Coverage Improvements**
+  - 4 new frontend test files: ThinkingBlock (3 tests), ToastContainer (6 tests), systemPrompt (12 tests), utils (28 tests)
+  - 12 new Rust tests for `LlmError` (is_retryable + display_message coverage)
+  - Total test count: 374 frontend + 430 Rust = 804 tests passing
+  - Frontend test suite: 24 files, 0 failures
+
+### Fixed
+
+- Fix `advanceTimersByTime` TypeScript error in ToastContainer test — replaced with store-based dismiss test
+- Fix unused imports (`beforeEach`, `userEvent`) in test files — clean `tsc -b` + ESLint pass
+- Fix `no-constant-binary-expression` ESLint error in utils test
+
 ## [0.5.2] — 2026-04-21
 
 ### Added
