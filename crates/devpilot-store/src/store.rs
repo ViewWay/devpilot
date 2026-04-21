@@ -327,6 +327,24 @@ impl Store {
         Ok(())
     }
 
+    /// Archive a session by setting `archived_at` to the current timestamp.
+    pub fn archive_session(&self, id: &str) -> Result<()> {
+        self.conn.execute(
+            "UPDATE sessions SET archived_at = datetime('now'), updated_at = datetime('now') WHERE id = ?1",
+            rusqlite::params![id],
+        )?;
+        Ok(())
+    }
+
+    /// Unarchive a session by clearing `archived_at`.
+    pub fn unarchive_session(&self, id: &str) -> Result<()> {
+        self.conn.execute(
+            "UPDATE sessions SET archived_at = NULL, updated_at = datetime('now') WHERE id = ?1",
+            rusqlite::params![id],
+        )?;
+        Ok(())
+    }
+
     /// Import a session with a specific (pre-existing) ID.
     /// Used during data import to preserve original session identifiers.
     pub fn import_session_with_id(

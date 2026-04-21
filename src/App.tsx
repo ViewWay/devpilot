@@ -1,6 +1,7 @@
 import { registerChatStoreAccessor, registerChatStoreSetActiveSession } from "./stores/uiStore";
 import { useChatStore } from "./stores/chatStore";
 import { AppShell } from "./components/layout/AppShell";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 // Register lazy accessor so uiStore can query session state without circular import
 registerChatStoreAccessor(() => {
@@ -14,7 +15,11 @@ registerChatStoreSetActiveSession((id: string) => {
 });
 
 function App() {
-  return <AppShell />;
+  return (
+    <ErrorBoundary>
+      <AppShell />
+    </ErrorBoundary>
+  );
 }
 
 export default App;

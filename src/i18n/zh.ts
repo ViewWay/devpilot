@@ -298,6 +298,8 @@ const zh: Record<string, string> = {
 
   // --- Errors ---
   errorGeneric: "发生意外错误",
+  retry: "重试",
+  restartApp: "重启应用",
   errorPersistence: "持久化错误",
   errorStream: "流式传输错误",
   errorCompact: "压缩失败",

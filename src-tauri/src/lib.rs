@@ -36,6 +36,8 @@ pub fn run() {
             commands::create_session,
             commands::delete_session,
             commands::update_session_title,
+            commands::archive_session,
+            commands::unarchive_session,
             // Messages
             commands::get_session_messages,
             commands::add_message,

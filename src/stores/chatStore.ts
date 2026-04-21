@@ -985,8 +985,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
         });
 
         return; // Tauri handled it
-      } catch {
-        // Fall through to mock
+      } catch (err) {
+        // Tauri invoke failed — clean up listeners and reset loading state
+        console.warn("[chatStore] Tauri invoke failed, falling back to mock:", err);
+        try { cleanup(); } catch { /* ignore cleanup errors */ }
+        set({ isLoading: false, streamingMessageId: null, _streamCleanup: null });
       }
 
       // Mock streaming fallback

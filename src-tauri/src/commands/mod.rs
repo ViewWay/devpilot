@@ -77,6 +77,20 @@ pub fn update_session_title(
         .map_err(|e| e.to_string())
 }
 
+/// Archive a session (sets archived_at timestamp).
+#[tauri::command]
+pub fn archive_session(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.archive_session(&id).map_err(|e| e.to_string())
+}
+
+/// Unarchive a session (clears archived_at).
+#[tauri::command]
+pub fn unarchive_session(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.unarchive_session(&id).map_err(|e| e.to_string())
+}
+
 // ── Messages ──────────────────────────────────────────
 
 /// Get all messages for a session, ordered chronologically.

@@ -707,6 +707,7 @@ export interface SessionInfoIPC {
   envVars?: string; // JSON-serialized Array<[string, string]>
   createdAt: string;
   updatedAt: string;
+  archivedAt?: string; // ISO timestamp when archived, null/undefined if active
 }
 
 export interface MessageInfoIPC {

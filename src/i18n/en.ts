@@ -298,6 +298,8 @@ const en: Record<string, string> = {
 
   // --- Errors ---
   errorGeneric: "An unexpected error occurred",
+  retry: "Retry",
+  restartApp: "Restart App",
   errorPersistence: "Persistence error",
   errorStream: "Stream error",
   errorCompact: "Compaction failed",

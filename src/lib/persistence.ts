@@ -75,17 +75,12 @@ export async function persistUpdateSessionTitle(
 }
 
 export async function persistArchiveSession(
-  _id: string,
-  _archived: boolean,
+  id: string,
+  archived: boolean,
 ): Promise<void> {
   if (!isTauriRuntime()) { return; }
-  // Archive is implemented as a setting; the backend doesn't have a dedicated
-  // archive column yet, so we use the settings table.
   try {
-    await invoke("set_setting", {
-      key: `session.${_id}.archived`,
-      value: _archived ? "true" : "false",
-    });
+    await invoke(archived ? "archive_session" : "unarchive_session", { id });
   } catch (err) {
     reportError(err, "persistence.archive_session");
   }
@@ -192,19 +187,9 @@ export async function hydrateSessions(): Promise<HydratedSession[] | null> {
   try {
     const sessions = await invoke<SessionInfoIPC[]>("list_sessions");
 
-    // Check archive status from settings
     const result: HydratedSession[] = [];
     for (const session of sessions) {
-      let archived = false;
-      try {
-        const val = await invoke<{ key: string; value: string } | null>(
-          "get_setting",
-          { key: `session.${session.id}.archived` },
-        );
-        archived = val?.value === "true";
-      } catch {
-        // No archive setting — not archived
-      }
+      const archived = !!session.archivedAt;
 
       // Load messages for this session
       const messages = await invoke<MessageInfoIPC[]>(

@@ -135,20 +135,14 @@ describe("persistence", () => {
       });
     });
 
-    it("persistArchiveSession(true) calls set_setting with 'true'", async () => {
+    it("persistArchiveSession(true) calls archive_session", async () => {
       await persistArchiveSession("s1", true);
-      expect(mockInvoke).toHaveBeenCalledWith("set_setting", {
-        key: "session.s1.archived",
-        value: "true",
-      });
+      expect(mockInvoke).toHaveBeenCalledWith("archive_session", { id: "s1" });
     });
 
-    it("persistArchiveSession(false) calls set_setting with 'false'", async () => {
+    it("persistArchiveSession(false) calls unarchive_session", async () => {
       await persistArchiveSession("s1", false);
-      expect(mockInvoke).toHaveBeenCalledWith("set_setting", {
-        key: "session.s1.archived",
-        value: "false",
-      });
+      expect(mockInvoke).toHaveBeenCalledWith("unarchive_session", { id: "s1" });
     });
 
     it("persistAddMessage calls invoke with correct args (with model)", async () => {
@@ -263,12 +257,9 @@ describe("persistence", () => {
               mode: "code",
               createdAt: "2025-01-01T00:00:00Z",
               updatedAt: "2025-01-01T01:00:00Z",
+              archivedAt: null,
             },
           ];
-        }
-        if (cmd === "get_setting") {
-          // session.s1.archived
-          return { key: "session.s1.archived", value: "false" };
         }
         if (cmd === "get_session_messages") {
           return [
@@ -334,7 +325,7 @@ describe("persistence", () => {
       });
     });
 
-    it("marks session as archived when setting is 'true'", async () => {
+    it("marks session as archived when archivedAt is set", async () => {
       setTauriMode();
 
       mockInvoke.mockImplementation((cmd: string, _args?: Record<string, unknown>) => {
@@ -349,11 +340,9 @@ describe("persistence", () => {
               mode: "code",
               createdAt: "2025-02-01T00:00:00Z",
               updatedAt: "2025-02-01T01:00:00Z",
+              archivedAt: "2025-02-01T02:00:00Z",
             },
           ];
-        }
-        if (cmd === "get_setting") {
-          return { key: "session.s2.archived", value: "true" };
         }
         if (cmd === "get_session_messages") {
           return [];
@@ -367,7 +356,7 @@ describe("persistence", () => {
       expect(result![0]!.messages).toEqual([]);
     });
 
-    it("treats missing archive setting as not archived", async () => {
+    it("treats missing archivedAt as not archived", async () => {
       setTauriMode();
 
       mockInvoke.mockImplementation((cmd: string) => {
@@ -384,9 +373,6 @@ describe("persistence", () => {
               updatedAt: "2025-01-01T00:00:00Z",
             },
           ];
-        }
-        if (cmd === "get_setting") {
-          return null; // no setting found
         }
         if (cmd === "get_session_messages") {
           return [];

@@ -132,11 +132,11 @@ export function UpdateChecker() {
       return null;
     }
     return (
-      <div className="bg-warning/90 text-on-primary px-4 py-2 text-sm flex items-center justify-between gap-3">
+      <div className="fixed top-0 left-0 right-0 z-50 bg-[var(--color-warning)] text-[var(--color-on-primary)] px-4 py-2 text-sm flex items-center justify-between gap-3">
         <span>{t("updateCheckFailed")}</span>
         <button
           onClick={handleDismiss}
-          className="hover:bg-warning rounded p-1 transition-colors"
+          className="hover:opacity-80 rounded p-1 transition-colors"
           aria-label={t("updateDismiss")}
         >
           <X className="h-4 w-4" />
@@ -147,7 +147,7 @@ export function UpdateChecker() {
 
   if (state.status === "available") {
     return (
-      <div className="bg-primary/95 text-primary-foreground px-4 py-3 text-sm flex items-center justify-between gap-4 animate-in slide-in-from-top">
+      <div className="fixed top-0 left-0 right-0 z-50 bg-[var(--color-brand)] text-white px-4 py-3 text-sm flex items-center justify-between gap-4 animate-in slide-in-from-top">
         <div className="flex items-center gap-3 min-w-0">
           <Download className="h-5 w-5 shrink-0" />
           <div className="min-w-0">
@@ -165,14 +165,14 @@ export function UpdateChecker() {
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={handleUpdate}
-            className="bg-on-primary/20 hover:bg-on-primary/30 rounded-md px-3 py-1.5 font-medium transition-colors flex items-center gap-1.5"
+            className="bg-white/20 hover:bg-white/30 rounded-md px-3 py-1.5 font-medium transition-colors flex items-center gap-1.5"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             {t("updateAndRestart")}
           </button>
           <button
             onClick={handleDismiss}
-            className="hover:bg-on-primary/20 rounded-md p-1.5 transition-colors"
+            className="hover:bg-white/20 rounded-md p-1.5 transition-colors"
             aria-label={t("updateDismiss")}
           >
             <X className="h-4 w-4" />
@@ -184,13 +184,13 @@ export function UpdateChecker() {
 
   if (state.status === "downloading") {
     return (
-      <div className="bg-primary/95 text-primary-foreground px-4 py-3 text-sm flex items-center gap-3">
+      <div className="fixed top-0 left-0 right-0 z-50 bg-[var(--color-brand)] text-white px-4 py-3 text-sm flex items-center gap-3">
         <Download className="h-5 w-5 animate-pulse" />
         <div className="flex-1 min-w-0">
           <div className="font-medium">{t("updateDownloading")}</div>
-          <div className="mt-1 h-1.5 rounded-full bg-on-primary/20 overflow-hidden">
+          <div className="mt-1 h-1.5 rounded-full bg-white/20 overflow-hidden">
             <div
-              className="h-full bg-on-primary/80 rounded-full transition-all duration-300"
+              className="h-full bg-white/80 rounded-full transition-all duration-300"
               style={{ width: `${state.progress}%` }}
             />
           </div>
@@ -201,7 +201,7 @@ export function UpdateChecker() {
 
   if (state.status === "installing") {
     return (
-      <div className="bg-primary/95 text-primary-foreground px-4 py-3 text-sm flex items-center gap-3">
+      <div className="fixed top-0 left-0 right-0 z-50 bg-[var(--color-brand)] text-white px-4 py-3 text-sm flex items-center gap-3">
         <RefreshCw className="h-5 w-5 animate-spin" />
         <span className="font-medium">{t("updateInstalling")}</span>
       </div>
