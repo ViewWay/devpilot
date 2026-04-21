@@ -159,6 +159,7 @@ describe("persistence", () => {
         role: "assistant",
         content: "response",
         model: "gpt-4",
+        toolCalls: null,
       });
     });
 
@@ -170,6 +171,7 @@ describe("persistence", () => {
         role: "user",
         content: "hello",
         model: null,
+        toolCalls: null,
       });
     });
 
