@@ -1,16 +1,10 @@
-import { useEffect, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import rehypeRaw from "rehype-raw";
-import { Bot, Wrench, Sparkles, Code, MessageSquare, Zap, Copy, Check, RefreshCw } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { Sparkles, Code, MessageSquare, Zap } from "lucide-react";
 import { useSettingsStore } from "../../stores/settingsStore";
-import { CodeBlock } from "./CodeBlock";
-import { SandboxBlock } from "./SandboxBlock";
-import { ToolCallList } from "./ToolCallView";
-import { ThinkingBlock } from "./ThinkingBlock";
 import { useChatStore } from "../../stores/chatStore";
-import { toast } from "../../stores/toastStore";
-import type { Message } from "../../types";
+import { UserMessage } from "./UserMessage";
+import { AssistantMessage } from "./AssistantMessage";
+import { ToolMessage } from "./ToolMessage";
 import { useI18n } from "../../i18n";
 
 export function MessageList({ sessionId }: { sessionId?: string } = {}) {
@@ -50,15 +44,29 @@ export function MessageList({ sessionId }: { sessionId?: string } = {}) {
     <div className="flex-1 overflow-y-auto" role="log" aria-live="polite" aria-label={t("a11y.messageLog")}>
       <div className="mx-auto w-full max-w-3xl px-6 py-8 2xl:max-w-4xl">
         <div className="space-y-8">
-          {session.messages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} isLastAssistant={msg.id === lastAssistantId} />
-          ))}
+          {session.messages.map((msg) => {
+            if (msg.role === "user") {
+              return <UserMessage key={msg.id} message={msg} />;
+            }
+            if (msg.role === "tool") {
+              return <ToolMessage key={msg.id} message={msg} />;
+            }
+            return (
+              <AssistantMessage
+                key={msg.id}
+                message={msg}
+                isLast={msg.id === lastAssistantId}
+              />
+            );
+          })}
           <div ref={bottomRef} />
         </div>
       </div>
     </div>
   );
 }
+
+/* ─── Empty State ──────────────────────────────────────────── */
 
 function EmptyState() {
   const { t } = useI18n();
@@ -96,193 +104,5 @@ function SuggestionCard({ icon, title, description }: { icon: React.ReactNode; t
         <div className="text-[11px] text-[var(--color-text-secondary)] mt-0.5">{description}</div>
       </div>
     </button>
-  );
-}
-
-function MessageActions({ content, onRegenerate }: { content: string; onRegenerate?: () => void }) {
-  const [copied, setCopied] = useState(false);
-  const { t } = useI18n();
-
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(content);
-    setCopied(true);
-    toast.success("Copied to clipboard");
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" role="group" aria-label={t("a11y.messageActions")}>
-      <button
-        onClick={handleCopy}
-        className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)] transition-colors"
-        title="Copy"
-        aria-label={t("a11y.copyMessage")}
-      >
-        {copied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
-      </button>
-      {onRegenerate && (
-        <button
-          onClick={onRegenerate}
-          className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)] transition-colors"
-          title="Regenerate"
-          aria-label={t("a11y.regenerateMessage")}
-        >
-          <RefreshCw size={12} />
-        </button>
-      )}
-    </div>
-  );
-}
-
-function MessageBubble({ message, isLastAssistant }: { message: Message; isLastAssistant?: boolean }) {
-  const { t } = useI18n();
-  const isUser = message.role === "user";
-  const isTool = message.role === "tool";
-  const fontSize = useSettingsStore((s) => s.fontSize);
-
-  if (isUser) {
-    return (
-      <div className="group flex justify-end" role="article" aria-label={t("a11y.userMessage")}>
-        <div className="max-w-[75%] rounded-2xl rounded-br-sm bg-user-bubble px-4 py-3 leading-relaxed text-user-bubble-foreground prose-user text-sm" style={{ fontSize }}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{typeof message.content === "string" ? message.content : ""}</ReactMarkdown>
-          <div className="flex items-center justify-between mt-1">
-            <div className="text-[10px] text-user-bubble-foreground/60">{message.timestamp}</div>
-            <MessageActions content={message.content} />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (isTool) {
-    return (
-      <div className="flex items-start gap-3" role="article" aria-label={t("a11y.toolMessage")}>
-        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[var(--color-surface-container)]">
-          <Wrench size={12} className="text-[var(--color-text-secondary)]" />
-        </div>
-        <div className="min-w-0 flex-1">
-          {message.content && (
-            <div className="rounded-lg border border-[var(--color-border)]/40 bg-[var(--color-surface-container)]/30 px-3 py-2 text-xs leading-relaxed text-[var(--color-text-secondary)] whitespace-pre-wrap">
-              {message.content}
-            </div>
-          )}
-          {message.toolCalls && message.toolCalls.length > 0 && <ToolCallList toolCalls={message.toolCalls} />}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="group flex items-start gap-3" role="article" aria-label={t("a11y.assistantMessage")}>
-      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[var(--color-brand)]">
-        <Bot size={12} className="text-primary-foreground" />
-      </div>
-      <div className="min-w-0 flex-1 space-y-2">
-        {message.thinkingContent && (
-          <ThinkingBlock content={message.thinkingContent} streaming={message.streaming} />
-        )}
-        <div className="leading-relaxed text-assistant-bubble-foreground prose-sm" style={{ fontSize }}>
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeRaw]}
-            components={{
-              code({ className, children }) {
-                const match = /language-(\w+)/.exec(className || "");
-                const codeStr = String(children).replace(/\n$/, "");
-                const isInline = !match && !codeStr.includes("\n");
-                if (isInline) {
-                  return <code className="rounded bg-[var(--color-surface-container)] px-1 py-0.5 text-xs font-mono">{children}</code>;
-                }
-                const lang = match?.[1];
-                // Render HTML code blocks as interactive sandbox previews
-                if (lang === "html") {
-                  return <SandboxBlock code={codeStr} />;
-                }
-                return <CodeBlock code={codeStr} lang={lang} />;
-              },
-              table({ children }) {
-                return (
-                  <div className="my-2 overflow-x-auto rounded-lg border border-[var(--color-border)]/40">
-                    <table className="w-full text-xs border-collapse">{children}</table>
-                  </div>
-                );
-              },
-              th({ children }) {
-                return <th className="border-b border-[var(--color-border)] bg-[var(--color-surface-container)]/50 px-3 py-2 text-left font-semibold text-[var(--color-text-primary)]">{children}</th>;
-              },
-              td({ children }) {
-                return <td className="border-b border-[var(--color-border)] px-3 py-2 text-[var(--color-text-secondary)]">{children}</td>;
-              },
-              tr({ children }) {
-                return <tr className="hover:bg-[var(--color-surface-container)]/20 transition-colors">{children}</tr>;
-              },
-              pre({ children }) {
-                return <>{children}</>;
-              },
-              a({ href, children }) {
-                return (
-                  <a href={href} className="text-[var(--color-brand)] underline underline-offset-2 hover:text-[var(--color-brand)]/80 transition-colors" target="_blank" rel="noopener noreferrer">
-                    {children}
-                  </a>
-                );
-              },
-              ul({ children }) {
-                return <ul className="my-1.5 ml-4 list-disc space-y-1 text-sm marker:text-[var(--color-text-secondary)]">{children}</ul>;
-              },
-              ol({ children }) {
-                return <ol className="my-1.5 ml-4 list-decimal space-y-1 text-sm marker:text-[var(--color-text-secondary)]">{children}</ol>;
-              },
-              li({ children }) {
-                return <li className="leading-relaxed">{children}</li>;
-              },
-              blockquote({ children }) {
-                return (
-                  <blockquote className="my-2 border-l-2 border-[var(--color-brand)]/40 bg-[var(--color-brand)]/5 pl-3 py-1 text-sm italic text-[var(--color-text-secondary)]">
-                    {children}
-                  </blockquote>
-                );
-              },
-              h1({ children }) {
-                return <h1 className="mt-4 mb-2 text-lg font-bold text-[var(--color-text-primary)]">{children}</h1>;
-              },
-              h2({ children }) {
-                return <h2 className="mt-3 mb-1.5 text-base font-bold text-[var(--color-text-primary)]">{children}</h2>;
-              },
-              h3({ children }) {
-                return <h3 className="mt-2 mb-1 text-sm font-bold text-[var(--color-text-primary)]">{children}</h3>;
-              },
-              p({ children }) {
-                return <p className="my-1 leading-relaxed">{children}</p>;
-              },
-              hr() {
-                return <hr className="my-3 border-[var(--color-border)]" />;
-              },
-              input({ checked, disabled }) {
-                // GFM task list checkboxes
-                return (
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    disabled={disabled}
-                    className="mr-1.5 h-3.5 w-3.5 rounded border-[var(--color-border)] accent-[var(--color-brand)]"
-                  />
-                );
-              },
-            }}
-          >
-            {message.content}
-          </ReactMarkdown>
-          {message.streaming && (
-            <span className="inline-block h-4 w-0.5 animate-pulse bg-[var(--color-brand)] ml-0.5 align-text-bottom" />
-          )}
-        </div>
-        <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-secondary)]">
-          <MessageActions content={message.content} onRegenerate={isLastAssistant ? () => useChatStore.getState().regenerateLastResponse() : undefined} />
-          {message.model && <span>{message.model}</span>}
-          {message.model && <span>·</span>}
-          <span>{message.timestamp}</span>
-        </div>
-      </div>
-    </div>
   );
 }
