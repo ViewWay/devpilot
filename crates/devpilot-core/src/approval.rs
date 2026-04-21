@@ -157,4 +157,89 @@ mod tests {
 
         assert_eq!(gate.pending_count().await, 0);
     }
+
+    #[tokio::test]
+    async fn test_has_pending() {
+        let gate = ApprovalGate::new();
+        assert!(!gate.has_pending("a1").await);
+
+        let gate_clone = gate.clone();
+        let handle = tokio::spawn(async move {
+            gate_clone.wait_for_approval("a1".to_string()).await;
+        });
+
+        tokio::task::yield_now().await;
+        assert!(gate.has_pending("a1").await);
+        assert!(!gate.has_pending("a2").await);
+
+        gate.resolve("a1", true).await.unwrap();
+        let _ = handle.await;
+
+        assert!(!gate.has_pending("a1").await);
+    }
+
+    #[tokio::test]
+    async fn test_multiple_approvals() {
+        let gate = ApprovalGate::new();
+
+        // Register 3 pending approvals concurrently
+        let mut handles = Vec::new();
+        for i in 0..3 {
+            let g = gate.clone();
+            let id = format!("approval-{i}");
+            handles.push(tokio::spawn(async move { g.wait_for_approval(id).await }));
+        }
+
+        tokio::task::yield_now().await;
+        assert_eq!(gate.pending_count().await, 3);
+
+        // Resolve them in reverse order
+        gate.resolve("approval-2", true).await.unwrap();
+        gate.resolve("approval-1", false).await.unwrap();
+        gate.resolve("approval-0", true).await.unwrap();
+
+        let results: Vec<bool> = futures::future::join_all(handles)
+            .await
+            .into_iter()
+            .map(|h| h.unwrap())
+            .collect();
+
+        assert_eq!(results, vec![true, false, true]);
+        assert_eq!(gate.pending_count().await, 0);
+    }
+
+    #[tokio::test]
+    async fn test_resolve_twice_fails() {
+        let gate = ApprovalGate::new();
+        let gate_clone = gate.clone();
+        let handle = tokio::spawn(async move {
+            gate_clone.wait_for_approval("dup".to_string()).await;
+        });
+
+        tokio::task::yield_now().await;
+
+        // First resolve succeeds
+        gate.resolve("dup", true).await.unwrap();
+        let _ = handle.await;
+
+        // Second resolve fails — already consumed
+        let result = gate.resolve("dup", true).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_clone_shares_state() {
+        let gate = ApprovalGate::new();
+        let gate2 = gate.clone();
+
+        let handle = tokio::spawn(async move {
+            gate2.wait_for_approval("shared".to_string()).await
+        });
+
+        tokio::task::yield_now().await;
+
+        // Resolve via the original gate
+        gate.resolve("shared", true).await.unwrap();
+        assert!(handle.await.unwrap());
+    }
 }

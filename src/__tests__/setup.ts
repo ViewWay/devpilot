@@ -1,5 +1,16 @@
 import "@testing-library/jest-dom/vitest";
 
+// Mock scrollIntoView (not available in jsdom)
+HTMLElement.prototype.scrollIntoView = () => {};
+
+// Mock clipboard API (not available in jsdom)
+Object.assign(navigator, {
+  clipboard: {
+    writeText: () => Promise.resolve(),
+    readText: () => Promise.resolve(""),
+  },
+});
+
 // Ensure localStorage is available in jsdom test environment.
 // Some jsdom versions may not fully implement the Storage interface.
 if (typeof globalThis.localStorage === "undefined" || typeof globalThis.localStorage.getItem !== "function") {

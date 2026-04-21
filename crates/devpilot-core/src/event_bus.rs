@@ -181,4 +181,104 @@ mod tests {
         let parsed: CoreEvent = serde_json::from_str(&json).unwrap();
         assert!(matches!(parsed, CoreEvent::ToolCallStarted { .. }));
     }
+
+    #[test]
+    fn event_bus_no_subscribers_does_not_panic() {
+        let bus = EventBus::new();
+        // Emit without subscribers — should not panic
+        bus.emit_chunk("s1", "hello");
+        bus.emit_error("s1", "test error");
+    }
+
+    #[test]
+    fn event_bus_custom_capacity() {
+        let bus = EventBus::with_capacity(16);
+        let mut sub = bus.subscribe();
+        bus.emit_chunk("s1", "test");
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let ev = rt.block_on(sub.recv()).unwrap();
+        assert!(matches!(ev, CoreEvent::Chunk { .. }));
+    }
+
+    #[test]
+    fn event_serialization_all_variants() {
+        // Test all CoreEvent variants serialize/deserialize correctly
+        let events = vec![
+            CoreEvent::Chunk { session_id: "s1".into(), delta: "hello".into() },
+            CoreEvent::ToolCallStarted {
+                session_id: "s1".into(),
+                call_id: "c1".into(),
+                tool_name: "shell".into(),
+                input: serde_json::json!({"cmd": "ls"}),
+            },
+            CoreEvent::ToolCallResult {
+                session_id: "s1".into(),
+                call_id: "c1".into(),
+                output: "file1.txt\nfile2.txt".into(),
+                is_error: false,
+            },
+            CoreEvent::ApprovalRequired {
+                session_id: "s1".into(),
+                call_id: "c1".into(),
+                tool_name: "shell".into(),
+                input: serde_json::json!({"cmd": "rm -rf /"}),
+                risk_level: "high".into(),
+            },
+            CoreEvent::TurnDone {
+                session_id: "s1".into(),
+                usage: Usage::default(),
+                finish_reason: FinishReason::Stop,
+            },
+            CoreEvent::AgentDone {
+                session_id: "s1".into(),
+                total_turns: 3,
+                total_usage: Usage { input_tokens: 100, output_tokens: 200, cache_read_tokens: None, cache_write_tokens: None },
+            },
+            CoreEvent::Error { session_id: "s1".into(), message: "timeout".into() },
+            CoreEvent::Compacted { session_id: "s1".into(), messages_removed: 5, summary_added: true },
+        ];
+
+        for event in &events {
+            let json = serde_json::to_string(event).unwrap();
+            let parsed: CoreEvent = serde_json::from_str(&json).unwrap();
+            let json2 = serde_json::to_string(&parsed).unwrap();
+            assert_eq!(json, json2, "Roundtrip failed for event: {:?}", event);
+        }
+    }
+
+    #[test]
+    fn event_bus_sequential_events() {
+        let bus = EventBus::new();
+        let mut sub = bus.subscribe();
+
+        bus.emit_chunk("s1", "hello");
+        bus.emit_chunk("s1", " world");
+        bus.emit_error("s1", "done");
+
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let ev1 = rt.block_on(sub.recv()).unwrap();
+        let ev2 = rt.block_on(sub.recv()).unwrap();
+        let ev3 = rt.block_on(sub.recv()).unwrap();
+
+        assert!(matches!(ev1, CoreEvent::Chunk { ref delta, .. } if delta == "hello"));
+        assert!(matches!(ev2, CoreEvent::Chunk { ref delta, .. } if delta == " world"));
+        assert!(matches!(ev3, CoreEvent::Error { .. }));
+    }
+
+    #[test]
+    fn event_serialization_format() {
+        let event = CoreEvent::ToolCallStarted {
+            session_id: "s1".into(),
+            call_id: "c1".into(),
+            tool_name: "shell".into(),
+            input: serde_json::json!({}),
+        };
+        let json = serde_json::to_string(&event).unwrap();
+        // The serde tag uses explicit rename
+        assert!(json.contains("\"type\":\"tool_call_started\""));
+        // Fields remain snake_case (rename_all on enum only affects variant tags)
+        assert!(json.contains("\"session_id\":\"s1\""));
+        assert!(json.contains("\"call_id\":\"c1\""));
+        assert!(json.contains("\"tool_name\":\"shell\""));
+    }
 }
