@@ -162,6 +162,40 @@ const DEFAULT_PROVIDERS: Provider[] = [
     ],
     enabled: false,
   },
+  {
+    id: "provider-kimi",
+    name: "Kimi (月之暗面)",
+    baseUrl: "https://api.moonshot.cn/v1",
+    apiKey: "",
+    models: [
+      { id: "moonshot-v1-8k", name: "Moonshot V1 8K", maxTokens: 8192, supportsStreaming: true, supportsVision: true, inputPrice: 12, outputPrice: 12 },
+      { id: "moonshot-v1-32k", name: "Moonshot V1 32K", maxTokens: 32768, supportsStreaming: true, supportsVision: true, inputPrice: 24, outputPrice: 24 },
+      { id: "moonshot-v1-128k", name: "Moonshot V1 128K", maxTokens: 131072, supportsStreaming: true, supportsVision: true, inputPrice: 60, outputPrice: 60 },
+    ],
+    enabled: false,
+  },
+  {
+    id: "provider-minimax",
+    name: "MiniMax",
+    baseUrl: "https://api.minimax.chat/v1",
+    apiKey: "",
+    models: [
+      { id: "MiniMax-Text-01", name: "MiniMax-Text-01", maxTokens: 1000000, supportsStreaming: true, supportsVision: false, inputPrice: 1, outputPrice: 2 },
+      { id: "abab6.5s-chat", name: "ABAB 6.5s Chat", maxTokens: 131072, supportsStreaming: true, supportsVision: false, inputPrice: 2, outputPrice: 2 },
+    ],
+    enabled: false,
+  },
+  {
+    id: "provider-volcengine",
+    name: "火山引擎 (豆包)",
+    baseUrl: "https://ark.cn-beijing.volces.com/api/v1",
+    apiKey: "",
+    models: [
+      { id: "doubao-1.5-pro", name: "豆包 1.5 Pro", maxTokens: 131072, supportsStreaming: true, supportsVision: false, inputPrice: 4, outputPrice: 8 },
+      { id: "doubao-1.5-lite", name: "豆包 1.5 Lite", maxTokens: 131072, supportsStreaming: true, supportsVision: false, inputPrice: 0.8, outputPrice: 2 },
+    ],
+    enabled: false,
+  },
 ];
 
 /** Persist a provider to SQLite via Tauri IPC. */

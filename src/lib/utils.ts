@@ -17,6 +17,9 @@ export function mapProviderType(providerId: string): string {
   if (providerId.includes("qwen")) { return "qwen"; }
   if (providerId.includes("deepseek")) { return "deepseek"; }
   if (providerId.includes("zhipu") || providerId.includes("glm")) { return "glm"; }
+  if (providerId.includes("kimi") || providerId.includes("moonshot")) { return "kimi"; }
+  if (providerId.includes("minimax")) { return "minimax"; }
+  if (providerId.includes("volcengine") || providerId.includes("doubao")) { return "volcengine"; }
   if (providerId.includes("openai")) { return "openai"; }
   return "custom";
 }
