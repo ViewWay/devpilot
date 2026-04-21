@@ -352,6 +352,47 @@ function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
       return false;
     case "config_project_exists":
       return false;
+    // Settings (key-value)
+    case "get_setting":
+      return null;
+    case "set_setting":
+      return null;
+    // Session env vars
+    case "get_session_env_vars":
+      return "[]";
+    // Messages
+    case "get_session_messages":
+      return [];
+    case "add_message":
+      return { id: `msg-${Date.now()}`, ...((args?.message ?? {}) as Record<string, unknown>), createdAt: new Date().toISOString() };
+    case "update_message":
+      return null;
+    // Provider CRUD
+    case "list_providers":
+      return [];
+    case "create_provider":
+      return { id: `prov-${Date.now()}`, ...((args?.provider ?? {}) as Record<string, unknown>) };
+    case "update_provider":
+      return null;
+    case "delete_provider":
+      return null;
+    case "get_api_key":
+      return null;
+    case "set_api_key":
+      return null;
+    // LLM
+    case "send_message_stream":
+      return null;
+    case "list_available_models":
+      return [];
+    case "check_provider_health":
+      return { healthy: true, latencyMs: 50 };
+    // Search
+    case "content_search":
+      return [];
+    // Usage
+    case "get_usage":
+      return { totalInputTokens: 0, totalOutputTokens: 0, totalCost: 0, byProvider: {} };
     default:
       console.warn(`[IPC mock] Unhandled command: ${cmd}`);
       return null;
