@@ -2,6 +2,20 @@
 
 All notable changes to DevPilot will be documented in this file.
 
+## [0.5.4] — 2026-04-21
+
+### Fixed
+
+- **FIX-5**: UpdateChecker no longer renders as flex child beside main content — now uses `fixed` position at top of viewport
+- **FIX-6**: chatStore `isLoading` stuck on Tauri invoke failure — catch block now cleans up event listeners + resets loading state
+- Archive/unarchive sessions now use native Rust commands (`archive_session`/`unarchive_session`) instead of settings table workaround
+
+### Added
+
+- Global `ErrorBoundary` component wrapping entire App — prevents white-screen crashes on unhandled component errors, shows retry button
+- `archive_session`/`unarchive_session` Rust commands in `devpilot-store` with proper `archived_at` column usage
+- i18n keys: `retry`, `restartApp` (EN + CN)
+
 ## [0.5.3] — 2026-04-21
 
 ### Added

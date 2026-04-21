@@ -33,4 +33,8 @@
 - [x] **FIX-2** — Tailwind 4 build failure: `border-border` unknown utility — added semantic color aliases in `@theme` block (border, card, popover, sidebar, muted, foreground, accent, ring)
 - [x] **FIX-3** — OnboardingWizard invisible buttons: `--color-accent` undefined → `--color-brand`
 - [x] **FIX-4** — Settings ConfigTab: `useCallback` for exhaustive-deps
+- [x] **FIX-5** — UpdateChecker rendering as flex child beside main content → fixed position banner
+- [x] **FIX-6** — chatStore isLoading stuck: catch block now cleans up listeners + resets state on Tauri invoke failure
 - [x] **FEAT** — ConfigTab: global config file management in Settings page
+- [x] **FEAT** — Global ErrorBoundary: prevent white-screen crashes on component errors
+- [x] **FEAT** — Native archive/unarchive_session: Rust commands replacing settings table hack

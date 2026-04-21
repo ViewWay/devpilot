@@ -1,5 +1,35 @@
 # DevPilot Development Log
 
+## 2026-04-21 Session — Stability Fixes: ErrorBoundary + UpdateChecker + chatStore + Archive
+
+### Changes
+
+- **ErrorBoundary**: Added global error boundary wrapping `<App />` — catches React render errors, shows recovery UI with retry button, prevents white-screen of death
+- **UpdateChecker**: Fixed rendering bug — was a flex child in AppShell's `h-screen flex` layout, causing it to appear as a column beside main content. Now uses `fixed` positioning at top of viewport
+- **chatStore stability**: Fixed `isLoading` getting stuck `true` when Tauri invoke fails. Catch block now calls cleanup() to unlisten all event listeners + resets `isLoading`, `streamingMessageId`, `_streamCleanup`
+- **Archive IPC**: Replaced settings-table hack (`session.{id}.archived`) with native `archive_session`/`unarchive_session` Rust commands using `archived_at` column
+- **persistence.ts**: Updated to use `archivedAt` field from `SessionInfoIPC` instead of separate `get_setting` calls
+
+### Files Modified
+
+- `src/App.tsx` — ErrorBoundary wrapper
+- `src/components/ErrorBoundary.tsx` — new component
+- `src/components/UpdateChecker.tsx` — fixed positioning
+- `src/stores/chatStore.ts` — error recovery in catch block
+- `src/lib/persistence.ts` — archive via native IPC
+- `src/lib/ipc.ts` — archive IPC functions
+- `src-tauri/src/commands/mod.rs` — archive/unarchive commands
+- `src-tauri/src/lib.rs` — register new commands
+- `crates/devpilot-store/src/store.rs` — archive/unarchive methods
+
+### Test Results
+
+- tsc: 0 errors
+- eslint: 0 errors
+- vite build: success
+- vitest: 30 files, 429 tests passing
+- Commit: `b050fca`
+
 ## 2026-04-21 Session — P13: MCP Server Presets
 
 ### Goal
