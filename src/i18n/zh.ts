@@ -348,6 +348,19 @@ const zh: Record<string, string> = {
   mcpPresetEverything: "测试服务器",
   mcpPresetEverythingDesc: "MCP 协议测试服务器",
 
+  // --- MCP Marketplace ---
+  mcpMarketplace: "应用市场",
+  mcpMarketplaceDesc: "浏览并安装 MCP 服务器",
+  mcpSearchCatalog: "搜索服务器...",
+  mcpInstall: "安装",
+  mcpInstalled: "已安装",
+  mcpRequiresKey: "需要密钥",
+  mcpHomepage: "主页",
+  mcpNoCatalogResults: "没有匹配的服务器",
+  mcpServersAvailable: "个可用服务器",
+  mcpCatalogUpdated: "更新于",
+  refresh: "刷新",
+
   // --- Security ---
   security: "安全",
   securityDesc: "配置沙盒执行策略和安全设置。",

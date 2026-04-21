@@ -22,19 +22,26 @@
 - [x] **P11-1** — DualSessionSplitView + SessionPanelView cc-haha CSS migration + session switcher
 - [x] **P11** — Split view / dual session polish (swap sessions ✅, drag-to-reorder ✅)
 - [x] **P12** — Bridge (Telegram/Feishu) integration (5 platforms, Tauri commands, bridgeStore, SettingsPage bridge tab, BridgePage)
+- [x] **P13** — MCP Plugin System: presets + remote catalog + tool_count + provider diagnostics
 
 ## Upcoming
 
-- [ ] **P13** — Plugin system / MCP marketplace (in progress — presets added, marketplace catalog TBD)
+- [ ] **P14** — Session export/import (JSON/Markdown)
+- [ ] **P15** — Keyboard shortcuts + command palette (Cmd+K)
+- [ ] **P16** — Multi-file attachment support (images, PDFs via vision)
 
 ## Fixes & Improvements (unreleased)
 
 - [x] **FIX-1** — Onboarding wizard stuck: `useOnboardingStore.getState()` → hook subscription (rules-of-hooks + reactivity)
-- [x] **FIX-2** — Tailwind 4 build failure: `border-border` unknown utility — added semantic color aliases in `@theme` block (border, card, popover, sidebar, muted, foreground, accent, ring)
+- [x] **FIX-2** — Tailwind 4 build failure: `border-border` unknown utility — added semantic color aliases in `@theme` block
 - [x] **FIX-3** — OnboardingWizard invisible buttons: `--color-accent` undefined → `--color-brand`
 - [x] **FIX-4** — Settings ConfigTab: `useCallback` for exhaustive-deps
 - [x] **FIX-5** — UpdateChecker rendering as flex child beside main content → fixed position banner
 - [x] **FIX-6** — chatStore isLoading stuck: catch block now cleans up listeners + resets state on Tauri invoke failure
+- [x] **FIX-7** — chatStore cleanup scope: moved cleanup/flushStreamBuffers outside try block for strict TS
 - [x] **FEAT** — ConfigTab: global config file management in Settings page
 - [x] **FEAT** — Global ErrorBoundary: prevent white-screen crashes on component errors
 - [x] **FEAT** — Native archive/unarchive_session: Rust commands replacing settings table hack
+- [x] **FEAT** — MCP marketplace: remote catalog fetch with built-in fallback
+- [x] **FEAT** — MCP tool_count: McpClient.tool_count() + connected_servers_detail()
+- [x] **FEAT** — Provider diagnostics: DiagnosticReportPanel with severity badges

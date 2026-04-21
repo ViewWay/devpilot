@@ -1,5 +1,26 @@
 # DevPilot Development Log
 
+## 2026-04-21 Session — P13 MCP Marketplace + Stability + Diagnostics
+
+### Changes
+
+- **MCP Marketplace Catalog**: Rust-side `fetch_mcp_catalog` command with remote JSON fetch from GitHub + built-in fallback catalog (355 lines)
+- **MCP Tool Count**: `McpClient.tool_count()` method + `connected_servers_detail()` returning `(id, name, tool_count)` tuples
+- **Provider Diagnostics**: `DiagnosticReportPanel` component in Settings — runs provider health checks, shows severity badges, latency, model count
+- **chatStore FIX-7**: Moved `cleanup`, `flushStreamBuffers`, buffer variables outside `try{}` block so `catch{}` can access them in strict TS
+- **ESLint**: Removed unused imports (Search, ExternalLink, RefreshCw), fixed `!=` → `!==` eqeqeq error
+
+### Commits
+
+- `8c9d02c` — fix(chatStore): move cleanup/flushStreamBuffers outside try block
+- `df8afcd` — feat(mcp): add tool_count + connected_servers_detail
+- `e46a1ee` — feat(mcp): marketplace catalog + provider diagnostic report
+
+### Test Results
+
+- tsc: 0 errors, eslint: 0 errors, vite build: OK
+- vitest: 30 files, 429 tests passing
+
 ## 2026-04-21 Session — Stability Fixes: ErrorBoundary + UpdateChecker + chatStore + Archive
 
 ### Changes

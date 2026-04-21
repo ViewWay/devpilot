@@ -2,6 +2,21 @@
 
 All notable changes to DevPilot will be documented in this file.
 
+## [0.5.5] — 2026-04-21
+
+### Added
+
+- **P13: MCP Plugin System** — remote marketplace catalog with built-in fallback, `McpCatalogEntry` types (category, env vars, version)
+- `McpClient.tool_count()` + `connected_servers_detail()` — display tool counts per connected server
+- **Provider Diagnostics** — `DiagnosticReportPanel` in Settings with severity badges, latency, model count
+- `fetch_mcp_catalog` Tauri command fetching from GitHub raw JSON with graceful fallback
+
+### Fixed
+
+- **FIX-7**: chatStore `cleanup`/`flushStreamBuffers` moved outside `try{}` block — visible to `catch{}` in strict TS
+- Remove unused imports (`Search`, `ExternalLink`, `RefreshCw`) from SettingsPage
+- Fix `eqeqeq` ESLint error (`!=` → `!==`)
+
 ## [0.5.4] — 2026-04-21
 
 ### Fixed

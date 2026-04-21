@@ -348,6 +348,19 @@ const en: Record<string, string> = {
   mcpPresetEverything: "Everything",
   mcpPresetEverythingDesc: "Test server for MCP protocol",
 
+  // --- MCP Marketplace ---
+  mcpMarketplace: "Marketplace",
+  mcpMarketplaceDesc: "Browse and install MCP servers from the catalog",
+  mcpSearchCatalog: "Search servers...",
+  mcpInstall: "Install",
+  mcpInstalled: "Installed",
+  mcpRequiresKey: "Requires key",
+  mcpHomepage: "Homepage",
+  mcpNoCatalogResults: "No servers match your search",
+  mcpServersAvailable: "servers available",
+  mcpCatalogUpdated: "Updated",
+  refresh: "Refresh",
+
   // --- Security ---
   security: "Security",
   securityDesc: "Configure sandbox execution policies and safety settings.",
