@@ -142,7 +142,7 @@ describe("memoryStore", () => {
 
     it("clears results for empty query", async () => {
       useMemoryStore.setState({
-        searchResults: [{ source: "test", content: "old", score: 1, file: null, line: null }],
+        searchResults: [{ source: "test", snippet: "old" }],
       });
       await useMemoryStore.getState().searchMemories("/workspace", "/data", "  ");
       expect(useMemoryStore.getState().searchResults).toEqual([]);
@@ -152,7 +152,7 @@ describe("memoryStore", () => {
   describe("clearSearch", () => {
     it("clears search results", () => {
       useMemoryStore.setState({
-        searchResults: [{ source: "test", content: "old", score: 1, file: null, line: null }],
+        searchResults: [{ source: "test", snippet: "old" }],
       });
       useMemoryStore.getState().clearSearch();
       expect(useMemoryStore.getState().searchResults).toEqual([]);
