@@ -96,3 +96,101 @@ impl LlmError {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_retryable_rate_limit() {
+        let err = LlmError::RateLimitError {
+            retry_after: Some(30.0),
+        };
+        assert!(err.is_retryable());
+    }
+
+    #[test]
+    fn is_retryable_network() {
+        let err = LlmError::NetworkError("connection reset".into());
+        assert!(err.is_retryable());
+    }
+
+    #[test]
+    fn is_retryable_timeout() {
+        let err = LlmError::Timeout("30s elapsed".into());
+        assert!(err.is_retryable());
+    }
+
+    #[test]
+    fn not_retryable_api_error() {
+        let err = LlmError::ApiError {
+            status: 400,
+            message: "bad request".into(),
+        };
+        assert!(!err.is_retryable());
+    }
+
+    #[test]
+    fn not_retryable_auth_error() {
+        let err = LlmError::AuthError("invalid key".into());
+        assert!(!err.is_retryable());
+    }
+
+    #[test]
+    fn not_retryable_context_exceeded() {
+        let err = LlmError::ContextLengthExceeded {
+            limit: 128000,
+            used: 200000,
+        };
+        assert!(!err.is_retryable());
+    }
+
+    #[test]
+    fn display_message_api_error() {
+        let err = LlmError::ApiError {
+            status: 429,
+            message: "Too many requests".into(),
+        };
+        assert!(err.display_message().contains("HTTP 429"));
+    }
+
+    #[test]
+    fn display_message_rate_limit_with_retry() {
+        let err = LlmError::RateLimitError {
+            retry_after: Some(60.0),
+        };
+        let msg = err.display_message();
+        assert!(msg.contains("60.0s"));
+    }
+
+    #[test]
+    fn display_message_rate_limit_without_retry() {
+        let err = LlmError::RateLimitError { retry_after: None };
+        let msg = err.display_message();
+        assert!(msg.contains("wait and try again"));
+    }
+
+    #[test]
+    fn display_message_context_exceeded() {
+        let err = LlmError::ContextLengthExceeded {
+            limit: 128000,
+            used: 200000,
+        };
+        let msg = err.display_message();
+        assert!(msg.contains("200000"));
+        assert!(msg.contains("128000"));
+        assert!(msg.contains("/compact"));
+    }
+
+    #[test]
+    fn display_message_model_not_found() {
+        let err = LlmError::ModelNotFound("gpt-5".into());
+        assert!(err.display_message().contains("gpt-5"));
+    }
+
+    #[test]
+    fn display_message_provider_not_configured() {
+        let err = LlmError::ProviderNotConfigured("openai".into());
+        assert!(err.display_message().contains("openai"));
+    }
+}
