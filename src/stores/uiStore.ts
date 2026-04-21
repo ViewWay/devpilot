@@ -80,6 +80,11 @@ interface UIState {
   quickFileSearchOpen: boolean;
   setQuickFileSearchOpen: (open: boolean) => void;
   toggleQuickFileSearch: () => void;
+
+  // Message Search
+  messageSearchOpen: boolean;
+  setMessageSearchOpen: (open: boolean) => void;
+  toggleMessageSearch: () => void;
 }
 
 /** Lazy reference to chatStore — avoids circular dependency at module level. */
@@ -188,4 +193,9 @@ export const useUIStore = create<UIState>((set, get) => ({
   quickFileSearchOpen: false,
   setQuickFileSearchOpen: (open) => set({ quickFileSearchOpen: open }),
   toggleQuickFileSearch: () => set((s) => ({ quickFileSearchOpen: !s.quickFileSearchOpen })),
+
+  // Message Search
+  messageSearchOpen: false,
+  setMessageSearchOpen: (open) => set({ messageSearchOpen: open }),
+  toggleMessageSearch: () => set((s) => ({ messageSearchOpen: !s.messageSearchOpen })),
 }));

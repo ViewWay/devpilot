@@ -5,6 +5,7 @@ import { ToastContainer } from "../ToastContainer";
 import { UpdateChecker } from "../UpdateChecker";
 import { CommandPalette } from "../CommandPalette";
 import { QuickFileSearch } from "../QuickFileSearch";
+import { MessageSearchDialog } from "../MessageSearchDialog";
 import { OnboardingWizard } from "../OnboardingWizard";
 import { useUIStore } from "../../stores/uiStore";
 import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
@@ -136,6 +137,7 @@ export function AppShell() {
 
       <CommandPalette />
       <QuickFileSearch />
+      <MessageSearchDialog />
       <ToastContainer />
       <UpdateChecker />
     </div>

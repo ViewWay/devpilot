@@ -691,6 +691,18 @@ const en: Record<string, string> = {
   configHasProject: "Project config exists",
   configEditRaw: "Edit Raw TOML",
   configLayerInfo: "Config is resolved by merging: Defaults → Global (~/.devpilot/config.toml) → Project (.devpilot/config.toml)",
+
+  // --- Message Search ---
+  messageSearchTitle: "Search Messages",
+  messageSearchDesc: "Search across all chat messages",
+  messageSearchPlaceholder: "Search messages...",
+  messageSearchResults: "results",
+  messageSearchMinChars: "Type at least 2 characters to search",
+  messageSearchNoResults: "No messages found",
+  messageSearchNavigate: "navigate",
+  messageSearchOpen: "open",
+  messageSearchClose: "close",
+  scMessageSearch: "Search messages",
 };
 
 export default en;

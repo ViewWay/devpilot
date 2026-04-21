@@ -22,6 +22,7 @@ export function useKeyboardShortcuts() {
   const commandPaletteOpen = useUIStore((s) => s.commandPaletteOpen);
   const selectedModel = useUIStore((s) => s.selectedModel);
   const toggleQuickFileSearch = useUIStore((s) => s.toggleQuickFileSearch);
+  const toggleMessageSearch = useUIStore((s) => s.toggleMessageSearch);
   const shortcuts = useShortcutStore((s) => s.shortcuts);
   const openTab = useTabStore((s) => s.openTab);
 
@@ -75,9 +76,10 @@ export function useKeyboardShortcuts() {
     toggleTerminal: () => toggleRightPanel("terminal"),
     toggleFiles: () => toggleRightPanel("files"),
     quickFileSearch: toggleQuickFileSearch,
+    messageSearch: toggleMessageSearch,
   }), [handleNewChat, toggleSidebar, toggleSplitView, handleCommandPalette,
     handleOpenSettings, handleSendMessage, handleEscape, toggleRightPanel,
-    toggleQuickFileSearch]);
+    toggleQuickFileSearch, toggleMessageSearch]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

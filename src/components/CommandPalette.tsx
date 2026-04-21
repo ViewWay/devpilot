@@ -5,7 +5,7 @@ import { useI18n } from "../i18n";
 import {
   MessageSquarePlus, Settings, Sun, Moon, Monitor,
   PanelLeft, FolderOpen, Terminal, Eye,
-  ArrowRight, Hash, Command,
+  ArrowRight, Hash, Command, Search,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 
@@ -27,6 +27,7 @@ export function CommandPalette() {
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
   const setActiveView = useUIStore((s) => s.setActiveView);
+  const toggleMessageSearch = useUIStore((s) => s.toggleMessageSearch);
   const selectedModel = useUIStore((s) => s.selectedModel);
   const createSession = useChatStore((s) => s.createSession);
   const sessions = useChatStore((s) => s.sessions);
@@ -115,8 +116,18 @@ export function CommandPalette() {
       category: "command",
       action: () => { setActiveView("settings"); setOpen(false); },
     },
+    {
+      id: "search-messages",
+      label: t("messageSearchTitle"),
+      description: t("messageSearchDesc"),
+      icon: <Search size={16} />,
+      category: "command",
+      action: () => { setOpen(false); toggleMessageSearch(); },
+      shortcut: `${mod} ⇧ F`,
+    },
   ], [t, selectedModel, themeLabel, themeNext, themeIcon, mod,
-    createSession, toggleSidebar, toggleRightPanel, setTheme, setActiveView, setOpen]);
+    createSession, toggleSidebar, toggleRightPanel, setTheme, setActiveView, setOpen,
+    toggleMessageSearch]);
 
   const sessionItems: PaletteItem[] = useMemo(() =>
     sessions

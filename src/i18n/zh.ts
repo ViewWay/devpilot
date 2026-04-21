@@ -691,6 +691,18 @@ const zh: Record<string, string> = {
   configHasProject: "项目配置已存在",
   configEditRaw: "编辑原始 TOML",
   configLayerInfo: "配置合并顺序：默认值 → 全局（~/.devpilot/config.toml）→ 项目（.devpilot/config.toml）",
+
+  // --- Message Search / 消息搜索 ---
+  messageSearchTitle: "搜索消息",
+  messageSearchDesc: "在所有对话中搜索消息",
+  messageSearchPlaceholder: "搜索消息...",
+  messageSearchResults: "条结果",
+  messageSearchMinChars: "请输入至少 2 个字符进行搜索",
+  messageSearchNoResults: "未找到相关消息",
+  messageSearchNavigate: "导航",
+  messageSearchOpen: "打开",
+  messageSearchClose: "关闭",
+  scMessageSearch: "搜索消息",
 };
 
 export default zh;
