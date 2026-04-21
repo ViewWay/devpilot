@@ -13,6 +13,25 @@ import type {
 } from "./ipc";
 import { reportError } from "./errors";
 
+/**
+ * Parse the JSON-serialized env_vars field from the backend.
+ * The backend stores it as `Vec<Vec<String>>` (i.e., Array<[string, string]>).
+ */
+function parseEnvVars(
+  raw: string | undefined | null,
+): Array<{ key: string; value: string }> | undefined {
+  if (!raw) { return undefined; }
+  try {
+    const pairs = JSON.parse(raw) as string[][];
+    const result = pairs
+      .filter((p) => p.length === 2 && typeof p[0] === "string" && typeof p[1] === "string")
+      .map((p) => ({ key: p[0] as string, value: p[1] as string }));
+    return result.length > 0 ? result : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 // ── Session persistence ──────────────────────────────────────
 
 export async function persistCreateSession(
@@ -84,6 +103,20 @@ export async function persistSetSessionWorkingDir(
   }
 }
 
+export async function persistSetSessionEnvVars(
+  sessionId: string,
+  envVars: Array<{ key: string; value: string }>,
+): Promise<void> {
+  if (!isTauriRuntime()) { return; }
+  try {
+    // Serialize as Array<[string, string]> to match Rust Vec<(String, String)>
+    const serialized = JSON.stringify(envVars.map((v) => [v.key, v.value]));
+    await invoke("set_session_env_vars", { id: sessionId, envVars: serialized });
+  } catch (err) {
+    reportError(err, "persistence.set_session_env_vars");
+  }
+}
+
 // ── Message persistence ──────────────────────────────────────
 
 export async function persistAddMessage(
@@ -131,6 +164,7 @@ export interface HydratedSession {
   provider: string;
   archived: boolean;
   workingDir?: string;
+  envVars?: Array<{ key: string; value: string }>;
   createdAt: string;
   updatedAt: string;
   messages: HydratedMessage[];
@@ -181,6 +215,7 @@ export async function hydrateSessions(): Promise<HydratedSession[] | null> {
         provider: session.provider,
         archived,
         workingDir: session.workingDir ?? undefined,
+        envVars: parseEnvVars(session.envVars),
         createdAt: session.createdAt,
         updatedAt: session.updatedAt,
         messages: messages.map((m) => ({

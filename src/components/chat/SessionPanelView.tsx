@@ -3,6 +3,7 @@ import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { ApprovalQueue } from "./ApprovalOverlay";
 import { CheckpointPanel } from "./CheckpointPanel";
+import { EnvVarsEditor } from "./EnvVarsEditor";
 import { useChatStore } from "../../stores/chatStore";
 import { useUIStore } from "../../stores/uiStore";
 import { Loader2, AlertCircle, History, X, ChevronsUpDown } from "lucide-react";
@@ -97,6 +98,9 @@ export function SessionPanelView({
 
       {/* System prompt editor */}
       <SystemPromptEditorSlim />
+
+      {/* Environment variables editor */}
+      <EnvVarsEditor sessionId={sid ?? undefined} />
 
       {/* Message input */}
       <MessageInput sessionId={sid ?? undefined} />

@@ -251,6 +251,8 @@ function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
       return null;
     case "searchFiles":
       return [];
+    case "set_session_env_vars":
+      return null;
     case "cancel_stream":
       return false;
     // Diagnostics
@@ -394,6 +396,7 @@ export interface IPCCommands {
   delete_session: { id: string };
   update_session_title: { id: string; title: string };
   set_session_working_dir: { id: string; workingDir: string };
+  set_session_env_vars: { id: string; envVars: string };
   get_session_messages: { sessionId: string };
   add_message: {
     sessionId: string;
@@ -660,6 +663,7 @@ export interface SessionInfoIPC {
   provider: string;
   workingDir?: string;
   mode: string;
+  envVars?: string; // JSON-serialized Array<[string, string]>
   createdAt: string;
   updatedAt: string;
 }

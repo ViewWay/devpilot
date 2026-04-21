@@ -32,6 +32,9 @@ const en: Record<string, string> = {
   workingDir: "Working Directory",
   systemPrompt: "System Prompt",
   systemPromptPlaceholder: "Enter a custom system prompt to prepend to all messages...",
+  envVars: "Environment Variables",
+  addEnvVar: "Add variable",
+  remove: "Remove",
 
   // --- Chat Input ---
   inputPlaceholder: "Message DevPilot...",

@@ -28,6 +28,8 @@ export interface Session {
   updatedAt: string;
   archived?: boolean;
   workingDir?: string;
+  /** Per-session environment variables (KEY=VALUE pairs) injected into shell commands. */
+  envVars?: Array<{ key: string; value: string }>;
   messages: Message[];
 }
 

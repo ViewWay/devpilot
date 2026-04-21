@@ -9,6 +9,7 @@ import {
   persistUpdateSessionTitle,
   persistArchiveSession,
   persistSetSessionWorkingDir,
+  persistSetSessionEnvVars,
   persistAddMessage,
   hydrateSessions,
   type HydratedSession,
@@ -373,6 +374,8 @@ interface ChatState {
   searchMessages: (query: string) => Promise<MessageSearchResult[]>;
   /** Set the working directory for a specific session (persists to backend). */
   setSessionWorkingDir: (sessionId: string, workingDir: string) => void;
+  /** Set environment variables for a specific session (persists to backend). */
+  setSessionEnvVars: (sessionId: string, envVars: Array<{ key: string; value: string }>) => void;
   /** Reorder sessions (e.g. from drag-and-drop in sidebar). */
   reorderSessions: (sessionId: string, targetIndex: number) => void;
 
@@ -560,6 +563,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // Sync to global uiStore so all components pick it up
     useUIStore.getState().setWorkingDir(workingDir);
     persistSetSessionWorkingDir(sessionId, workingDir);
+  },
+
+  setSessionEnvVars: (sessionId, envVars) => {
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === sessionId ? { ...sess, envVars } : sess,
+      ),
+    }));
+    persistSetSessionEnvVars(sessionId, envVars);
   },
 
   sendMessage: (content, model, attachments) => {
@@ -1188,6 +1200,7 @@ function convertHydratedSession(hs: HydratedSession): Session {
     provider: hs.provider,
     archived: hs.archived,
     workingDir: hs.workingDir,
+    envVars: hs.envVars,
     createdAt: hs.createdAt,
     updatedAt: hs.updatedAt,
     messages: hs.messages.map((hm) => ({

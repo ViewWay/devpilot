@@ -32,6 +32,9 @@ const zh: Record<string, string> = {
   workingDir: "工作目录",
   systemPrompt: "系统提示词",
   systemPromptPlaceholder: "输入自定义系统提示词，将附加到所有消息开头...",
+  envVars: "环境变量",
+  addEnvVar: "添加变量",
+  remove: "删除",
 
   // --- Chat Input ---
   inputPlaceholder: "给 DevPilot 发消息...",
