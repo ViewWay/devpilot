@@ -232,9 +232,8 @@ mod tests {
         let gate = ApprovalGate::new();
         let gate2 = gate.clone();
 
-        let handle = tokio::spawn(async move {
-            gate2.wait_for_approval("shared".to_string()).await
-        });
+        let handle =
+            tokio::spawn(async move { gate2.wait_for_approval("shared".to_string()).await });
 
         tokio::task::yield_now().await;
 

@@ -203,6 +203,11 @@ impl McpClient {
         &self.server_name
     }
 
+    /// Get the number of discovered tools.
+    pub fn tool_count(&self) -> usize {
+        self.tools.try_read().map(|t| t.len()).unwrap_or(0)
+    }
+
     /// Check if the underlying transport is alive.
     pub async fn is_alive(&self) -> bool {
         self.transport.read().await.is_alive()

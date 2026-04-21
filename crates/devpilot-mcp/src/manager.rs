@@ -105,6 +105,22 @@ impl McpManager {
             .collect()
     }
 
+    /// List all connected servers with tool counts.
+    pub async fn connected_servers_detail(&self) -> Vec<(String, String, usize)> {
+        let clients = self.clients.read().await;
+        clients
+            .values()
+            .map(|c| {
+                let tool_count = c.tool_count();
+                (
+                    c.server_id().to_string(),
+                    c.server_name().to_string(),
+                    tool_count,
+                )
+            })
+            .collect()
+    }
+
     /// Check if a server is connected.
     pub async fn is_connected(&self, server_id: &str) -> bool {
         let clients = self.clients.read().await;

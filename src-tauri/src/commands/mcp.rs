@@ -79,6 +79,18 @@ pub async fn mcp_list_connected(
     }
 }
 
+/// List connected servers with tool counts: `(id, name, tool_count)`.
+#[tauri::command]
+pub async fn mcp_list_connected_detail(
+    state: State<'_, AppState>,
+) -> Result<Vec<(String, String, usize)>, String> {
+    let manager = state.mcp_manager.lock().await;
+    match manager.as_ref() {
+        Some(m) => Ok(m.connected_servers_detail().await),
+        None => Ok(vec![]),
+    }
+}
+
 // ── Helpers ───────────────────────────────────────────
 
 /// Convert a DB record to a runtime config.

@@ -204,7 +204,10 @@ mod tests {
     fn event_serialization_all_variants() {
         // Test all CoreEvent variants serialize/deserialize correctly
         let events = vec![
-            CoreEvent::Chunk { session_id: "s1".into(), delta: "hello".into() },
+            CoreEvent::Chunk {
+                session_id: "s1".into(),
+                delta: "hello".into(),
+            },
             CoreEvent::ToolCallStarted {
                 session_id: "s1".into(),
                 call_id: "c1".into(),
@@ -232,10 +235,22 @@ mod tests {
             CoreEvent::AgentDone {
                 session_id: "s1".into(),
                 total_turns: 3,
-                total_usage: Usage { input_tokens: 100, output_tokens: 200, cache_read_tokens: None, cache_write_tokens: None },
+                total_usage: Usage {
+                    input_tokens: 100,
+                    output_tokens: 200,
+                    cache_read_tokens: None,
+                    cache_write_tokens: None,
+                },
             },
-            CoreEvent::Error { session_id: "s1".into(), message: "timeout".into() },
-            CoreEvent::Compacted { session_id: "s1".into(), messages_removed: 5, summary_added: true },
+            CoreEvent::Error {
+                session_id: "s1".into(),
+                message: "timeout".into(),
+            },
+            CoreEvent::Compacted {
+                session_id: "s1".into(),
+                messages_removed: 5,
+                summary_added: true,
+            },
         ];
 
         for event in &events {
