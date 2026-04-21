@@ -251,6 +251,7 @@ mod tests {
         ToolContext {
             working_dir: "/tmp".into(),
             session_id: "test".into(),
+            env_vars: vec![],
         }
     }
 
@@ -347,6 +348,7 @@ mod tests {
         let ctx = ToolContext {
             working_dir: "/tmp".into(),
             session_id: "test".into(),
+            env_vars: vec![],
         };
 
         // Use relative path from working_dir

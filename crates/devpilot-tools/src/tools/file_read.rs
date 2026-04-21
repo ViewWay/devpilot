@@ -188,6 +188,7 @@ mod tests {
         ToolContext {
             working_dir: "/tmp".into(),
             session_id: "test".into(),
+            env_vars: vec![],
         }
     }
 

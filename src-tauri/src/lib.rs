@@ -49,6 +49,7 @@ pub fn run() {
             commands::get_session_usage,
             // Session Metadata
             commands::set_session_working_dir,
+            commands::set_session_env_vars,
             // Providers
             commands::list_providers,
             commands::get_provider,

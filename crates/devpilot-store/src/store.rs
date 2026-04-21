@@ -95,6 +95,7 @@ impl Store {
                     working_dir TEXT,
                     mode TEXT NOT NULL DEFAULT 'code',
                     reasoning_effort TEXT,
+                    env_vars TEXT,
                     created_at TEXT NOT NULL DEFAULT (datetime('now')),
                     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
                     archived_at TEXT
@@ -213,9 +214,40 @@ impl Store {
                     tags TEXT,
                     created_at TEXT NOT NULL DEFAULT (datetime('now'))
                 );",
+
             )
             .context("Failed to run migrations")?;
+
+        // ── Incremental migrations for existing databases ──
+        self.migrate_add_column_if_missing("sessions", "env_vars", "TEXT")?;
+
         info!("Database migrations complete");
+        Ok(())
+    }
+
+    /// Add a column to a table if it does not already exist (idempotent migration).
+    fn migrate_add_column_if_missing(
+        &self,
+        table: &str,
+        column: &str,
+        col_type: &str,
+    ) -> Result<()> {
+        let col_exists: bool = self
+            .conn
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM pragma_table_info(?) WHERE name = ?",
+                rusqlite::params![table, column],
+                |row| row.get(0),
+            )
+            .context("Failed to check column existence")?;
+
+        if !col_exists {
+            let sql = format!("ALTER TABLE {table} ADD COLUMN {column} {col_type}");
+            self.conn
+                .execute_batch(&sql)
+                .with_context(|| format!("Failed to add column {column} to table {table}"))?;
+            info!("Migration: added column {column} to table {table}");
+        }
         Ok(())
     }
 
@@ -230,7 +262,7 @@ impl Store {
     pub fn list_sessions(&self) -> Result<Vec<SessionInfo>> {
         let mut stmt = self.conn.prepare(
             "SELECT s.id, s.title, s.model, s.provider, s.working_dir, s.mode,
-                    s.reasoning_effort, s.created_at, s.updated_at, s.archived_at,
+                    s.reasoning_effort, s.env_vars, s.created_at, s.updated_at, s.archived_at,
                     (SELECT COUNT(*) FROM messages m WHERE m.session_id = s.id) AS message_count
              FROM sessions s ORDER BY s.updated_at DESC",
         )?;
@@ -245,7 +277,7 @@ impl Store {
         self.conn
             .query_row(
                 "SELECT s.id, s.title, s.model, s.provider, s.working_dir, s.mode,
-                        s.reasoning_effort, s.created_at, s.updated_at, s.archived_at,
+                        s.reasoning_effort, s.env_vars, s.created_at, s.updated_at, s.archived_at,
                         (SELECT COUNT(*) FROM messages m WHERE m.session_id = s.id) AS message_count
                  FROM sessions s WHERE s.id = ?1",
                 rusqlite::params![id],
@@ -271,6 +303,7 @@ impl Store {
             working_dir: None,
             mode: "code".to_string(),
             reasoning_effort: None,
+            env_vars: None,
             created_at: now.clone(),
             updated_at: now,
             archived_at: None,
@@ -317,6 +350,18 @@ impl Store {
         self.conn.execute(
             "UPDATE sessions SET working_dir = ?2, updated_at = datetime('now') WHERE id = ?1",
             rusqlite::params![id, working_dir],
+        )?;
+        Ok(())
+    }
+
+    /// Set the environment variables for a session.
+    ///
+    /// `env_vars` is a JSON-serialized `Vec<(String, String)>` of KEY=VALUE pairs
+    /// that are injected into shell commands run by tools in this session.
+    pub fn set_session_env_vars(&self, id: &str, env_vars: &str) -> Result<()> {
+        self.conn.execute(
+            "UPDATE sessions SET env_vars = ?2, updated_at = datetime('now') WHERE id = ?1",
+            rusqlite::params![id, env_vars],
         )?;
         Ok(())
     }
@@ -728,10 +773,11 @@ fn row_to_session(row: &rusqlite::Row) -> rusqlite::Result<SessionInfo> {
         working_dir: row.get(4)?,
         mode: row.get(5)?,
         reasoning_effort: row.get(6)?,
-        created_at: row.get(7)?,
-        updated_at: row.get(8)?,
-        archived_at: row.get(9)?,
-        message_count: row.get(10)?,
+        env_vars: row.get(7)?,
+        created_at: row.get(8)?,
+        updated_at: row.get(9)?,
+        archived_at: row.get(10)?,
+        message_count: row.get(11)?,
     })
 }
 
@@ -2135,6 +2181,7 @@ mod tests {
                     working_dir: None,
                     mode: "code".to_string(),
                     reasoning_effort: None,
+                    env_vars: None,
                     created_at: session.created_at.clone(),
                     updated_at: session.updated_at.clone(),
                     archived_at: None,
@@ -2205,6 +2252,7 @@ mod tests {
                         working_dir: None,
                         mode: "code".to_string(),
                         reasoning_effort: None,
+                        env_vars: None,
                         created_at: existing.created_at.clone(),
                         updated_at: existing.updated_at.clone(),
                         archived_at: None,
@@ -2221,6 +2269,7 @@ mod tests {
                         working_dir: None,
                         mode: "code".to_string(),
                         reasoning_effort: None,
+                        env_vars: None,
                         created_at: chrono::Utc::now().to_rfc3339(),
                         updated_at: chrono::Utc::now().to_rfc3339(),
                         archived_at: None,

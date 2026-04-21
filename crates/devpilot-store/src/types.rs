@@ -22,6 +22,7 @@ pub struct SessionInfo {
     pub working_dir: Option<String>,
     pub mode: String,
     pub reasoning_effort: Option<String>,
+    pub env_vars: Option<String>, // JSON-serialized Vec<(String, String)>
     pub created_at: String,
     pub updated_at: String,
     pub archived_at: Option<String>,

@@ -209,6 +209,7 @@ impl Agent {
                     tool_calls,
                     &session.id,
                     session.config.working_dir.as_deref(),
+                    session.config.env_vars.clone(),
                 )
                 .await?;
 
@@ -415,6 +416,7 @@ impl Agent {
         tool_calls: Vec<&ContentBlock>,
         session_id: &str,
         working_dir: Option<&str>,
+        env_vars: Vec<(String, String)>,
     ) -> CoreResult<Vec<ContentBlock>> {
         let mut results = Vec::new();
 
@@ -478,6 +480,7 @@ impl Agent {
             let ctx = ToolContext {
                 session_id: session_id.to_string(),
                 working_dir: working_dir.unwrap_or(".").to_string(),
+                env_vars: env_vars.clone(),
             };
 
             let result = executor
@@ -631,6 +634,7 @@ mod tests {
             working_dir: None,
             system_prompt: None,
             temperature: None,
+            env_vars: vec![],
         });
 
         let result = agent.run(&mut session, &provider, "Hi there!".into()).await;
@@ -653,6 +657,7 @@ mod tests {
             working_dir: None,
             system_prompt: None,
             temperature: None,
+            env_vars: vec![],
         });
 
         assert_eq!(session.state, SessionState::Idle);
@@ -677,6 +682,7 @@ mod tests {
             working_dir: None,
             system_prompt: None,
             temperature: None,
+            env_vars: vec![],
         });
         session.set_state(SessionState::Archived);
 
@@ -800,6 +806,7 @@ mod tests {
             working_dir: None,
             system_prompt: None,
             temperature: None,
+            env_vars: vec![],
         });
         // build_chat_request with Ask mode should always return tools: None
         let req = session.build_chat_request(vec![devpilot_protocol::ToolDefinition {
@@ -827,6 +834,7 @@ mod tests {
             working_dir: None,
             system_prompt: None,
             temperature: None,
+            env_vars: vec![],
         });
 
         let result = agent
@@ -870,6 +878,7 @@ mod tests {
             working_dir: None,
             system_prompt: None,
             temperature: None,
+            env_vars: vec![],
         });
         let tool_def = devpilot_protocol::ToolDefinition {
             name: "read_file".into(),

@@ -181,6 +181,20 @@ pub fn set_session_working_dir(
         .map_err(|e| e.to_string())
 }
 
+/// Update the environment variables for a session.
+///
+/// `env_vars` should be a JSON-serialized `Vec<{ key: string, value: string }>`.
+#[tauri::command(rename_all = "camelCase")]
+pub fn set_session_env_vars(
+    state: State<'_, AppState>,
+    id: String,
+    env_vars: String,
+) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.set_session_env_vars(&id, &env_vars)
+        .map_err(|e| e.to_string())
+}
+
 // ── Providers ─────────────────────────────────────────
 
 /// List all persisted providers.

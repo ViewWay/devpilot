@@ -35,6 +35,9 @@ pub struct SessionConfig {
     /// Temperature override.
     #[serde(default)]
     pub temperature: Option<f32>,
+    /// Per-session environment variables (KEY=VALUE pairs) injected into shell commands.
+    #[serde(default)]
+    pub env_vars: Vec<(String, String)>,
 }
 
 /// Current state of a session.
@@ -241,6 +244,7 @@ mod tests {
             working_dir: None,
             system_prompt: None,
             temperature: None,
+            env_vars: vec![],
         }
     }
 

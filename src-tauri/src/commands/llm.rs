@@ -180,6 +180,26 @@ pub async fn send_message_stream(
         working_dir: request.working_dir.clone(),
         system_prompt,
         temperature: request.chat_request.temperature,
+        env_vars: {
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            db.get_session(&session_id)
+                .ok()
+                .and_then(|s| s.env_vars)
+                .and_then(|json| serde_json::from_str::<Vec<Vec<String>>>(&json).ok())
+                .map(|pairs| {
+                    pairs
+                        .into_iter()
+                        .filter_map(|p| {
+                            if p.len() == 2 {
+                                Some((p[0].clone(), p[1].clone()))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
+        },
     };
 
     // Create session and load history from DB

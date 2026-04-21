@@ -159,6 +159,7 @@ mod tests {
                 .to_string_lossy()
                 .to_string(),
             session_id: "test".to_string(),
+            env_vars: vec![],
         }
     }
 
@@ -183,6 +184,7 @@ mod tests {
                 .to_string_lossy()
                 .to_string(),
             session_id: "test".to_string(),
+            env_vars: vec![],
         };
 
         let input = serde_json::json!({
@@ -210,6 +212,7 @@ mod tests {
                 .to_string_lossy()
                 .to_string(),
             session_id: "test".to_string(),
+            env_vars: vec![],
         };
 
         let input = serde_json::json!({

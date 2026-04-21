@@ -172,6 +172,7 @@ mod tests {
         let ctx = ToolContext {
             working_dir: "/tmp".into(),
             session_id: "test".into(),
+            env_vars: vec![],
         };
 
         let output = reg
@@ -188,6 +189,7 @@ mod tests {
         let ctx = ToolContext {
             working_dir: "/tmp".into(),
             session_id: "test".into(),
+            env_vars: vec![],
         };
         let result = reg
             .execute("nonexistent", serde_json::json!({}), &ctx)
@@ -208,6 +210,7 @@ mod tests {
         let ctx = ToolContext {
             working_dir: "/tmp".into(),
             session_id: "test".into(),
+            env_vars: vec![],
         };
         let result = reg
             .execute("echo", serde_json::json!({"message": "hello"}), &ctx)

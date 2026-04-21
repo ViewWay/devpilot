@@ -54,6 +54,10 @@ pub struct ToolContext {
     pub working_dir: String,
     /// The session ID.
     pub session_id: String,
+    /// Per-session environment variables (KEY=VALUE pairs).
+    /// These are injected into shell commands in addition to the
+    /// base environment (PATH, HOME, LANG, TERM).
+    pub env_vars: Vec<(String, String)>,
 }
 
 /// Output from a tool execution.

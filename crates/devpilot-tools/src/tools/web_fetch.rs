@@ -336,6 +336,7 @@ mod tests {
         let ctx = ToolContext {
             working_dir: ".".to_string(),
             session_id: "test".to_string(),
+            env_vars: vec![],
         };
         let input = serde_json::json!({ "url": "ftp://example.com" });
         let result = tool.execute(input, &ctx).await;
@@ -348,6 +349,7 @@ mod tests {
         let ctx = ToolContext {
             working_dir: ".".to_string(),
             session_id: "test".to_string(),
+            env_vars: vec![],
         };
         let input = serde_json::json!({});
         let result = tool.execute(input, &ctx).await;

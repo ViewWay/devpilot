@@ -62,9 +62,32 @@ pub async fn execute_tool(
 ) -> Result<ToolExecutionResult, String> {
     let executor = state.tool_executor.lock().await;
 
+    // Load session env_vars from DB if available
+    let env_vars = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        db.get_session(&session_id)
+            .ok()
+            .and_then(|s| s.env_vars)
+            .and_then(|json| serde_json::from_str::<Vec<Vec<String>>>(&json).ok())
+            .map(|pairs| {
+                pairs
+                    .into_iter()
+                    .filter_map(|p| {
+                        if p.len() == 2 {
+                            Some((p[0].clone(), p[1].clone()))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
+    };
+
     let ctx = ToolContext {
         working_dir,
         session_id,
+        env_vars,
     };
 
     info!(

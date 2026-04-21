@@ -125,6 +125,10 @@ impl Tool for ShellExecTool {
         cmd.env("HOME", std::env::var("HOME").unwrap_or_default());
         cmd.env("LANG", "en_US.UTF-8");
         cmd.env("TERM", "dumb");
+        // Inject per-session environment variables
+        for (key, value) in &ctx.env_vars {
+            cmd.env(key, value);
+        }
 
         let result = if timeout_secs > 0 {
             tokio::time::timeout(std::time::Duration::from_secs(timeout_secs), cmd.output())
@@ -204,6 +208,7 @@ mod tests {
         let ctx = ToolContext {
             working_dir: "/tmp".into(),
             session_id: "test".into(),
+            env_vars: vec![],
         };
 
         let result = tool
@@ -221,6 +226,7 @@ mod tests {
         let ctx = ToolContext {
             working_dir: "/nonexistent/dir/xyz".into(),
             session_id: "test".into(),
+            env_vars: vec![],
         };
 
         let result = tool
@@ -238,6 +244,7 @@ mod tests {
         let ctx = ToolContext {
             working_dir: "/tmp".into(),
             session_id: "test".into(),
+            env_vars: vec![],
         };
 
         let result = tool
@@ -254,6 +261,7 @@ mod tests {
         let ctx = ToolContext {
             working_dir: "/tmp".into(),
             session_id: "test".into(),
+            env_vars: vec![],
         };
 
         let result = tool
@@ -272,6 +280,7 @@ mod tests {
         let ctx = ToolContext {
             working_dir: "/tmp".into(),
             session_id: "test".into(),
+            env_vars: vec![],
         };
 
         let result = tool
