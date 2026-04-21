@@ -2,11 +2,45 @@ import { create } from "zustand";
 import { invoke, isTauriRuntime } from "../lib/ipc";
 import type { McpServerConfig } from "../types";
 
+// ── Catalog types (mirrors Rust) ──────────────────────
+
+export interface McpCatalogEnvVar {
+  key: string;
+  description: string;
+  required: boolean;
+}
+
+export interface McpCatalogEntry {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  transport: string;
+  command?: string;
+  args?: string[];
+  url?: string;
+  homepage?: string;
+  version?: string;
+  env?: McpCatalogEnvVar[];
+}
+
+export interface McpCatalog {
+  version: number;
+  updatedAt: string;
+  servers: McpCatalogEntry[];
+}
+
+// ── Store interface ───────────────────────────────────
+
 interface McpState {
   servers: McpServerConfig[];
   connectedIds: string[];
   loading: boolean;
   error: string | null;
+  // Catalog
+  catalog: McpCatalog | null;
+  catalogLoading: boolean;
+  catalogError: string | null;
   fetchServers: () => Promise<void>;
   fetchConnected: () => Promise<void>;
   addServer: (server: McpServerConfig) => Promise<void>;
@@ -15,6 +49,9 @@ interface McpState {
   toggleEnabled: (id: string) => Promise<void>;
   connect: (id: string) => Promise<void>;
   disconnect: (id: string) => Promise<void>;
+  // Catalog actions
+  fetchCatalog: () => Promise<void>;
+  installFromCatalog: (entry: McpCatalogEntry) => Promise<void>;
 }
 
 export const useMcpStore = create<McpState>((set, get) => ({
@@ -22,6 +59,9 @@ export const useMcpStore = create<McpState>((set, get) => ({
   connectedIds: [],
   loading: false,
   error: null,
+  catalog: null,
+  catalogLoading: false,
+  catalogError: null,
 
   fetchServers: async () => {
     if (!isTauriRuntime()) {
@@ -106,5 +146,29 @@ export const useMcpStore = create<McpState>((set, get) => ({
     } catch (e: unknown) {
       set({ error: e instanceof Error ? e.message : String(e) });
     }
+  },
+
+  fetchCatalog: async () => {
+    set({ catalogLoading: true, catalogError: null });
+    try {
+      const catalog = await invoke<McpCatalog>("fetch_mcp_catalog");
+      set({ catalog, catalogLoading: false });
+    } catch (e: unknown) {
+      set({ catalogError: e instanceof Error ? e.message : String(e), catalogLoading: false });
+    }
+  },
+
+  installFromCatalog: async (entry: McpCatalogEntry) => {
+    const server: McpServerConfig = {
+      id: entry.id,
+      name: entry.name,
+      transport: entry.transport as "stdio" | "sse",
+      command: entry.command,
+      args: entry.args,
+      url: entry.url,
+      enabled: true,
+      createdAt: new Date().toISOString(),
+    };
+    await get().addServer(server);
   },
 }));

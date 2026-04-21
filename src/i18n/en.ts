@@ -512,6 +512,7 @@ const en: Record<string, string> = {
 
   // --- Provider Diagnostics ---
   runDiagnostics: "Run Diagnostics",
+  running: "Running...",
   diagnosing: "Diagnosing…",
   diagnosticReport: "Diagnostic Report",
   diagnosticHealthy: "Provider is healthy",

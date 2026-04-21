@@ -135,6 +135,8 @@ pub fn run() {
             commands::mcp::mcp_connect_server,
             commands::mcp::mcp_disconnect_server,
             commands::mcp::mcp_list_connected,
+            commands::mcp::mcp_list_connected_detail,
+            commands::mcp::fetch_mcp_catalog,
             // Memory & Persona
             commands::memory::load_persona_files_cmd,
             commands::memory::save_persona_file_cmd,

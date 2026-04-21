@@ -512,6 +512,7 @@ const zh: Record<string, string> = {
 
   // --- Provider Diagnostics ---
   runDiagnostics: "运行诊断",
+  running: "运行中...",
   diagnosing: "正在诊断…",
   diagnosticReport: "诊断报告",
   diagnosticHealthy: "服务提供商运行正常",

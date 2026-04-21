@@ -555,6 +555,109 @@ function ProviderCard({
               {t("lastTested")}: {new Date(provider.lastTested).toLocaleString()}
             </div>
           )}
+
+          {/* Diagnostic Report */}
+          <DiagnosticReportPanel providerId={provider.id} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Renders the full diagnostic report for a provider with severity badges and suggestions. */
+function DiagnosticReportPanel({ providerId }: { providerId: string }) {
+  const { t } = useI18n();
+  const diagnoseProvider = useProviderStore((s) => s.diagnoseProvider);
+  const report = useProviderStore((s) => s.diagnosticReports[providerId]);
+  const [running, setRunning] = useState(false);
+
+  const handleDiagnose = async () => {
+    setRunning(true);
+    await diagnoseProvider(providerId);
+    setRunning(false);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          {t("diagnosticReport")}
+        </span>
+        <button
+          onClick={handleDiagnose}
+          disabled={running}
+          className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+        >
+          {running ? <Loader2 size={10} className="animate-spin" /> : <Wrench size={10} />}
+          {running ? t("running") || "Running..." : t("runDiagnostics") || "Diagnose"}
+        </button>
+      </div>
+
+      {report && (
+        <div
+          className={cn(
+            "rounded-md border px-3 py-2 space-y-2",
+            report.healthy
+              ? "border-green-500/30 bg-green-500/5"
+              : "border-destructive/30 bg-destructive/5",
+          )}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              {report.healthy ? (
+                <Check size={12} className="text-green-500" />
+              ) : (
+                <AlertCircle size={12} className="text-destructive" />
+              )}
+              <span className="text-[10px] font-medium text-foreground">
+                {report.healthy ? t("diagnosticHealthy") : t("diagnosticUnhealthy")}
+              </span>
+            </div>
+            <span className="text-[9px] text-muted-foreground">
+              {t("diagnosticDuration").replace("{ms}", String(report.durationMs))}
+            </span>
+          </div>
+
+          {/* Check list */}
+          {report.checks.length > 0 ? (
+            <div className="space-y-1">
+              {report.checks.map((check, i) => (
+                <div key={i} className="flex items-start gap-2">
+                  <span
+                    className={cn(
+                      "mt-0.5 shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase leading-none",
+                      check.severity === "ok" && "bg-green-500/15 text-green-500",
+                      check.severity === "warning" && "bg-yellow-500/15 text-yellow-500",
+                      check.severity === "error" && "bg-destructive/15 text-destructive",
+                    )}
+                  >
+                    {check.severity === "ok" ? "✓" : check.severity === "warning" ? "!" : "✗"}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-medium text-foreground">{check.name}</span>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">{check.message}</div>
+                    {check.suggestion && (
+                      <div className="mt-0.5 text-[9px] text-yellow-500/80">
+                        💡 {check.suggestion}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-[10px] text-muted-foreground">{t("diagnosticNoChecks")}</div>
+          )}
+
+          {/* Models count footer */}
+          {report.modelsCount !== null && (
+            <div className="text-[9px] text-muted-foreground border-t border-border/50 pt-1.5">
+              {t("diagnosticModels").replace("{count}", String(report.modelsCount))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1492,6 +1595,227 @@ function SecurityTab() {
   );
 }
 
+/** MCP Marketplace — browse and install MCP servers from a catalog. */
+function McpMarketplace() {
+  const { t } = useI18n();
+  const catalog = useMcpStore((s) => s.catalog);
+  const catalogLoading = useMcpStore((s) => s.catalogLoading);
+  const catalogError = useMcpStore((s) => s.catalogError);
+  const fetchCatalog = useMcpStore((s) => s.fetchCatalog);
+  const installFromCatalog = useMcpStore((s) => s.installFromCatalog);
+  const servers = useMcpStore((s) => s.servers);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [installingId, setInstallingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!catalog) { fetchCatalog(); }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const entries = catalog?.servers ?? [];
+  const categories = [...new Set(entries.map((e) => e.category))].sort();
+
+  const filtered = entries.filter((e) => {
+    const matchesSearch =
+      !searchQuery ||
+      e.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      e.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      e.category.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = !selectedCategory || e.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  const handleInstall = async (entry: typeof entries[0]) => {
+    setInstallingId(entry.id);
+    await installFromCatalog(entry);
+    setInstallingId(null);
+  };
+
+  const isInstalled = (id: string) => servers.some((s) => s.id === id);
+
+  const CATEGORY_ICONS: Record<string, string> = {
+    filesystem: "📁",
+    database: "🗄️",
+    search: "🔍",
+    devtools: "🛠️",
+    utilities: "🔧",
+    communication: "💬",
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-xs font-semibold text-foreground">{t("mcpMarketplace")}</h3>
+          <p className="text-[10px] text-muted-foreground mt-0.5">{t("mcpMarketplaceDesc")}</p>
+        </div>
+        <button
+          onClick={fetchCatalog}
+          disabled={catalogLoading}
+          className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+        >
+          <RefreshCw size={10} className={catalogLoading ? "animate-spin" : ""} />
+          {t("refresh") || "Refresh"}
+        </button>
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder={t("mcpSearchCatalog") || "Search servers..."}
+          className="w-full rounded-md border border-input bg-background pl-8 pr-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-ring"
+        />
+      </div>
+
+      {/* Category filters */}
+      {categories.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            onClick={() => setSelectedCategory(null)}
+            className={cn(
+              "rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors",
+              !selectedCategory
+                ? "bg-primary/10 text-primary"
+                : "bg-muted text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {t("all") || "All"}
+          </button>
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+              className={cn(
+                "rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors",
+                selectedCategory === cat
+                  ? "bg-primary/10 text-primary"
+                  : "bg-muted text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {CATEGORY_ICONS[cat] ?? ""} {cat}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Error */}
+      {catalogError && (
+        <div className="rounded-md bg-destructive/10 px-3 py-2 text-[10px] text-destructive">
+          {catalogError}
+        </div>
+      )}
+
+      {/* Loading */}
+      {catalogLoading && !catalog && (
+        <div className="flex items-center justify-center gap-2 py-8 text-xs text-muted-foreground">
+          <Loader2 size={14} className="animate-spin" />
+          {t("loading")}
+        </div>
+      )}
+
+      {/* Catalog grid */}
+      {filtered.length > 0 && (
+        <div className="grid grid-cols-1 gap-2">
+          {filtered.map((entry) => {
+            const installed = isInstalled(entry.id);
+            const installing = installingId === entry.id;
+            const requiresEnv = entry.env?.some((v) => v.required) ?? false;
+            return (
+              <div
+                key={entry.id}
+                className="rounded-lg border border-border bg-card p-3"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">{CATEGORY_ICONS[entry.category] ?? "🔌"}</span>
+                      <span className="text-xs font-medium text-foreground">{entry.name}</span>
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground">
+                        {entry.category}
+                      </span>
+                      {entry.version && (
+                        <span className="text-[9px] text-muted-foreground">v{entry.version}</span>
+                      )}
+                      {requiresEnv && (
+                        <span className="rounded bg-yellow-500/10 px-1.5 py-0.5 text-[9px] text-yellow-500">
+                          🔑 {t("mcpRequiresKey") || "Requires key"}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-[10px] text-muted-foreground leading-relaxed">
+                      {entry.description}
+                    </p>
+                    {/* Required env vars */}
+                    {entry.env && entry.env.length > 0 && (
+                      <div className="mt-1.5 space-y-0.5">
+                        {entry.env.map((ev) => (
+                          <div key={ev.key} className="text-[9px] text-muted-foreground">
+                            <code className="rounded bg-muted px-1 py-0.5 text-[8px]">{ev.key}</code>
+                            {" — "}{ev.description}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {entry.homepage && (
+                      <a
+                        href={entry.homepage}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 inline-flex items-center gap-1 text-[9px] text-primary/70 hover:text-primary transition-colors"
+                      >
+                        <ExternalLink size={8} />
+                        {t("mcpHomepage") || "Homepage"}
+                      </a>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => !installed && !installing && handleInstall(entry)}
+                    disabled={installed || installing}
+                    className={cn(
+                      "shrink-0 rounded-md px-3 py-1.5 text-[10px] font-medium transition-colors",
+                      installed
+                        ? "bg-muted text-muted-foreground cursor-default"
+                        : installing
+                          ? "bg-primary/10 text-primary"
+                          : "bg-primary/10 text-primary hover:bg-primary/20",
+                    )}
+                  >
+                    {installing ? (
+                      <Loader2 size={10} className="animate-spin inline" />
+                    ) : installed ? (
+                      t("mcpInstalled") || "Installed"
+                    ) : (
+                      t("mcpInstall") || "Install"
+                    )}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!catalogLoading && filtered.length === 0 && catalog && (
+        <div className="rounded-lg border border-dashed border-border p-6 text-center">
+          <Search size={20} className="mx-auto text-muted-foreground/40 mb-2" />
+          <p className="text-xs text-muted-foreground">{t("mcpNoCatalogResults") || "No servers found"}</p>
+        </div>
+      )}
+
+      {/* Catalog metadata */}
+      {catalog && (
+        <div className="text-[9px] text-muted-foreground text-center">
+          {entries.length} {t("mcpServersAvailable") || "servers available"} · {t("mcpCatalogUpdated") || "Updated"}: {catalog.updatedAt}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function McpTab() {
   const { t } = useI18n();
   const servers = useMcpStore((s) => s.servers);
@@ -1734,6 +2058,9 @@ function McpTab() {
           </div>
         </div>
       )}
+
+      {/* Marketplace */}
+      {!showAddForm && <McpMarketplace />}
 
       {/* Add/Edit form */}
       {showAddForm && (
