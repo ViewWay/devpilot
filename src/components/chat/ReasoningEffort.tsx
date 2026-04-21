@@ -79,7 +79,7 @@ export function ReasoningEffort() {
           {/* Custom slider */}
           <div className="border-t border-border/50 px-3 py-2 mt-1">
             <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
-              <span>Custom</span>
+              <span>{t("custom")}</span>
               <span>{reasoningEffort}%</span>
             </div>
             <input

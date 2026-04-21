@@ -247,13 +247,13 @@ export function CommandPalette() {
         {/* Footer */}
         <div className="flex items-center gap-4 border-t border-border px-4 py-2 text-[10px] text-muted-foreground">
           <span className="flex items-center gap-1">
-            <kbd className="rounded border border-border bg-muted/50 px-1">↑↓</kbd> navigate
+            <kbd className="rounded border border-border bg-muted/50 px-1">↑↓</kbd> {t("commandPaletteNavigate")}
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="rounded border border-border bg-muted/50 px-1">↵</kbd> select
+            <kbd className="rounded border border-border bg-muted/50 px-1">↵</kbd> {t("commandPaletteSelect")}
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="rounded border border-border bg-muted/50 px-1">esc</kbd> close
+            <kbd className="rounded border border-border bg-muted/50 px-1">esc</kbd> {t("commandPaletteClose")}
           </span>
         </div>
       </div>

@@ -28,6 +28,7 @@ const zh: Record<string, string> = {
   reasoningEffort: "推理深度",
   reasoningShallow: "浅层 — 快速简洁",
   reasoningDeep: "深度 — 深入分析",
+  custom: "自定义",
   noDirSelected: "未选择目录",
   workingDir: "工作目录",
   systemPrompt: "系统提示词",
@@ -196,6 +197,9 @@ const zh: Record<string, string> = {
   commandPaletteTogglePreview: "切换预览",
   commandPaletteSwitchTheme: "切换主题",
   commandPaletteOpenSettingsDesc: "打开应用设置",
+  commandPaletteNavigate: "导航",
+  commandPaletteSelect: "选择",
+  commandPaletteClose: "关闭",
 
   // --- Model Management ---
   addModel: "添加模型",
@@ -557,6 +561,7 @@ const zh: Record<string, string> = {
   quickFileSearchPathCopied: "路径已复制！",
   quickFileSearchResultsCount: "找到 {count} 个文件",
   quickFileSearchContentResultsCount: "在 {files} 个文件中找到 {count} 个匹配",
+  quickFileSearchSwitchMode: "切换模式",
   commandPaletteSearchFiles: "搜索文件",
   commandPaletteSearchFilesDesc: "按文件名或内容快速搜索",
 

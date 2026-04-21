@@ -329,16 +329,16 @@ export function QuickFileSearch() {
         <div className="flex items-center gap-4 border-t border-border px-4 py-2 text-[10px] text-muted-foreground">
           {resultSummary && <span className="font-medium">{resultSummary}</span>}
           <span className="flex items-center gap-1">
-            <kbd className="rounded border border-border bg-muted/50 px-1">↑↓</kbd> navigate
+            <kbd className="rounded border border-border bg-muted/50 px-1">↑↓</kbd> {t("commandPaletteNavigate")}
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="rounded border border-border bg-muted/50 px-1">↵</kbd> open
+            <kbd className="rounded border border-border bg-muted/50 px-1">↵</kbd> {t("quickFileSearchOpen")}
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="rounded border border-border bg-muted/50 px-1">tab</kbd> switch mode
+            <kbd className="rounded border border-border bg-muted/50 px-1">tab</kbd> {t("quickFileSearchSwitchMode")}
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="rounded border border-border bg-muted/50 px-1">esc</kbd> close
+            <kbd className="rounded border border-border bg-muted/50 px-1">esc</kbd> {t("commandPaletteClose")}
           </span>
         </div>
       </div>

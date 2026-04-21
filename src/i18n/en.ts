@@ -28,6 +28,7 @@ const en: Record<string, string> = {
   reasoningEffort: "Reasoning Effort",
   reasoningShallow: "Shallow — fast, concise",
   reasoningDeep: "Deep — thorough analysis",
+  custom: "Custom",
   noDirSelected: "No directory",
   workingDir: "Working Directory",
   systemPrompt: "System Prompt",
@@ -196,6 +197,9 @@ const en: Record<string, string> = {
   commandPaletteTogglePreview: "Toggle Preview",
   commandPaletteSwitchTheme: "Switch Theme",
   commandPaletteOpenSettingsDesc: "Open application settings",
+  commandPaletteNavigate: "navigate",
+  commandPaletteSelect: "select",
+  commandPaletteClose: "close",
 
   // --- Model Management ---
   addModel: "Add Model",
@@ -557,6 +561,7 @@ const en: Record<string, string> = {
   quickFileSearchPathCopied: "Path copied!",
   quickFileSearchResultsCount: "{count} files found",
   quickFileSearchContentResultsCount: "{count} matches in {files} files",
+  quickFileSearchSwitchMode: "switch mode",
   commandPaletteSearchFiles: "Search Files",
   commandPaletteSearchFilesDesc: "Quick search files by name or content",
 
