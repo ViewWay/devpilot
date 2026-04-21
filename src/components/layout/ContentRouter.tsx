@@ -3,6 +3,8 @@ import { ChatPanel } from "../chat/ChatPanel";
 import { SettingsPage } from "../../app/SettingsPage";
 import { SchedulerPage } from "../../app/SchedulerPage";
 import { SkillsPage } from "../../app/SkillsPage";
+import { GalleryPage } from "../../app/GalleryPage";
+import { BridgePage } from "../../app/BridgePage";
 import { useI18n } from "../../i18n";
 import { MessageSquare } from "lucide-react";
 
@@ -37,6 +39,14 @@ export function ContentRouter() {
 
   if (activeTabType === "skills") {
     return <SkillsPage />;
+  }
+
+  if (activeTabType === "gallery") {
+    return <GalleryPage />;
+  }
+
+  if (activeTabType === "bridge") {
+    return <BridgePage />;
   }
 
   // Session tab — ChatPanel handles the active session display

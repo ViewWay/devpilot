@@ -5,8 +5,10 @@ const TAB_STORAGE_KEY = "devpilot-open-tabs";
 export const SETTINGS_TAB_ID = "__settings__";
 export const SCHEDULED_TAB_ID = "__scheduled__";
 export const SKILLS_TAB_ID = "__skills__";
+export const GALLERY_TAB_ID = "__gallery__";
+export const BRIDGE_TAB_ID = "__bridge__";
 
-export type TabType = "session" | "settings" | "scheduled" | "skills";
+export type TabType = "session" | "settings" | "scheduled" | "skills" | "gallery" | "bridge";
 
 export type Tab = {
   sessionId: string;
@@ -143,15 +145,16 @@ export const useTabStore = create<TabStore>((set, get) => ({
       const sessions = useChatStore.getState().sessions;
       const existingIds = new Set(sessions.map((s) => s.id));
 
+      const specialTabTypes = new Set(["settings", "scheduled", "skills", "gallery", "bridge"]);
       const validTabs: Tab[] = data.openTabs
         .filter((t) => {
           // Special tabs are always valid
-          if (t.type === "settings" || t.type === "scheduled" || t.type === "skills") {return true;}
+          if (t.type && specialTabTypes.has(t.type)) {return true;}
           // Session tabs must exist locally
           return existingIds.has(t.sessionId);
         })
         .map((t) => {
-          if (t.type === "settings" || t.type === "scheduled" || t.type === "skills") {
+          if (t.type && specialTabTypes.has(t.type)) {
             return { sessionId: t.sessionId, title: t.title, type: t.type, status: "idle" as const };
           }
           return {
