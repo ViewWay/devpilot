@@ -754,6 +754,21 @@ const en = {
   "template.blankDesc": "Start a blank conversation with no preset",
   templatePicker: "New from Template",
   templatePickerDesc: "Choose a template to get started",
+
+  // ── AskUserQuestion ────────────────────────────────────────────────
+  askUserQuestion: "Agent Question",
+  askRequired: "This question requires an answer",
+  askPlaceholder: "Type your answer…",
+  askSubmit: "Submit",
+
+  // ── ImageGallery ──────────────────────────────────────────────────
+  imageGallery: "Image Gallery",
+  openImage: "Open image",
+  zoomIn: "Zoom in",
+  zoomOut: "Zoom out",
+  previous: "Previous",
+  next: "Next",
+  more: "more",
 } as const;
 
 export type TranslationKey = keyof typeof en;

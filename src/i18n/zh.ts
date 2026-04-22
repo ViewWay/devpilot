@@ -754,6 +754,21 @@ const zh = {
   "template.blankDesc": "无预设的空白对话",
   templatePicker: "从模板新建",
   templatePickerDesc: "选择模板快速开始",
+
+  // ── AskUserQuestion ────────────────────────────────────────────────
+  askUserQuestion: "助手提问",
+  askRequired: "此问题为必填",
+  askPlaceholder: "输入你的回答…",
+  askSubmit: "提交",
+
+  // ── ImageGallery ──────────────────────────────────────────────────
+  imageGallery: "图片画廊",
+  openImage: "打开图片",
+  zoomIn: "放大",
+  zoomOut: "缩小",
+  previous: "上一张",
+  next: "下一张",
+  more: "更多",
 } as const;
 
 export default zh;

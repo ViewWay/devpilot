@@ -1,34 +1,26 @@
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useCallback } from "react";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { useI18n } from "../i18n";
+import { useUpdateStore } from "../stores/updateStore";
 import { Download, X, RefreshCw } from "lucide-react";
-
-interface UpdateInfo {
-  version: string;
-  currentVersion: string;
-  date?: string;
-  body?: string;
-}
-
-type UpdateState =
-  | { status: "idle" }
-  | { status: "available"; info: UpdateInfo }
-  | { status: "downloading"; progress: number }
-  | { status: "installing" }
-  | { status: "error"; message: string };
 
 /**
  * UpdateChecker — checks for app updates on mount and displays a banner
  * when a new version is available. The user can update & restart or dismiss.
+ *
+ * State is managed by updateStore (Zustand), so other components can
+ * access the update lifecycle state without props.
  *
  * Gracefully handles the case where the updater is not configured (e.g. no
  * pubkey) — it simply stays idle without crashing.
  */
 export function UpdateChecker() {
   const { t } = useI18n();
-  const [state, setState] = useState<UpdateState>({ status: "idle" });
-  const [dismissed, setDismissed] = useState(false);
+  const state = useUpdateStore((s) => s.state);
+  const dismissed = useUpdateStore((s) => s.dismissed);
+  const setState = useUpdateStore((s) => s.setState);
+  const dismiss = useUpdateStore((s) => s.dismiss);
 
   // Check for updates on mount
   useEffect(() => {
@@ -36,6 +28,7 @@ export function UpdateChecker() {
 
     async function checkForUpdate() {
       try {
+        setState({ status: "checking" });
         const update = await check();
 
         if (cancelled) { return; }
@@ -50,12 +43,12 @@ export function UpdateChecker() {
               body: update.body ?? undefined,
             },
           });
+        } else {
+          setState({ status: "up-to-date" });
         }
-        // If no update available, stay idle (no banner)
       } catch (err) {
         if (cancelled) { return; }
         // Gracefully handle — updater might not be configured (empty pubkey, etc.)
-        // Only show error in dev for debugging, otherwise silently ignore
         console.warn("[UpdateChecker] Update check failed:", err);
         setState({
           status: "error",
@@ -68,7 +61,7 @@ export function UpdateChecker() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [setState]);
 
   const handleUpdate = useCallback(async () => {
     try {
@@ -109,15 +102,13 @@ export function UpdateChecker() {
         message: err instanceof Error ? err.message : String(err),
       });
     }
-  }, []);
+  }, [setState]);
 
-  const handleDismiss = useCallback(() => {
-    setDismissed(true);
-  }, []);
-
-  // Don't render anything if idle, dismissed, or no update available
+  // Don't render anything if dismissed, idle, checking, or up-to-date
   if (dismissed) { return null; }
-  if (state.status === "idle") { return null; }
+  if (state.status === "idle" || state.status === "checking" || state.status === "up-to-date") {
+    return null;
+  }
 
   // Show error banner briefly but allow dismiss
   if (state.status === "error") {
@@ -135,7 +126,7 @@ export function UpdateChecker() {
       <div className="fixed top-0 left-0 right-0 z-50 bg-[var(--color-warning)] text-[var(--color-on-primary)] px-4 py-2 text-sm flex items-center justify-between gap-3">
         <span>{t("updateCheckFailed")}</span>
         <button
-          onClick={handleDismiss}
+          onClick={dismiss}
           className="hover:opacity-80 rounded p-1 transition-colors"
           aria-label={t("updateDismiss")}
         >
@@ -171,7 +162,7 @@ export function UpdateChecker() {
             {t("updateAndRestart")}
           </button>
           <button
-            onClick={handleDismiss}
+            onClick={dismiss}
             className="hover:bg-white/20 rounded-md p-1.5 transition-colors"
             aria-label={t("updateDismiss")}
           >
