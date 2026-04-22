@@ -24,8 +24,6 @@ struct OaiRequest {
     model: String,
     messages: Vec<OaiMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    system: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     temperature: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     max_tokens: Option<u32>,
@@ -327,6 +325,28 @@ impl OpenAiProvider {
             .collect()
     }
 
+    /// Build the messages array with an optional system prompt prepended.
+    ///
+    /// OpenAI's chat completions API uses a `system`-role message in the
+    /// messages array (unlike Anthropic which has a top-level `system` field).
+    fn build_messages(system: Option<&str>, messages: &[Message]) -> Vec<OaiMessage> {
+        let mut oai_messages = Vec::new();
+
+        // Prepend system prompt as a system-role message if present
+        if let Some(sys) = system {
+            oai_messages.push(OaiMessage {
+                role: "system".to_string(),
+                content: serde_json::Value::String(sys.to_string()),
+                name: None,
+                tool_call_id: None,
+                tool_calls: None,
+            });
+        }
+
+        oai_messages.extend(Self::convert_messages(messages));
+        oai_messages
+    }
+
     /// Parse finish reason from OpenAI's string format.
     fn parse_finish_reason(reason: Option<&str>) -> FinishReason {
         match reason {
@@ -413,8 +433,7 @@ impl ModelProvider for OpenAiProvider {
 
         let oai_req = OaiRequest {
             model: request.model.clone(),
-            messages: Self::convert_messages(&request.messages),
-            system: request.system,
+            messages: Self::build_messages(request.system.as_deref(), &request.messages),
             temperature: request.temperature,
             max_tokens: request.max_tokens,
             top_p: request.top_p,
@@ -488,8 +507,7 @@ impl ModelProvider for OpenAiProvider {
 
         let oai_req = OaiRequest {
             model: request.model.clone(),
-            messages: Self::convert_messages(&request.messages),
-            system: request.system,
+            messages: Self::build_messages(request.system.as_deref(), &request.messages),
             temperature: request.temperature,
             max_tokens: request.max_tokens,
             top_p: request.top_p,
@@ -1058,7 +1076,6 @@ mod tests {
         let oai_req = OaiRequest {
             model: "gpt-4".into(),
             messages: vec![],
-            system: None,
             temperature: Some(0.7),
             max_tokens: Some(100),
             top_p: None,
@@ -1072,8 +1089,28 @@ mod tests {
         // temperature is f32 which has float precision, just verify it's present
         assert!(json.get("temperature").is_some());
         // None fields should not be present
-        assert!(json.get("system").is_none());
         assert!(json.get("tools").is_none());
         assert!(json.get("stop").is_none());
+    }
+
+    #[test]
+    fn build_messages_without_system() {
+        let msgs = vec![Message::text(MessageRole::User, "Hello")];
+        let oai_msgs = OpenAiProvider::build_messages(None, &msgs);
+        assert_eq!(oai_msgs.len(), 1);
+        assert_eq!(oai_msgs[0].role, "user");
+    }
+
+    #[test]
+    fn build_messages_with_system() {
+        let msgs = vec![Message::text(MessageRole::User, "Hello")];
+        let oai_msgs = OpenAiProvider::build_messages(Some("You are helpful."), &msgs);
+        assert_eq!(oai_msgs.len(), 2);
+        assert_eq!(oai_msgs[0].role, "system");
+        assert_eq!(
+            oai_msgs[0].content,
+            serde_json::Value::String("You are helpful.".into())
+        );
+        assert_eq!(oai_msgs[1].role, "user");
     }
 }
