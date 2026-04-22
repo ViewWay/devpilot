@@ -20,6 +20,8 @@ const zh = {
   exportAs: "导出为...",
   exportJson: "JSON",
   exportMarkdown: "Markdown",
+  importSessions: "导入会话",
+  sessionsImportedBadge: "已导入!",
 
   // --- TopBar ---
   code: "代码",

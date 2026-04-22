@@ -20,6 +20,8 @@ const en = {
   exportAs: "Export as...",
   exportJson: "JSON",
   exportMarkdown: "Markdown",
+  importSessions: "Import Sessions",
+  sessionsImportedBadge: "Imported!",
 
   // --- TopBar ---
   code: "Code",

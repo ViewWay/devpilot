@@ -379,6 +379,8 @@ interface ChatState {
   approveAll: () => void;
   /** Export a session as JSON or Markdown file (browser download). */
   exportSession: (sessionId: string, format: "json" | "markdown") => void;
+  /** Import sessions from a DevPilot JSON export file (file picker → IPC). */
+  importSessions: () => Promise<{ sessionsImported: number; messagesImported: number } | null>;
   /** Regenerate the last assistant response by removing it and re-sending the last user message. */
   regenerateLastResponse: () => void;
   /** Search messages across all sessions via backend. */
@@ -1136,6 +1138,37 @@ export const useChatStore = create<ChatState>((set, get) => ({
     a.download = `${safeTitle}.${extension}`;
     a.click();
     URL.revokeObjectURL(url);
+  },
+
+  importSessions: async () => {
+    try {
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const selected = await open({
+        multiple: false,
+        filters: [{ name: "DevPilot Export", extensions: ["json"] }],
+      });
+      if (!selected) { return null; }
+      // `open` returns string | string[] | null
+      const filePath = typeof selected === "string" ? selected : (selected as string[])[0];
+      if (!filePath) { return null; }
+
+      // Read the file content via Tauri FS plugin
+      const { readTextFile } = await import("@tauri-apps/plugin-fs");
+      const jsonData = await readTextFile(filePath);
+
+      const result = await invoke<{ sessionsImported: number; messagesImported: number }>(
+        "import_sessions",
+        { jsonData },
+      );
+
+      // Re-hydrate the store to reflect imported sessions
+      await get().hydrateFromBackend();
+
+      return result;
+    } catch (err) {
+      console.error("Failed to import sessions:", err);
+      return null;
+    }
   },
 
   regenerateLastResponse: () => {

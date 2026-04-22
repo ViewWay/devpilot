@@ -4,7 +4,7 @@ import { useChatStore } from "../../stores/chatStore";
 import { useUIStore } from "../../stores/uiStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useTabStore, SETTINGS_TAB_ID, SCHEDULED_TAB_ID, SKILLS_TAB_ID, GALLERY_TAB_ID, BRIDGE_TAB_ID } from "../../stores/tabStore";
-import { Package, ImageIcon, Radio, ChevronDown } from "lucide-react";
+import { Package, ImageIcon, Radio, ChevronDown, Upload } from "lucide-react";
 import { SESSION_TEMPLATES } from "../../lib/sessionTemplates";
 import type { SessionTemplate } from "../../lib/sessionTemplates";
 
@@ -17,12 +17,14 @@ export function Sidebar() {
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const createSession = useChatStore((s) => s.createSession);
+  const importSessions = useChatStore((s) => s.importSessions);
   const selectedModel = useSettingsStore((s) => s.selectedModel);
   const openTab = useTabStore((s) => s.openTab);
   const activeTabId = useTabStore((s) => s.activeTabId);
   const [searchQuery, setSearchQuery] = useState("");
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
+  const [importStatus, setImportStatus] = useState<string | null>(null);
   const templateMenuRef = useRef<HTMLDivElement>(null);
 
   // Close context menu on outside click
@@ -181,6 +183,30 @@ export function Sidebar() {
             </div>
           )}
         </div>
+        {/* Import sessions button */}
+        {sidebarOpen && (
+          <button
+            onClick={async () => {
+              setImportStatus(null);
+              const result = await importSessions();
+              if (result) {
+                setImportStatus(t("sessionsImportedBadge"));
+                setTimeout(() => setImportStatus(null), 3000);
+              }
+            }}
+            className={`
+              flex items-center rounded-[var(--radius-md)] transition-all duration-200
+              gap-2 px-3 py-1.5 text-xs w-full
+              text-[var(--color-text-tertiary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-secondary)]
+            `}
+          >
+            <Upload size={13} />
+            <span>{t("importSessions")}</span>
+            {importStatus && (
+              <span className="ml-auto text-[10px] text-[var(--color-brand)]">{importStatus}</span>
+            )}
+          </button>
+        )}
         <NavItem
           active={activeTabId === SCHEDULED_TAB_ID}
           collapsed={!sidebarOpen}
