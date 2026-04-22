@@ -14,22 +14,28 @@
 use devpilot_protocol::{ModelInfo, ProviderConfig, ProviderType};
 
 /// Default base URL for 智谱 GLM API.
-pub const GLM_BASE_URL: &str = "https://open.bigmodel.cn/api/paas";
+/// GLM uses /v4/ for its OpenAI-compatible endpoint.
+pub const GLM_BASE_URL: &str = "https://open.bigmodel.cn/api/paas/v4";
 
 /// Default base URL for 通义千问 Qwen API.
-pub const QWEN_BASE_URL: &str = "https://dashscope.aliyuncs.com/compatible-mode";
+/// Qwen DashScope uses /v1/ for its OpenAI-compatible endpoint.
+pub const QWEN_BASE_URL: &str = "https://dashscope.aliyuncs.com/compatible-mode/v1";
 
 /// Default base URL for DeepSeek API.
-pub const DEEPSEEK_BASE_URL: &str = "https://api.deepseek.com";
+/// DeepSeek uses standard /v1/.
+pub const DEEPSEEK_BASE_URL: &str = "https://api.deepseek.com/v1";
 
 /// Default base URL for Kimi (Moonshot AI) API.
-pub const KIMI_BASE_URL: &str = "https://api.moonshot.cn";
+/// Kimi uses standard /v1/.
+pub const KIMI_BASE_URL: &str = "https://api.moonshot.cn/v1";
 
 /// Default base URL for MiniMax API.
-pub const MINIMAX_BASE_URL: &str = "https://api.minimax.chat";
+/// MiniMax uses standard /v1/.
+pub const MINIMAX_BASE_URL: &str = "https://api.minimax.chat/v1";
 
 /// Default base URL for VolcEngine (豆包) API.
-pub const VOLCENGINE_BASE_URL: &str = "https://ark.cn-beijing.volces.com/api";
+/// VolcEngine uses standard /v1/.
+pub const VOLCENGINE_BASE_URL: &str = "https://ark.cn-beijing.volces.com/api/v1";
 
 // ── GLM Model Catalog ─────────────────────────────────
 

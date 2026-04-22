@@ -383,15 +383,21 @@ impl OpenAiProvider {
     }
 
     /// Build the chat completions URL.
+    ///
+    /// The base URL should include the API version path (e.g. `/v1`).
+    /// Examples:
+    /// - OpenAI: `https://api.openai.com/v1` → `https://api.openai.com/v1/chat/completions`
+    /// - GLM:    `https://open.bigmodel.cn/api/paas/v4` → `.../v4/chat/completions`
+    /// - Ollama: `http://localhost:11434/v1` → `http://localhost:11434/v1/chat/completions`
     fn chat_url(&self) -> String {
         let base = self.base_url().trim_end_matches('/');
-        format!("{base}/v1/chat/completions")
+        format!("{base}/chat/completions")
     }
 
     /// Build the models list URL.
     fn models_url(&self) -> String {
         let base = self.base_url().trim_end_matches('/');
-        format!("{base}/v1/models")
+        format!("{base}/models")
     }
 }
 
@@ -705,7 +711,7 @@ mod tests {
             id: "test-openai".into(),
             name: "Test OpenAI".into(),
             provider_type: ProviderType::OpenAI,
-            base_url: "https://api.openai.com".into(),
+            base_url: "https://api.openai.com/v1".into(),
             api_key: Some("sk-test-key".into()),
             models: vec![],
             enabled: true,
@@ -818,7 +824,7 @@ mod tests {
     #[test]
     fn chat_url_trailing_slash() {
         let mut config = test_config();
-        config.base_url = "https://api.openai.com/".into();
+        config.base_url = "https://api.openai.com/v1/".into();
         let provider = OpenAiProvider::new(config);
         assert_eq!(
             provider.chat_url(),
