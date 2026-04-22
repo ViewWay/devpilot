@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import mermaid from "mermaid";
 
 type MermaidRendererProps = {
   /** Mermaid diagram definition text. */
@@ -8,20 +7,26 @@ type MermaidRendererProps = {
   className?: string;
 };
 
+// Lazy-loaded mermaid module — keeps the ~1.5MB mermaid out of the main bundle.
+import type MermaidAPI from "mermaid";
+
+let mermaidInstance: typeof MermaidAPI | null = null;
+let mermaidInitPromise: Promise<typeof MermaidAPI> | null = null;
 let mermaidInitialized = false;
 
-/**
- * MermaidRenderer — renders Mermaid diagram definitions as SVG.
- * Used by MarkdownRenderer to render ```mermaid code blocks.
- */
-export function MermaidRenderer({ chart, className = "" }: MermaidRendererProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [svg, setSvg] = useState<string>("");
-  const [error, setError] = useState<string>("");
+async function loadMermaid(): Promise<typeof MermaidAPI> {
+  if (mermaidInstance) {
+    return mermaidInstance;
+  }
+  if (mermaidInitPromise) {
+    return mermaidInitPromise;
+  }
 
-  useEffect(() => {
+  mermaidInitPromise = (async () => {
+    const mod = await import("mermaid");
+    const api = mod.default;
     if (!mermaidInitialized) {
-      mermaid.initialize({
+      api.initialize({
         startOnLoad: false,
         theme: "dark",
         securityLevel: "loose",
@@ -29,13 +34,36 @@ export function MermaidRenderer({ chart, className = "" }: MermaidRendererProps)
       });
       mermaidInitialized = true;
     }
+    mermaidInstance = api;
+    return api;
+  })();
 
+  return mermaidInitPromise;
+}
+
+/**
+ * MermaidRenderer — renders Mermaid diagram definitions as SVG.
+ * Used by MarkdownRenderer to render ```mermaid code blocks.
+ *
+ * Mermaid is loaded on-demand via dynamic import() to avoid
+ * inflating the initial JS bundle (~1.5MB saved).
+ */
+export function MermaidRenderer({ chart, className = "" }: MermaidRendererProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [svg, setSvg] = useState<string>("");
+  const [error, setError] = useState<string>("");
+
+  useEffect(() => {
     let cancelled = false;
 
     async function renderChart() {
       try {
+        const api = await loadMermaid();
+        if (cancelled) {
+          return;
+        }
         const id = `mermaid-${Math.random().toString(36).slice(2, 11)}`;
-        const { svg: renderedSvg } = await mermaid.render(id, chart.trim());
+        const { svg: renderedSvg } = await api.render(id, chart.trim());
         if (!cancelled) {
           setSvg(renderedSvg);
           setError("");

@@ -61,6 +61,14 @@ export default defineConfig({
             if (id.includes("zustand") || id.includes("immer")) {
               return "state-vendor";
             }
+            // Mermaid — huge (~1.5MB), lazy-loaded via dynamic import
+            if (id.includes("mermaid")) {
+              return "mermaid-vendor";
+            }
+            // Recharts — chart library
+            if (id.includes("recharts") || id.includes("d3-")) {
+              return "recharts-vendor";
+            }
             // All other node_modules
             return "vendor";
           }
