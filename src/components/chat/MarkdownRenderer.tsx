@@ -3,6 +3,7 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { CodeBlock } from "./CodeBlock";
 import { SandboxBlock } from "./SandboxBlock";
+import { MermaidRenderer } from "./MermaidRenderer";
 
 type MarkdownRendererProps = {
   /** The markdown content to render. */
@@ -36,6 +37,10 @@ export function MarkdownRenderer({ content, fontSize, className = "" }: Markdown
               );
             }
             const lang = match?.[1];
+            // Render Mermaid diagrams as SVG
+            if (lang === "mermaid") {
+              return <MermaidRenderer chart={codeStr} className="my-3" />;
+            }
             // Render HTML code blocks as interactive sandbox previews
             if (lang === "html") {
               return <SandboxBlock code={codeStr} />;

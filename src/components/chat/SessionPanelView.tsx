@@ -9,6 +9,7 @@ import { useUIStore } from "../../stores/uiStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { Loader2, AlertCircle, History, X, ChevronsUpDown } from "lucide-react";
 import { useI18n } from "../../i18n";
+import { SessionCostBadge } from "./SessionCostBadge";
 import { cn } from "../../lib/utils";
 
 interface SessionPanelViewProps {
@@ -102,6 +103,9 @@ export function SessionPanelView({
 
       {/* Environment variables editor */}
       <EnvVarsEditor sessionId={sid ?? undefined} />
+
+      {/* Session cost badge */}
+      <SessionCostBadge />
 
       {/* Message input */}
       <MessageInput sessionId={sid ?? undefined} />
