@@ -9,6 +9,14 @@ import {
   Upload,
   RefreshCw,
   AlertCircle,
+  Plus,
+  Trash2,
+  ArrowDown,
+  ArrowUp,
+  GitMerge,
+  FolderTree,
+  Check,
+  X,
 } from "lucide-react";
 import { useGitStore, type GitFileStatus } from "../../stores/gitStore";
 import { useUIStore } from "../../stores/uiStore";
@@ -46,6 +54,8 @@ function StatusTab() {
   const stashSave = useGitStore((s) => s.stashSave);
   const stashPop = useGitStore((s) => s.stashPop);
   const refreshStatus = useGitStore((s) => s.refreshStatus);
+  const addFiles = useGitStore((s) => s.addFiles);
+  const addAll = useGitStore((s) => s.addAll);
   const setSelectedDiffFile = useGitStore((s) => s.setSelectedDiffFile);
   const setActiveTab = useGitStore((s) => s.setActiveTab);
   const setShowStagedDiff = useGitStore((s) => s.setShowStagedDiff);
@@ -54,9 +64,7 @@ function StatusTab() {
   const [committing, setCommitting] = useState(false);
 
   const handleCommit = useCallback(async () => {
-    if (!commitMsg.trim()) {
-      return;
-    }
+    if (!commitMsg.trim()) {return;}
     setCommitting(true);
     try {
       await commit(commitMsg.trim());
@@ -65,14 +73,6 @@ function StatusTab() {
       setCommitting(false);
     }
   }, [commit, commitMsg]);
-
-  const handleStashSave = useCallback(async () => {
-    await stashSave();
-  }, [stashSave]);
-
-  const handleStashPop = useCallback(async () => {
-    await stashPop();
-  }, [stashPop]);
 
   const handleFileClick = useCallback(
     (path: string) => {
@@ -119,19 +119,43 @@ function StatusTab() {
             {t("gitClean")}
           </div>
         ) : (
-          status.entries.map((entry, i) => (
-            <button
-              key={`${entry.path}-${i}`}
-              onClick={() => handleFileClick(entry.path)}
-              className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent/50 transition-colors text-left"
-            >
-              <span className="w-4 text-center">{statusIcon(entry.status)}</span>
-              <span className="truncate flex-1 font-mono text-xs">
-                {entry.path}
-              </span>
-              <ChevronRight size={10} className="text-muted-foreground shrink-0" />
-            </button>
-          ))
+          <>
+            {/* Stage all button */}
+            <div className="flex items-center gap-1 px-3 py-1 border-b border-border/50">
+              <button
+                onClick={() => addAll()}
+                disabled={loading}
+                className="flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-xs hover:bg-accent/50 disabled:opacity-50"
+                title={t("gitStageAll")}
+              >
+                <Plus size={10} />
+                {t("gitStageAll")}
+              </button>
+            </div>
+            {status.entries.map((entry, i) => (
+              <div
+                key={`${entry.path}-${i}`}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs hover:bg-accent/50 transition-colors"
+              >
+                <span className="w-4 text-center">{statusIcon(entry.status)}</span>
+                <button
+                  onClick={() => handleFileClick(entry.path)}
+                  className="truncate flex-1 font-mono text-xs text-left"
+                >
+                  {entry.path}
+                </button>
+                <button
+                  onClick={() => addFiles([entry.path])}
+                  disabled={loading}
+                  className="p-0.5 rounded hover:bg-accent/50 shrink-0"
+                  title={t("gitStageFile")}
+                >
+                  <Plus size={10} />
+                </button>
+                <ChevronRight size={10} className="text-muted-foreground shrink-0" />
+              </div>
+            ))}
+          </>
         )}
       </div>
 
@@ -159,7 +183,7 @@ function StatusTab() {
             {committing ? "..." : t("gitCommit")}
           </button>
           <button
-            onClick={handleStashSave}
+            onClick={() => stashSave()}
             disabled={loading}
             className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent/50 disabled:opacity-50"
             title={t("gitStashSave")}
@@ -167,7 +191,7 @@ function StatusTab() {
             <Download size={12} />
           </button>
           <button
-            onClick={handleStashPop}
+            onClick={() => stashPop()}
             disabled={loading}
             className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent/50 disabled:opacity-50"
             title={t("gitStashPop")}
@@ -235,7 +259,6 @@ function DiffTab() {
 
   const diffs = showStagedDiff ? diffStaged : diffUnstaged;
 
-  // If a file is selected, show only that file's diff
   const displayDiffs = selectedDiffFile
     ? diffs.filter((d) => d.path === selectedDiffFile)
     : diffs;
@@ -289,7 +312,6 @@ function DiffTab() {
       <div className="flex-1 overflow-y-auto font-mono text-xs">
         {displayDiffs.map((diff) => (
           <div key={diff.path}>
-            {/* File header */}
             <div
               className="sticky top-0 bg-background/90 backdrop-blur px-3 py-1 border-b border-border font-sans cursor-pointer hover:bg-accent/30"
               onClick={() =>
@@ -304,15 +326,11 @@ function DiffTab() {
                 {t("gitLines")})
               </span>
             </div>
-
-            {/* Hunks */}
             {diff.hunks.map((hunk, hi) => (
               <div key={hi} className="border-b border-border/30">
-                {/* Hunk header */}
                 <div className="px-3 py-0.5 bg-muted/30 text-muted-foreground">
                   @@ -{hunk.old_start} +{hunk.new_start} @@
                 </div>
-                {/* Lines */}
                 {hunk.lines.map((line, li) => (
                   <div
                     key={li}
@@ -348,6 +366,268 @@ function DiffTab() {
   );
 }
 
+// ── Branches Tab ───────────────────────────────────────────
+
+function BranchesTab() {
+  const { t } = useI18n();
+  const branches = useGitStore((s) => s.branches);
+  const worktrees = useGitStore((s) => s.worktrees);
+  const status = useGitStore((s) => s.status);
+  const loading = useGitStore((s) => s.loading);
+  const switchBranch = useGitStore((s) => s.switchBranch);
+  const createBranch = useGitStore((s) => s.createBranch);
+  const fetchRemote = useGitStore((s) => s.fetch);
+  const pullRemote = useGitStore((s) => s.pull);
+  const pushRemote = useGitStore((s) => s.push);
+  const addWorktree = useGitStore((s) => s.addWorktree);
+  const removeWorktree = useGitStore((s) => s.removeWorktree);
+  const refreshWorktrees = useGitStore((s) => s.refreshWorktrees);
+
+  const [newBranch, setNewBranch] = useState("");
+  const [showNewBranch, setShowNewBranch] = useState(false);
+  const [showNewWorktree, setShowNewWorktree] = useState(false);
+  const [wtName, setWtName] = useState("");
+  const [wtPath, setWtPath] = useState("");
+
+  useEffect(() => {
+    refreshWorktrees();
+  }, [refreshWorktrees]);
+
+  const handleCreateBranch = useCallback(async () => {
+    if (!newBranch.trim()) {return;}
+    await createBranch(newBranch.trim());
+    setNewBranch("");
+    setShowNewBranch(false);
+  }, [createBranch, newBranch]);
+
+  const handleFetch = useCallback(async () => {
+    await fetchRemote();
+  }, [fetchRemote]);
+
+  const handlePull = useCallback(async () => {
+    await pullRemote();
+  }, [pullRemote]);
+
+  const handlePush = useCallback(async () => {
+    await pushRemote();
+  }, [pushRemote]);
+
+  const localBranches = branches.filter((b) => !b.is_remote);
+  const remoteBranches = branches.filter((b) => b.is_remote);
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Remote actions toolbar */}
+      <div className="flex items-center gap-1 px-3 py-1.5 border-b border-border">
+        <button
+          onClick={handleFetch}
+          disabled={loading}
+          className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent/50 disabled:opacity-50"
+          title={t("gitFetch")}
+        >
+          <ArrowDown size={11} />
+          {t("gitFetch")}
+        </button>
+        <button
+          onClick={handlePull}
+          disabled={loading}
+          className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent/50 disabled:opacity-50"
+          title={t("gitPull")}
+        >
+          <ArrowDown size={11} />
+          {t("gitPull")}
+        </button>
+        <button
+          onClick={handlePush}
+          disabled={loading}
+          className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent/50 disabled:opacity-50"
+          title={t("gitPush")}
+        >
+          <ArrowUp size={11} />
+          {t("gitPush")}
+        </button>
+        <div className="flex-1" />
+        <button
+          onClick={() => setShowNewBranch(!showNewBranch)}
+          className="p-1 rounded hover:bg-accent/50"
+          title={t("gitNewBranch")}
+        >
+          <Plus size={12} />
+        </button>
+      </div>
+
+      {/* New branch input */}
+      {showNewBranch && (
+        <div className="flex items-center gap-1 px-3 py-1.5 border-b border-border">
+          <input
+            value={newBranch}
+            onChange={(e) => setNewBranch(e.target.value)}
+            placeholder={t("gitBranchNamePlaceholder")}
+            className="flex-1 rounded border border-border bg-input px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {handleCreateBranch();}
+              if (e.key === "Escape") {setShowNewBranch(false);}
+            }}
+            autoFocus
+          />
+          <button
+            onClick={handleCreateBranch}
+            disabled={!newBranch.trim() || loading}
+            className="p-1 rounded hover:bg-accent/50"
+          >
+            <Check size={12} />
+          </button>
+          <button
+            onClick={() => setShowNewBranch(false)}
+            className="p-1 rounded hover:bg-accent/50"
+          >
+            <X size={12} />
+          </button>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto">
+        {/* Current branch indicator */}
+        {status?.branch && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-accent/20 border-b border-border text-xs">
+            <GitBranch size={12} className="text-primary" />
+            <span className="font-medium text-primary">{status.branch}</span>
+            <span className="text-muted-foreground">({t("gitCurrent")})</span>
+          </div>
+        )}
+
+        {/* Local branches */}
+        <div className="px-3 py-1 text-xs text-muted-foreground font-medium border-b border-border/50">
+          {t("gitLocalBranches")} ({localBranches.length})
+        </div>
+        {localBranches.map((b) => (
+          <button
+            key={b.name}
+            onClick={() => !b.is_current && switchBranch(b.name)}
+            disabled={b.is_current || loading}
+            className={cn(
+              "flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-accent/50 transition-colors text-left disabled:opacity-50",
+              b.is_current && "bg-accent/10",
+            )}
+          >
+            <GitBranch size={10} className={b.is_current ? "text-primary" : "text-muted-foreground"} />
+            <span className={b.is_current ? "text-primary font-medium" : ""}>
+              {b.name}
+            </span>
+            {b.is_current && (
+              <span className="ml-auto text-primary">
+                <Check size={10} />
+              </span>
+            )}
+          </button>
+        ))}
+
+        {/* Remote branches */}
+        {remoteBranches.length > 0 && (
+          <>
+            <div className="px-3 py-1 text-xs text-muted-foreground font-medium border-b border-border/50 border-t border-t-border mt-1">
+              {t("gitRemoteBranches")} ({remoteBranches.length})
+            </div>
+            {remoteBranches.map((b) => (
+              <div
+                key={b.name}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground"
+              >
+                <GitBranch size={10} />
+                <span className="truncate">{b.name}</span>
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* Worktrees */}
+        {worktrees.length > 0 && (
+          <>
+            <div className="flex items-center gap-1 px-3 py-1 text-xs text-muted-foreground font-medium border-b border-border/50 border-t border-t-border mt-1">
+              <FolderTree size={10} />
+              {t("gitWorktrees")} ({worktrees.length})
+              <div className="flex-1" />
+              <button
+                onClick={() => setShowNewWorktree(!showNewWorktree)}
+                className="p-0.5 rounded hover:bg-accent/50"
+                title={t("gitAddWorktree")}
+              >
+                <Plus size={10} />
+              </button>
+            </div>
+            {worktrees.map((wt, i) => (
+              <div
+                key={`${wt.path}-${i}`}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent/30"
+              >
+                <FolderTree size={10} className="text-muted-foreground shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="truncate font-medium">{wt.branch || wt.path.split("/").pop()}</div>
+                  <div className="text-muted-foreground truncate text-[10px]">{wt.path}</div>
+                </div>
+                {wt.is_main && (
+                  <span className="text-primary text-[10px] shrink-0">{t("gitMain")}</span>
+                )}
+                {!wt.is_main && (
+                  <button
+                    onClick={() => removeWorktree(wt.branch || wt.path.split("/").pop() || "")}
+                    disabled={loading}
+                    className="p-0.5 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive shrink-0"
+                    title={t("gitRemoveWorktree")}
+                  >
+                    <Trash2 size={10} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* New worktree form */}
+        {showNewWorktree && (
+          <div className="px-3 py-2 border-t border-border space-y-1">
+            <input
+              value={wtName}
+              onChange={(e) => setWtName(e.target.value)}
+              placeholder={t("gitWorktreeNamePlaceholder")}
+              className="w-full rounded border border-border bg-input px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+            <input
+              value={wtPath}
+              onChange={(e) => setWtPath(e.target.value)}
+              placeholder={t("gitWorktreePathPlaceholder")}
+              className="w-full rounded border border-border bg-input px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+            <div className="flex gap-1">
+              <button
+                onClick={async () => {
+                  if (wtName.trim() && wtPath.trim()) {
+                    await addWorktree(wtName.trim(), wtPath.trim());
+                    setWtName("");
+                    setWtPath("");
+                    setShowNewWorktree(false);
+                  }
+                }}
+                disabled={!wtName.trim() || !wtPath.trim() || loading}
+                className="flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground disabled:opacity-50"
+              >
+                <Check size={10} />
+                {t("gitCreate")}
+              </button>
+              <button
+                onClick={() => setShowNewWorktree(false)}
+                className="rounded-md border border-border px-2 py-1 text-xs hover:bg-accent/50"
+              >
+                {t("gitCancel")}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main GitPanel ──────────────────────────────────────────
 
 export function GitPanel() {
@@ -360,7 +640,6 @@ export function GitPanel() {
   const loading = useGitStore((s) => s.loading);
   const workingDir = useUIStore((s) => s.workingDir);
 
-  // Load git data on mount and when workingDir changes
   useEffect(() => {
     if (workingDir) {
       refresh();
@@ -371,6 +650,7 @@ export function GitPanel() {
     { key: "status" as const, icon: FileText, label: t("gitStatus") },
     { key: "log" as const, icon: History, label: t("gitLog") },
     { key: "diff" as const, icon: GitCommit, label: t("gitDiff") },
+    { key: "branches" as const, icon: GitMerge, label: t("gitBranches") },
   ];
 
   return (
@@ -414,6 +694,7 @@ export function GitPanel() {
         {activeTab === "status" && <StatusTab />}
         {activeTab === "log" && <LogTab />}
         {activeTab === "diff" && <DiffTab />}
+        {activeTab === "branches" && <BranchesTab />}
       </div>
     </div>
   );
