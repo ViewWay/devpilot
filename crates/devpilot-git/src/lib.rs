@@ -667,26 +667,23 @@ pub fn add_all(repo_path: &str) -> GitResult<()> {
 }
 
 /// Unstage specific files (git reset HEAD -- <paths>).
+///
+/// This uses `git2::Repository::reset_default` which performs a mixed reset
+/// of the specified paths, effectively unstaging them from the index.
 pub fn unstage_files(repo_path: &str, paths: &[String]) -> GitResult<()> {
     let repo = open_repo(repo_path)?;
     let head = repo.head().map_err(map_git_err)?;
     let head_tree = head.peel_to_tree().map_err(map_git_err)?;
-    let mut index = repo.index().map_err(map_git_err)?;
-    for p in paths {
-        index.read_tree(&head_tree).map_err(map_git_err)?;
-    }
-    // More precise: reset only the specified paths
-    let mut index = repo.index().map_err(map_git_err)?;
-    for p in paths {
-        let path = Path::new(p);
-        if let Ok(_entry) = head_tree.get_path(path) {
-            index.add_to_index(path, false).map_err(map_git_err)?;
-        } else {
-            // File didn't exist in HEAD — remove from index
-            index.remove_path(path).map_err(map_git_err)?;
-        }
-    }
-    index.write().map_err(map_git_err)?;
+
+    // Collect path specs for the reset
+    let path_specs: Vec<&Path> = paths.iter().map(|p| Path::new(p.as_str())).collect();
+
+    // reset_default performs a mixed reset of only the specified paths,
+    // which is equivalent to `git reset HEAD -- <paths>`
+    let head_obj = head_tree.as_object();
+    repo.reset_default(Some(head_obj), &path_specs)
+        .map_err(map_git_err)?;
+
     Ok(())
 }
 
