@@ -484,6 +484,146 @@ pub fn create_branch(repo_path: &str, branch: &str) -> GitResult<()> {
     Ok(())
 }
 
+// ── Worktree ─────────────────────────────────────────────
+
+/// A git worktree entry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorktreeInfo {
+    /// Worktree directory path.
+    pub path: String,
+    /// Branch name (HEAD).
+    pub branch: String,
+    /// Whether this is the main worktree.
+    pub is_main: bool,
+    /// Whether the worktree is prunable.
+    pub is_prunable: bool,
+}
+
+/// List all worktrees in the repository.
+pub fn list_worktrees(repo_path: &str) -> GitResult<Vec<WorktreeInfo>> {
+    let repo = open_repo(repo_path)?;
+    let main_path = repo.path().to_string_lossy().to_string();
+    let mut result = Vec::new();
+    for wt_name in repo.worktrees().map_err(map_git_err)?.iter() {
+        let name = wt_name.unwrap_or("");
+        let wt = repo.find_worktree(name).map_err(map_git_err)?;
+        let path = wt.path().to_string_lossy().to_string();
+        let is_main = path == main_path;
+        let is_prunable = wt.is_prunable(None).unwrap_or(false);
+        result.push(WorktreeInfo {
+            path,
+            branch: wt.name().unwrap_or("").to_string(),
+            is_main,
+            is_prunable,
+        });
+    }
+    Ok(result)
+}
+
+/// Add a new worktree for the given branch at the specified path.
+pub fn add_worktree(
+    repo_path: &str,
+    name: &str,
+    path: &str,
+    branch: Option<&str>,
+) -> GitResult<()> {
+    let repo = open_repo(repo_path)?;
+    let target_path = Path::new(path);
+
+    if let Some(ref_branch) = branch {
+        let ref_name = format!("refs/heads/{ref_branch}");
+        let r = repo.find_reference(&ref_name).map_err(map_git_err)?;
+        let mut opts = git2::WorktreeAddOptions::new();
+        opts.reference(Some(&r));
+        repo.worktree(name, target_path, Some(&opts))
+            .map_err(map_git_err)?;
+    } else {
+        repo.worktree(name, target_path, None)
+            .map_err(map_git_err)?;
+    }
+
+    Ok(())
+}
+
+/// Remove a worktree by name.
+pub fn remove_worktree(repo_path: &str, name: &str) -> GitResult<()> {
+    let repo = open_repo(repo_path)?;
+    let mut wt = repo.find_worktree(name).map_err(map_git_err)?;
+    wt.prune(None).map_err(map_git_err)?;
+    Ok(())
+}
+
+// ── Remote ──────────────────────────────────────────────
+
+/// Fetch from the default remote (origin).
+pub fn fetch(repo_path: &str, remote: &str) -> GitResult<()> {
+    let repo = open_repo(repo_path)?;
+    let mut remote = repo.find_remote(remote).map_err(map_git_err)?;
+    remote.fetch(&[] as &[&str], None, None).map_err(map_git_err)?;
+    Ok(())
+}
+
+/// Pull (fetch + merge) from the default remote.
+pub fn pull(repo_path: &str, remote: &str, branch: &str) -> GitResult<()> {
+    let mut repo = open_repo(repo_path)?;
+
+    // Fetch
+    let mut rem = repo.find_remote(remote).map_err(map_git_err)?;
+    rem.fetch(&[] as &[&str], None, None).map_err(map_git_err)?;
+
+    // Merge fetch head into current branch
+    let fetch_head = repo.find_reference("FETCH_HEAD").map_err(map_git_err)?;
+    let fetch_commit = repo.reference_to_annotated_commit(&fetch_head).map_err(map_git_err)?;
+
+    let (analysis, _) = repo.merge_analysis(&[&fetch_commit]).map_err(map_git_err)?;
+
+    if analysis.is_up_to_date() {
+        return Ok(());
+    }
+
+    if analysis.is_fast_forward() {
+        let refname = format!("refs/heads/{branch}");
+        let mut reference = repo.find_reference(&refname).map_err(map_git_err)?;
+        reference.set_target(fetch_commit.id(), "Fast-forward").map_err(map_git_err)?;
+        repo.set_head(&refname).map_err(map_git_err)?;
+        repo.checkout_head(Some(git2::build::CheckoutBuilder::new().force()))
+            .map_err(map_git_err)?;
+    } else {
+        // Normal merge — create merge commit
+        repo.merge(&[&fetch_commit], None, None).map_err(map_git_err)?;
+
+        let head = repo.head().map_err(map_git_err)?;
+        let head_commit = head.target().ok_or_else(|| GitError::GitError("No HEAD".into()))?;
+        let commit = repo.find_commit(head_commit).map_err(map_git_err)?;
+
+        let tree_id = repo.index().map_err(map_git_err)?
+            .write_tree().map_err(map_git_err)?;
+        let tree = repo.find_tree(tree_id).map_err(map_git_err)?;
+
+        let sig = repo.signature().unwrap_or_else(|_| {
+            git2::Signature::now("DevPilot", "devpilot@local").unwrap()
+        });
+
+        let parents: Vec<&git2::Commit> = vec![&commit];
+        repo.commit(Some("HEAD"), &sig, &sig,
+            &format!("Merge remote-tracking branch '{remote}/{branch}'"),
+            &tree, &parents).map_err(map_git_err)?;
+
+        repo.cleanup_state().map_err(map_git_err)?;
+    }
+
+    Ok(())
+}
+
+/// Push current branch to remote.
+pub fn push(repo_path: &str, remote: &str, branch: &str) -> GitResult<()> {
+    let repo = open_repo(repo_path)?;
+    let mut remote = repo.find_remote(remote).map_err(map_git_err)?;
+    let refspec = format!("refs/heads/{branch}:refs/heads/{branch}");
+    remote.push(&[&refspec], None).map_err(map_git_err)?;
+    Ok(())
+}
+
 // ── Tests ──────────────────────────────────────────────
 
 #[cfg(test)]

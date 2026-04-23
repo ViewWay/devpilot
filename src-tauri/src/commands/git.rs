@@ -80,3 +80,49 @@ pub fn git_stash_save(repo_path: String, message: Option<String>) -> Result<(), 
 pub fn git_stash_pop(repo_path: String) -> Result<(), String> {
     devpilot_git::stash_pop(&repo_path).map_err(|e| e.to_string())
 }
+
+// ── Worktree ──────────────────────────────────────────────
+
+/// List all worktrees in the repository.
+#[tauri::command]
+pub fn git_list_worktrees(repo_path: String) -> Result<Vec<devpilot_git::WorktreeInfo>, String> {
+    devpilot_git::list_worktrees(&repo_path).map_err(|e| e.to_string())
+}
+
+/// Add a new worktree.
+#[tauri::command]
+pub fn git_add_worktree(
+    repo_path: String,
+    name: String,
+    path: String,
+    branch: Option<String>,
+) -> Result<(), String> {
+    devpilot_git::add_worktree(&repo_path, &name, &path, branch.as_deref())
+        .map_err(|e| e.to_string())
+}
+
+/// Remove a worktree by name.
+#[tauri::command]
+pub fn git_remove_worktree(repo_path: String, name: String) -> Result<(), String> {
+    devpilot_git::remove_worktree(&repo_path, &name).map_err(|e| e.to_string())
+}
+
+// ── Remote ────────────────────────────────────────────────
+
+/// Fetch from a remote.
+#[tauri::command]
+pub fn git_fetch(repo_path: String, remote: String) -> Result<(), String> {
+    devpilot_git::fetch(&repo_path, &remote).map_err(|e| e.to_string())
+}
+
+/// Pull (fetch + merge) from a remote branch.
+#[tauri::command]
+pub fn git_pull(repo_path: String, remote: String, branch: String) -> Result<(), String> {
+    devpilot_git::pull(&repo_path, &remote, &branch).map_err(|e| e.to_string())
+}
+
+/// Push current branch to remote.
+#[tauri::command]
+pub fn git_push(repo_path: String, remote: String, branch: String) -> Result<(), String> {
+    devpilot_git::push(&repo_path, &remote, &branch).map_err(|e| e.to_string())
+}

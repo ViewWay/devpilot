@@ -658,6 +658,7 @@ mod tests {
             api_key: Some("test-api-key".into()),
             models: vec![],
             enabled: true,
+            fallback_provider_ids: vec![],
         }
     }
 

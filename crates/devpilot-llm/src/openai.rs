@@ -733,6 +733,7 @@ mod tests {
             api_key: Some("sk-test-key".into()),
             models: vec![],
             enabled: true,
+            fallback_provider_ids: vec![],
         }
     }
 
@@ -860,6 +861,7 @@ mod tests {
             api_key: None,
             models: vec![],
             enabled: true,
+            fallback_provider_ids: vec![],
         };
         // Ollama should not require an API key
         assert!(create_openai_provider(config).is_ok());

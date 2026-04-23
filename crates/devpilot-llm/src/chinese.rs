@@ -243,6 +243,7 @@ pub fn glm_config(api_key: String) -> ProviderConfig {
         api_key: Some(api_key),
         models: glm_models(),
         enabled: true,
+        fallback_provider_ids: vec![],
     }
 }
 
@@ -258,6 +259,7 @@ pub fn qwen_config(api_key: String) -> ProviderConfig {
         api_key: Some(api_key),
         models: qwen_models(),
         enabled: true,
+        fallback_provider_ids: vec![],
     }
 }
 
@@ -271,6 +273,7 @@ pub fn deepseek_config(api_key: String) -> ProviderConfig {
         api_key: Some(api_key),
         models: deepseek_models(),
         enabled: true,
+        fallback_provider_ids: vec![],
     }
 }
 
@@ -394,6 +397,7 @@ pub fn kimi_config(api_key: String) -> ProviderConfig {
         api_key: Some(api_key),
         models: kimi_models(),
         enabled: true,
+        fallback_provider_ids: vec![],
     }
 }
 
@@ -407,6 +411,7 @@ pub fn minimax_config(api_key: String) -> ProviderConfig {
         api_key: Some(api_key),
         models: minimax_models(),
         enabled: true,
+        fallback_provider_ids: vec![],
     }
 }
 
@@ -420,6 +425,7 @@ pub fn volcengine_config(api_key: String) -> ProviderConfig {
         api_key: Some(api_key),
         models: volcengine_models(),
         enabled: true,
+        fallback_provider_ids: vec![],
     }
 }
 

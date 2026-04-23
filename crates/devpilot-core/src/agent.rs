@@ -543,6 +543,7 @@ mod tests {
                     api_key: None,
                     models: vec![],
                     enabled: true,
+                    fallback_provider_ids: vec![],
                 },
                 response_text: response_text.into(),
                 finish_reason: FinishReason::Stop,
@@ -715,6 +716,7 @@ mod tests {
                     api_key: None,
                     models: vec![],
                     enabled: true,
+                    fallback_provider_ids: vec![],
                 },
             }
         }

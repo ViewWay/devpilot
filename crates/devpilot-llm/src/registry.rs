@@ -182,6 +182,7 @@ mod tests {
                 output_price_per_million: None,
             }],
             enabled: true,
+            fallback_provider_ids: vec![],
         }
     }
 

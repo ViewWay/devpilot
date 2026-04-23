@@ -494,6 +494,7 @@ mod tests {
             api_key: None,
             models: vec![],
             enabled: true,
+            fallback_provider_ids: vec![],
         };
         let cost = calculate_cost_from_tokens(1000, 500, &config, "gpt-4");
         assert_eq!(cost, 0.0);
@@ -520,6 +521,7 @@ mod tests {
                 output_price_per_million: Some(60.0),
             }],
             enabled: true,
+            fallback_provider_ids: vec![],
         };
         // 1M input tokens @ $30 = $30, 1M output tokens @ $60 = $60, total = $90
         let cost = calculate_cost_from_tokens(1_000_000, 1_000_000, &config, "gpt-4");

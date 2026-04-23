@@ -758,6 +758,7 @@ mod tests {
             api_key: Some("sk-ant-test-key".into()),
             models: vec![],
             enabled: true,
+            fallback_provider_ids: vec![],
         }
     }
 

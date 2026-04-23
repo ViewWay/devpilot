@@ -362,6 +362,7 @@ mod tests {
                 output_price_per_million: Some(60.0),
             }],
             enabled: true,
+            fallback_provider_ids: vec![],
         }
     }
 
@@ -402,6 +403,7 @@ mod tests {
                 output_price_per_million: None,
             }],
             enabled: true,
+            fallback_provider_ids: vec![],
         };
         let check = check_config_completeness(&config);
         assert_eq!(check.severity, Severity::Ok);

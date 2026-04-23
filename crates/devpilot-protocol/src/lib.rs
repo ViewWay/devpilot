@@ -403,6 +403,10 @@ pub struct ProviderConfig {
     /// Whether this provider is enabled.
     #[serde(default = "default_true")]
     pub enabled: bool,
+    /// Fallback provider IDs to try when this provider fails.
+    /// Providers are tried in order until one succeeds.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub fallback_provider_ids: Vec<String>,
 }
 
 // ── Session Mode ───────────────────────────────────────
@@ -862,6 +866,7 @@ mod tests {
                 output_price_per_million: Some(10.0),
             }],
             enabled: true,
+            fallback_provider_ids: vec![],
         };
         let json = serde_json::to_string(&config).unwrap();
         let parsed: ProviderConfig = serde_json::from_str(&json).unwrap();
