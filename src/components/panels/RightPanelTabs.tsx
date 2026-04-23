@@ -1,4 +1,4 @@
-import { FolderOpen, Terminal, Eye, X } from "lucide-react";
+import { FolderOpen, Terminal, Eye, GitBranch, X } from "lucide-react";
 import { useUIStore } from "../../stores/uiStore";
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
@@ -7,6 +7,7 @@ const TABS = [
   { key: "files" as const, icon: FolderOpen, labelKey: "files" },
   { key: "terminal" as const, icon: Terminal, labelKey: "terminal" },
   { key: "preview" as const, icon: Eye, labelKey: "preview" },
+  { key: "git" as const, icon: GitBranch, labelKey: "git" },
 ];
 
 export function RightPanelTabs() {

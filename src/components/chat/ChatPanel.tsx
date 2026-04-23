@@ -12,6 +12,7 @@ import { DualSessionSplitView } from "../layout/DualSessionSplitView";
 import { FilesPanel } from "../panels/FilesPanel";
 import { TerminalPanel } from "../panels/TerminalPanel";
 import { PreviewPanel } from "../panels/PreviewPanel";
+import { GitPanel } from "../panels/GitPanel";
 import { RightPanelTabs } from "../panels/RightPanelTabs";
 import { Loader2, AlertCircle, History, ChevronDown, ChevronRight } from "lucide-react";
 import { useI18n } from "../../i18n";
@@ -101,6 +102,7 @@ function RightContent() {
         {rightPanel === "files" && <FilesPanel />}
         {rightPanel === "terminal" && <TerminalPanel />}
         {rightPanel === "preview" && <PreviewPanel />}
+        {rightPanel === "git" && <GitPanel />}
       </div>
     </div>
   );

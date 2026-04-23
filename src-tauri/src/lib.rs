@@ -166,6 +166,17 @@ pub fn run() {
             commands::pty::pty_resize,
             commands::pty::pty_kill,
             commands::pty::pty_list,
+            // Git
+            commands::git::git_status,
+            commands::git::git_diff_unstaged,
+            commands::git::git_diff_staged,
+            commands::git::git_log,
+            commands::git::git_commit,
+            commands::git::git_branches,
+            commands::git::git_switch_branch,
+            commands::git::git_create_branch,
+            commands::git::git_stash_save,
+            commands::git::git_stash_pop,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

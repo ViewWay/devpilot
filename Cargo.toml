@@ -13,6 +13,7 @@ members = [
     "crates/devpilot-tools",
     "crates/devpilot-mcp",
     "crates/devpilot-memory",
+    "crates/devpilot-git",
     "src-tauri",
 ]
 

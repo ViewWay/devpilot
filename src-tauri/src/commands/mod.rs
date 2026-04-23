@@ -8,6 +8,7 @@ use tauri::State;
 pub mod bridge;
 pub mod config;
 pub mod data;
+pub mod git;
 pub mod llm;
 pub mod mcp;
 pub mod media;
