@@ -103,20 +103,11 @@ fn build_catalog() -> HashMap<PricingKey, ModelPricing> {
     );
 
     // ── GLM (智谱) ──────────────────────────────────────
-    m.insert(
-        ("glm".into(), "glm-4-plus".into()),
-        pricing!(50.0, 50.0),
-    );
+    m.insert(("glm".into(), "glm-4-plus".into()), pricing!(50.0, 50.0));
 
     // ── Qwen (通义千问) ─────────────────────────────────
-    m.insert(
-        ("qwen".into(), "qwen-max".into()),
-        pricing!(20.0, 60.0),
-    );
-    m.insert(
-        ("qwen".into(), "qwen-plus".into()),
-        pricing!(4.0, 12.0),
-    );
+    m.insert(("qwen".into(), "qwen-max".into()), pricing!(20.0, 60.0));
+    m.insert(("qwen".into(), "qwen-plus".into()), pricing!(4.0, 12.0));
 
     // ── Kimi (Moonshot) ─────────────────────────────────
     m.insert(
@@ -144,10 +135,7 @@ pub fn lookup_pricing(provider_type: &str, model_id: &str) -> Option<ModelPricin
 
     // Prefix fallback: try matching on model ID prefix
     // This handles cases like "claude-sonnet-4-20250514" → "claude-sonnet-4-..."
-    let model_prefix = model_id
-        .split_once('-')
-        .map(|(p, _)| p)
-        .unwrap_or(model_id);
+    let model_prefix = model_id.split_once('-').map(|(p, _)| p).unwrap_or(model_id);
 
     for ((provider, model), pricing) in &catalog {
         if provider == provider_type {
