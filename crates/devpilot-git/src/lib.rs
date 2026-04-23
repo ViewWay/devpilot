@@ -548,7 +548,7 @@ pub fn add_worktree(
 /// Remove a worktree by name.
 pub fn remove_worktree(repo_path: &str, name: &str) -> GitResult<()> {
     let repo = open_repo(repo_path)?;
-    let mut wt = repo.find_worktree(name).map_err(map_git_err)?;
+    let wt = repo.find_worktree(name).map_err(map_git_err)?;
     wt.prune(None).map_err(map_git_err)?;
     Ok(())
 }
@@ -559,13 +559,15 @@ pub fn remove_worktree(repo_path: &str, name: &str) -> GitResult<()> {
 pub fn fetch(repo_path: &str, remote: &str) -> GitResult<()> {
     let repo = open_repo(repo_path)?;
     let mut remote = repo.find_remote(remote).map_err(map_git_err)?;
-    remote.fetch(&[] as &[&str], None, None).map_err(map_git_err)?;
+    remote
+        .fetch(&[] as &[&str], None, None)
+        .map_err(map_git_err)?;
     Ok(())
 }
 
 /// Pull (fetch + merge) from the default remote.
 pub fn pull(repo_path: &str, remote: &str, branch: &str) -> GitResult<()> {
-    let mut repo = open_repo(repo_path)?;
+    let repo = open_repo(repo_path)?;
 
     // Fetch
     let mut rem = repo.find_remote(remote).map_err(map_git_err)?;
@@ -573,7 +575,9 @@ pub fn pull(repo_path: &str, remote: &str, branch: &str) -> GitResult<()> {
 
     // Merge fetch head into current branch
     let fetch_head = repo.find_reference("FETCH_HEAD").map_err(map_git_err)?;
-    let fetch_commit = repo.reference_to_annotated_commit(&fetch_head).map_err(map_git_err)?;
+    let fetch_commit = repo
+        .reference_to_annotated_commit(&fetch_head)
+        .map_err(map_git_err)?;
 
     let (analysis, _) = repo.merge_analysis(&[&fetch_commit]).map_err(map_git_err)?;
 
@@ -584,30 +588,44 @@ pub fn pull(repo_path: &str, remote: &str, branch: &str) -> GitResult<()> {
     if analysis.is_fast_forward() {
         let refname = format!("refs/heads/{branch}");
         let mut reference = repo.find_reference(&refname).map_err(map_git_err)?;
-        reference.set_target(fetch_commit.id(), "Fast-forward").map_err(map_git_err)?;
+        reference
+            .set_target(fetch_commit.id(), "Fast-forward")
+            .map_err(map_git_err)?;
         repo.set_head(&refname).map_err(map_git_err)?;
         repo.checkout_head(Some(git2::build::CheckoutBuilder::new().force()))
             .map_err(map_git_err)?;
     } else {
         // Normal merge — create merge commit
-        repo.merge(&[&fetch_commit], None, None).map_err(map_git_err)?;
+        repo.merge(&[&fetch_commit], None, None)
+            .map_err(map_git_err)?;
 
         let head = repo.head().map_err(map_git_err)?;
-        let head_commit = head.target().ok_or_else(|| GitError::GitError("No HEAD".into()))?;
+        let head_commit = head
+            .target()
+            .ok_or_else(|| GitError::GitError("No HEAD".into()))?;
         let commit = repo.find_commit(head_commit).map_err(map_git_err)?;
 
-        let tree_id = repo.index().map_err(map_git_err)?
-            .write_tree().map_err(map_git_err)?;
+        let tree_id = repo
+            .index()
+            .map_err(map_git_err)?
+            .write_tree()
+            .map_err(map_git_err)?;
         let tree = repo.find_tree(tree_id).map_err(map_git_err)?;
 
-        let sig = repo.signature().unwrap_or_else(|_| {
-            git2::Signature::now("DevPilot", "devpilot@local").unwrap()
-        });
+        let sig = repo
+            .signature()
+            .unwrap_or_else(|_| git2::Signature::now("DevPilot", "devpilot@local").unwrap());
 
         let parents: Vec<&git2::Commit> = vec![&commit];
-        repo.commit(Some("HEAD"), &sig, &sig,
+        repo.commit(
+            Some("HEAD"),
+            &sig,
+            &sig,
             &format!("Merge remote-tracking branch '{remote}/{branch}'"),
-            &tree, &parents).map_err(map_git_err)?;
+            &tree,
+            &parents,
+        )
+        .map_err(map_git_err)?;
 
         repo.cleanup_state().map_err(map_git_err)?;
     }
@@ -621,6 +639,54 @@ pub fn push(repo_path: &str, remote: &str, branch: &str) -> GitResult<()> {
     let mut remote = repo.find_remote(remote).map_err(map_git_err)?;
     let refspec = format!("refs/heads/{branch}:refs/heads/{branch}");
     remote.push(&[&refspec], None).map_err(map_git_err)?;
+    Ok(())
+}
+
+// ── Staging (Add / Reset) ────────────────────────────────
+
+/// Stage specific files (git add <paths>).
+pub fn add_files(repo_path: &str, paths: &[String]) -> GitResult<()> {
+    let repo = open_repo(repo_path)?;
+    let mut index = repo.index().map_err(map_git_err)?;
+    for p in paths {
+        index.add_path(Path::new(p)).map_err(map_git_err)?;
+    }
+    index.write().map_err(map_git_err)?;
+    Ok(())
+}
+
+/// Stage all changes (git add -A).
+pub fn add_all(repo_path: &str) -> GitResult<()> {
+    let repo = open_repo(repo_path)?;
+    let mut index = repo.index().map_err(map_git_err)?;
+    index
+        .add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None)
+        .map_err(map_git_err)?;
+    index.write().map_err(map_git_err)?;
+    Ok(())
+}
+
+/// Unstage specific files (git reset HEAD -- <paths>).
+pub fn unstage_files(repo_path: &str, paths: &[String]) -> GitResult<()> {
+    let repo = open_repo(repo_path)?;
+    let head = repo.head().map_err(map_git_err)?;
+    let head_tree = head.peel_to_tree().map_err(map_git_err)?;
+    let mut index = repo.index().map_err(map_git_err)?;
+    for p in paths {
+        index.read_tree(&head_tree).map_err(map_git_err)?;
+    }
+    // More precise: reset only the specified paths
+    let mut index = repo.index().map_err(map_git_err)?;
+    for p in paths {
+        let path = Path::new(p);
+        if let Ok(_entry) = head_tree.get_path(path) {
+            index.add_to_index(path, false).map_err(map_git_err)?;
+        } else {
+            // File didn't exist in HEAD — remove from index
+            index.remove_path(path).map_err(map_git_err)?;
+        }
+    }
+    index.write().map_err(map_git_err)?;
     Ok(())
 }
 

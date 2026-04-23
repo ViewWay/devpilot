@@ -35,8 +35,7 @@ pub fn git_log(
     repo_path: String,
     max_count: Option<usize>,
 ) -> Result<Vec<devpilot_git::GitLogEntry>, String> {
-    devpilot_git::get_log(&repo_path, max_count.unwrap_or(50))
-        .map_err(|e| e.to_string())
+    devpilot_git::get_log(&repo_path, max_count.unwrap_or(50)).map_err(|e| e.to_string())
 }
 
 // ── Commit ─────────────────────────────────────────────────
@@ -125,4 +124,24 @@ pub fn git_pull(repo_path: String, remote: String, branch: String) -> Result<(),
 #[tauri::command]
 pub fn git_push(repo_path: String, remote: String, branch: String) -> Result<(), String> {
     devpilot_git::push(&repo_path, &remote, &branch).map_err(|e| e.to_string())
+}
+
+// ── Staging (Add / Reset) ────────────────────────────────
+
+/// Stage specific files (git add <paths>).
+#[tauri::command]
+pub fn git_add_files(repo_path: String, paths: Vec<String>) -> Result<(), String> {
+    devpilot_git::add_files(&repo_path, &paths).map_err(|e| e.to_string())
+}
+
+/// Stage all changes (git add -A).
+#[tauri::command]
+pub fn git_add_all(repo_path: String) -> Result<(), String> {
+    devpilot_git::add_all(&repo_path).map_err(|e| e.to_string())
+}
+
+/// Unstage specific files (git reset HEAD -- <paths>).
+#[tauri::command]
+pub fn git_unstage_files(repo_path: String, paths: Vec<String>) -> Result<(), String> {
+    devpilot_git::unstage_files(&repo_path, &paths).map_err(|e| e.to_string())
 }

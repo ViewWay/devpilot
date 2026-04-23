@@ -681,6 +681,10 @@ export interface SendMessageResult {
     finishReason: string;
   };
   costUsd: number;
+  /** The provider ID that actually handled the request (set when failover occurred). */
+  usedProviderId?: string;
+  /** How many providers were tried (1 = primary only, >1 = failover). */
+  attempts: number;
 }
 
 export interface StreamResult {

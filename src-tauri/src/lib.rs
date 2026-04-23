@@ -183,6 +183,9 @@ pub fn run() {
             commands::git::git_fetch,
             commands::git::git_pull,
             commands::git::git_push,
+            commands::git::git_add_files,
+            commands::git::git_add_all,
+            commands::git::git_unstage_files,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

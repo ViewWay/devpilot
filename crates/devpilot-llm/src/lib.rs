@@ -8,6 +8,7 @@ pub mod anthropic;
 pub mod chinese;
 pub mod diagnostics;
 pub mod error;
+pub mod failover;
 pub mod google;
 pub mod ollama;
 pub mod openai;
@@ -22,6 +23,10 @@ pub use chinese::{
 };
 pub use diagnostics::{DiagnosticCheck, DiagnosticReport, Severity, run_diagnostics};
 pub use error::LlmError;
+pub use failover::{
+    FailoverResult, chat_with_failover, has_fallbacks, resolve_fallback_configs,
+    validate_fallback_ids,
+};
 pub use google::{GeminiProvider, create_gemini_provider};
 pub use ollama::OllamaProvider;
 pub use openai::{OpenAiProvider, create_openai_provider};

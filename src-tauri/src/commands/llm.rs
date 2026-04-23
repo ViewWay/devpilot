@@ -27,6 +27,10 @@ pub struct SendMessageRequest {
     pub provider: ProviderConfig,
     /// Chat request details.
     pub chat_request: ChatRequest,
+    /// All configured providers (for failover resolution).
+    /// If empty, failover is disabled.
+    #[serde(default)]
+    pub all_providers: Vec<ProviderConfig>,
 }
 
 /// Result of a non-streaming send_message call.
@@ -35,6 +39,11 @@ pub struct SendMessageRequest {
 pub struct SendMessageResult {
     pub response: ChatResponse,
     pub cost_usd: f64,
+    /// The provider config that actually handled the request (may differ if failover occurred).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub used_provider_id: Option<String>,
+    /// How many providers were tried (1 = primary only, >1 = failover).
+    pub attempts: u32,
 }
 
 /// Request payload for streaming chat.
@@ -81,29 +90,71 @@ pub struct ProviderCheckResult {
 // ── Commands ──────────────────────────────────────────
 
 /// Send a non-streaming chat message and return the complete response.
+///
+/// If the primary provider fails with a retryable error and fallback providers
+/// are configured (via `all_providers`), the request is retried on each fallback
+/// in order until one succeeds.
 #[tauri::command(rename_all = "camelCase")]
 pub async fn send_message(
     _state: State<'_, AppState>,
     request: SendMessageRequest,
 ) -> Result<SendMessageResult, String> {
-    let provider = create_provider(request.provider.clone()).map_err(|e| e.display_message())?;
     let model_id = request.chat_request.model.clone();
 
-    info!(
-        "Sending message to {} (model: {})",
-        provider.name(),
-        model_id
+    // Resolve fallback providers if configured
+    let fallback_configs = devpilot_llm::resolve_fallback_configs(
+        &request.provider.fallback_provider_ids,
+        &request.all_providers,
     );
+    let fallback_owned: Vec<ProviderConfig> = fallback_configs.into_iter().cloned().collect();
 
-    let response = provider
-        .chat(request.chat_request)
+    if fallback_owned.is_empty() {
+        // No failover — direct call
+        let provider =
+            create_provider(request.provider.clone()).map_err(|e| e.display_message())?;
+        info!(
+            "Sending message to {} (model: {})",
+            provider.name(),
+            model_id
+        );
+
+        let response = provider
+            .chat(request.chat_request)
+            .await
+            .map_err(|e| e.display_message())?;
+
+        let cost_usd = calculate_cost(&response.usage, &request.provider, &model_id);
+        Ok(SendMessageResult {
+            response,
+            cost_usd,
+            used_provider_id: None,
+            attempts: 1,
+        })
+    } else {
+        // Failover-enabled call
+        let registry = devpilot_llm::ProviderRegistry::with_defaults();
+        let result = devpilot_llm::chat_with_failover(
+            &registry,
+            &request.provider,
+            &fallback_owned,
+            request.chat_request,
+        )
         .await
         .map_err(|e| e.display_message())?;
 
-    // Calculate cost
-    let cost_usd = calculate_cost(&response.usage, &request.provider, &model_id);
-
-    Ok(SendMessageResult { response, cost_usd })
+        let cost_usd = calculate_cost(&result.response.usage, &result.used_provider, &model_id);
+        let used_id = if result.fell_back {
+            Some(result.used_provider.id.clone())
+        } else {
+            None
+        };
+        Ok(SendMessageResult {
+            response: result.response,
+            cost_usd,
+            used_provider_id: used_id,
+            attempts: result.attempts,
+        })
+    }
 }
 
 /// Send a streaming chat message through the Agent engine.

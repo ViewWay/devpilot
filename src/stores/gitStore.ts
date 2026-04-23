@@ -57,6 +57,13 @@ export interface GitBranch {
   is_remote: boolean;
 }
 
+export interface WorktreeInfo {
+  path: string;
+  branch: string;
+  is_main: boolean;
+  is_prunable: boolean;
+}
+
 // ── Store State ──────────────────────────────────────────
 
 interface GitState {
@@ -82,8 +89,11 @@ interface GitState {
   // Branches
   branches: GitBranch[];
 
+  // Worktrees
+  worktrees: WorktreeInfo[];
+
   // Active tab
-  activeTab: "status" | "log" | "diff";
+  activeTab: "status" | "log" | "diff" | "branches";
 }
 
 interface GitActions {
@@ -102,8 +112,20 @@ interface GitActions {
   /** Refresh only branches. */
   refreshBranches: () => Promise<void>;
 
+  /** Refresh worktrees. */
+  refreshWorktrees: () => Promise<void>;
+
   /** Commit all changes with the given message. */
   commit: (message: string) => Promise<string>;
+
+  /** Stage files (git add). */
+  addFiles: (paths: string[]) => Promise<void>;
+
+  /** Unstage files (git reset HEAD). */
+  unstageFiles: (paths: string[]) => Promise<void>;
+
+  /** Stage all changes. */
+  addAll: () => Promise<void>;
 
   /** Switch to an existing branch. */
   switchBranch: (branch: string) => Promise<void>;
@@ -117,6 +139,21 @@ interface GitActions {
   /** Stash pop. */
   stashPop: () => Promise<void>;
 
+  /** Fetch from remote. */
+  fetch: (remote?: string) => Promise<void>;
+
+  /** Pull from remote. */
+  pull: (remote?: string, branch?: string) => Promise<void>;
+
+  /** Push to remote. */
+  push: (remote?: string, branch?: string) => Promise<void>;
+
+  /** Add a worktree. */
+  addWorktree: (name: string, path: string, branch?: string) => Promise<void>;
+
+  /** Remove a worktree. */
+  removeWorktree: (name: string) => Promise<void>;
+
   /** Set selected diff file. */
   setSelectedDiffFile: (path: string | null) => void;
 
@@ -124,7 +161,7 @@ interface GitActions {
   setShowStagedDiff: (show: boolean) => void;
 
   /** Set active tab. */
-  setActiveTab: (tab: "status" | "log" | "diff") => void;
+  setActiveTab: (tab: "status" | "log" | "diff" | "branches") => void;
 
   /** Clear error. */
   clearError: () => void;
@@ -145,6 +182,7 @@ export const useGitStore = create<GitState & GitActions>()((set, get) => ({
   showStagedDiff: false,
   logEntries: [],
   branches: [],
+  worktrees: [],
   activeTab: "status",
 
   refresh: async () => {
@@ -261,6 +299,126 @@ export const useGitStore = create<GitState & GitActions>()((set, get) => ({
       const repoPath = getRepoPath();
       await invoke<void>("git_stash_pop", { repoPath });
       await get().refresh();
+    } catch (e: unknown) {
+      set({ error: String(e), loading: false });
+    }
+  },
+
+  // ── Stage / Unstage ───────────────────────────────────
+
+  addFiles: async (paths: string[]) => {
+    try {
+      const repoPath = getRepoPath();
+      await invoke<void>("git_add_files", { repoPath, paths });
+      await get().refreshStatus();
+      await get().refreshDiff();
+    } catch (e: unknown) {
+      set({ error: String(e) });
+    }
+  },
+
+  unstageFiles: async (paths: string[]) => {
+    try {
+      const repoPath = getRepoPath();
+      await invoke<void>("git_unstage_files", { repoPath, paths });
+      await get().refreshStatus();
+      await get().refreshDiff();
+    } catch (e: unknown) {
+      set({ error: String(e) });
+    }
+  },
+
+  addAll: async () => {
+    try {
+      const repoPath = getRepoPath();
+      await invoke<void>("git_add_all", { repoPath });
+      await get().refreshStatus();
+      await get().refreshDiff();
+    } catch (e: unknown) {
+      set({ error: String(e) });
+    }
+  },
+
+  // ── Remote ────────────────────────────────────────────
+
+  fetch: async (remote?: string) => {
+    set({ loading: true, error: null });
+    try {
+      const repoPath = getRepoPath();
+      await invoke<void>("git_fetch", { repoPath, remote: remote ?? "origin" });
+      await get().refresh();
+    } catch (e: unknown) {
+      set({ error: String(e), loading: false });
+    }
+  },
+
+  pull: async (remote?: string, branch?: string) => {
+    set({ loading: true, error: null });
+    try {
+      const repoPath = getRepoPath();
+      const status = get().status;
+      await invoke<void>("git_pull", {
+        repoPath,
+        remote: remote ?? "origin",
+        branch: branch ?? status?.branch ?? "main",
+      });
+      await get().refresh();
+    } catch (e: unknown) {
+      set({ error: String(e), loading: false });
+    }
+  },
+
+  push: async (remote?: string, branch?: string) => {
+    set({ loading: true, error: null });
+    try {
+      const repoPath = getRepoPath();
+      const status = get().status;
+      await invoke<void>("git_push", {
+        repoPath,
+        remote: remote ?? "origin",
+        branch: branch ?? status?.branch ?? "main",
+      });
+      set({ loading: false });
+    } catch (e: unknown) {
+      set({ error: String(e), loading: false });
+    }
+  },
+
+  // ── Worktrees ─────────────────────────────────────────
+
+  refreshWorktrees: async () => {
+    try {
+      const repoPath = getRepoPath();
+      const worktrees = await invoke<WorktreeInfo[]>("git_list_worktrees", { repoPath });
+      set({ worktrees });
+    } catch (e: unknown) {
+      set({ error: String(e) });
+    }
+  },
+
+  addWorktree: async (name: string, path: string, branch?: string) => {
+    set({ loading: true, error: null });
+    try {
+      const repoPath = getRepoPath();
+      await invoke<void>("git_add_worktree", {
+        repoPath,
+        name,
+        path,
+        branch: branch ?? null,
+      });
+      await get().refreshWorktrees();
+      await get().refreshBranches();
+    } catch (e: unknown) {
+      set({ error: String(e), loading: false });
+    }
+  },
+
+  removeWorktree: async (name: string) => {
+    set({ loading: true, error: null });
+    try {
+      const repoPath = getRepoPath();
+      await invoke<void>("git_remove_worktree", { repoPath, name });
+      await get().refreshWorktrees();
     } catch (e: unknown) {
       set({ error: String(e), loading: false });
     }
