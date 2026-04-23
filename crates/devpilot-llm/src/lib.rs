@@ -12,6 +12,7 @@ pub mod failover;
 pub mod google;
 pub mod ollama;
 pub mod openai;
+pub mod pricing;
 pub mod provider;
 pub mod registry;
 pub mod retry;
