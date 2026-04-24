@@ -205,4 +205,143 @@ mod tests {
         let with_tools = estimate_chat_tokens(None, &messages, Some(&tools), &config);
         assert!(with_tools > without_tools);
     }
+
+    #[test]
+    fn model_pricing_default_is_zero() {
+        let pricing = ModelPricing::default();
+        assert_eq!(pricing.input_per_million, 0.0);
+        assert_eq!(pricing.output_per_million, 0.0);
+        assert_eq!(pricing.cache_read_per_million, 0.0);
+        assert_eq!(pricing.cache_write_per_million, 0.0);
+    }
+
+    #[test]
+    fn cost_calculation_no_cache() {
+        let pricing = ModelPricing {
+            input_per_million: 10.0,
+            output_per_million: 30.0,
+            cache_read_per_million: 0.0,
+            cache_write_per_million: 0.0,
+        };
+        let usage = Usage {
+            input_tokens: 1000,
+            output_tokens: 500,
+            cache_read_tokens: None,
+            cache_write_tokens: None,
+        };
+        let cost = pricing.calculate(&usage);
+        // input: 1000 * 10/1M = 0.01, output: 500 * 30/1M = 0.015, total = 0.025
+        assert!((cost.cost_usd - 0.025).abs() < 0.0001);
+        assert_eq!(cost.input_tokens, 1000);
+        assert_eq!(cost.output_tokens, 500);
+        assert_eq!(cost.cache_read_tokens, 0);
+        assert_eq!(cost.cache_write_tokens, 0);
+    }
+
+    #[test]
+    fn cost_calculation_zero_usage() {
+        let pricing = ModelPricing {
+            input_per_million: 3.0,
+            output_per_million: 15.0,
+            cache_read_per_million: 0.3,
+            cache_write_per_million: 3.75,
+        };
+        let usage = Usage {
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_read_tokens: None,
+            cache_write_tokens: None,
+        };
+        let cost = pricing.calculate(&usage);
+        assert_eq!(cost.cost_usd, 0.0);
+    }
+
+    #[test]
+    fn token_count_config_default() {
+        let config = TokenCountConfig::default();
+        assert_eq!(config.chars_per_token, 3.0);
+        assert_eq!(config.system_overhead, 10);
+        assert_eq!(config.per_message_overhead, 5);
+    }
+
+    #[test]
+    fn estimate_tokens_empty_string() {
+        let config = TokenCountConfig::default();
+        let count = estimate_tokens("", &config);
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn estimate_tokens_cjk_characters() {
+        let config = TokenCountConfig::default();
+        // CJK characters typically use fewer chars/token
+        let count = estimate_tokens("你好世界", &config);
+        // 4 chars / 3.0 = 1.33 → ceil = 2
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn estimate_tokens_long_text() {
+        let config = TokenCountConfig::default();
+        let text = "a".repeat(300);
+        let count = estimate_tokens(&text, &config);
+        // 300 / 3.0 = 100.0 → ceil = 100
+        assert_eq!(count, 100);
+    }
+
+    #[test]
+    fn estimate_chat_tokens_no_system_no_tools() {
+        use devpilot_protocol::{Message, MessageRole};
+
+        let config = TokenCountConfig::default();
+        let messages = vec![Message::text(MessageRole::User, "Hi")];
+        let count = estimate_chat_tokens(None, &messages, None, &config);
+        // system_overhead(10) + per_message_overhead(5) + "Hi" estimate (1) = 16
+        assert_eq!(count, 16);
+    }
+
+    #[test]
+    fn estimate_chat_tokens_empty_messages() {
+        let config = TokenCountConfig::default();
+        let count: u32 = estimate_chat_tokens(None, &[], None, &config);
+        // Only system overhead: 10
+        assert_eq!(count, 10);
+    }
+
+    #[test]
+    fn estimate_chat_tokens_multiple_messages() {
+        use devpilot_protocol::{Message, MessageRole};
+
+        let config = TokenCountConfig::default();
+        let messages = vec![
+            Message::text(MessageRole::System, "Be helpful"),
+            Message::text(MessageRole::User, "Hello"),
+            Message::text(MessageRole::Assistant, "Hi there"),
+        ];
+        let count = estimate_chat_tokens(None, &messages, None, &config);
+        // 10 + 3 * (5 + text_estimate)
+        assert!(count > 25);
+    }
+
+    #[test]
+    fn cost_estimate_fields_match_usage() {
+        let pricing = ModelPricing {
+            input_per_million: 1.0,
+            output_per_million: 2.0,
+            cache_read_per_million: 0.5,
+            cache_write_per_million: 0.8,
+        };
+        let usage = Usage {
+            input_tokens: 5000,
+            output_tokens: 1000,
+            cache_read_tokens: Some(1000),
+            cache_write_tokens: Some(500),
+        };
+        let cost = pricing.calculate(&usage);
+        assert_eq!(cost.input_tokens, 5000);
+        assert_eq!(cost.output_tokens, 1000);
+        assert_eq!(cost.cache_read_tokens, 1000);
+        assert_eq!(cost.cache_write_tokens, 500);
+        assert!(cost.cost_usd > 0.0);
+    }
 }

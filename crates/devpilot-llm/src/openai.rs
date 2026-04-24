@@ -1115,4 +1115,206 @@ mod tests {
         );
         assert_eq!(oai_msgs[1].role, "user");
     }
+
+    #[test]
+    fn parse_finish_reason_stop() {
+        assert_eq!(
+            OpenAiProvider::parse_finish_reason(Some("stop")),
+            FinishReason::Stop
+        );
+    }
+
+    #[test]
+    fn parse_finish_reason_length() {
+        assert_eq!(
+            OpenAiProvider::parse_finish_reason(Some("length")),
+            FinishReason::Length
+        );
+    }
+
+    #[test]
+    fn parse_finish_reason_tool_calls() {
+        assert_eq!(
+            OpenAiProvider::parse_finish_reason(Some("tool_calls")),
+            FinishReason::ToolUse
+        );
+    }
+
+    #[test]
+    fn parse_finish_reason_none_defaults_to_stop() {
+        assert_eq!(
+            OpenAiProvider::parse_finish_reason(None),
+            FinishReason::Stop
+        );
+    }
+
+    #[test]
+    fn parse_finish_reason_unknown_defaults_to_stop() {
+        assert_eq!(
+            OpenAiProvider::parse_finish_reason(Some("unknown_reason")),
+            FinishReason::Stop
+        );
+    }
+
+    #[test]
+    fn convert_tools_to_openai_format() {
+        let tools = vec![ToolDefinition {
+            name: "read_file".into(),
+            description: "Read a file".into(),
+            input_schema: serde_json::json!({"type": "object"}),
+        }];
+        let oai_tools = OpenAiProvider::convert_tools(&tools);
+        assert_eq!(oai_tools.len(), 1);
+        assert_eq!(oai_tools[0].tool_type, "function");
+        assert_eq!(oai_tools[0].function.name, "read_file");
+        assert_eq!(oai_tools[0].function.description, "Read a file");
+    }
+
+    #[test]
+    fn convert_response_with_array_content() {
+        let msg = OaiResponseMessage {
+            role: "assistant".into(),
+            content: Some(serde_json::json!([
+                {"type": "text", "text": "Hello"},
+                {"type": "text", "text": "World"},
+            ])),
+            tool_calls: None,
+        };
+        let result = OpenAiProvider::convert_response_message(msg);
+        assert_eq!(result.content.len(), 2);
+    }
+
+    #[test]
+    fn convert_response_empty_string_content() {
+        let msg = OaiResponseMessage {
+            role: "assistant".into(),
+            content: Some(serde_json::Value::String(String::new())),
+            tool_calls: None,
+        };
+        let result = OpenAiProvider::convert_response_message(msg);
+        // Empty string content should not produce a text block
+        assert!(result.content.is_empty());
+    }
+
+    #[test]
+    fn deserialize_oai_response() {
+        let json = r#"{
+            "id": "chatcmpl-123",
+            "model": "gpt-4",
+            "choices": [{
+                "message": {
+                    "role": "assistant",
+                    "content": "Hello!"
+                },
+                "finish_reason": "stop"
+            }],
+            "usage": {
+                "prompt_tokens": 10,
+                "completion_tokens": 5,
+                "total_tokens": 15
+            }
+        }"#;
+        let resp: OaiResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.id, "chatcmpl-123");
+        assert_eq!(resp.model, "gpt-4");
+        assert_eq!(resp.choices.len(), 1);
+        assert!(resp.usage.is_some());
+        let usage = resp.usage.unwrap();
+        assert_eq!(usage.prompt_tokens, 10);
+        assert_eq!(usage.completion_tokens, 5);
+    }
+
+    #[test]
+    fn deserialize_oai_stream_chunk() {
+        let json = r#"{
+            "id": "chatcmpl-123",
+            "model": "gpt-4",
+            "choices": [{
+                "delta": {
+                    "role": "assistant",
+                    "content": "Hello"
+                },
+                "finish_reason": null
+            }],
+            "usage": null
+        }"#;
+        let chunk: OaiStreamChunk = serde_json::from_str(json).unwrap();
+        assert_eq!(chunk.choices.len(), 1);
+        assert_eq!(chunk.choices[0].delta.content.as_deref(), Some("Hello"));
+        assert!(chunk.choices[0].delta.role.as_deref() == Some("assistant"));
+    }
+
+    #[test]
+    fn deserialize_oai_stream_chunk_with_tool_calls() {
+        let json = r#"{
+            "id": "chatcmpl-123",
+            "choices": [{
+                "delta": {
+                    "tool_calls": [{
+                        "index": 0,
+                        "id": "call_abc",
+                        "type": "function",
+                        "function": {
+                            "name": "read_file",
+                            "arguments": "{\"path\":"
+                        }
+                    }]
+                },
+                "finish_reason": null
+            }]
+        }"#;
+        let chunk: OaiStreamChunk = serde_json::from_str(json).unwrap();
+        let tc = chunk.choices[0].delta.tool_calls.as_ref().unwrap();
+        assert_eq!(tc.len(), 1);
+        assert_eq!(tc[0].index, 0);
+        assert_eq!(tc[0].id.as_deref(), Some("call_abc"));
+    }
+
+    #[test]
+    fn deserialize_oai_model_error() {
+        let json = r#"{
+            "error": {
+                "message": "Model not found",
+                "type": "invalid_request_error",
+                "code": "model_not_found"
+            }
+        }"#;
+        let err: OaiModelError = serde_json::from_str(json).unwrap();
+        assert_eq!(err.error.message, "Model not found");
+        assert_eq!(err.error.code.as_deref(), Some("model_not_found"));
+    }
+
+    #[test]
+    fn deserialize_oai_model_list() {
+        let json = r#"{
+            "data": [
+                {"id": "gpt-4"},
+                {"id": "gpt-3.5-turbo"}
+            ]
+        }"#;
+        let list: OaiModelList = serde_json::from_str(json).unwrap();
+        assert_eq!(list.data.len(), 2);
+        assert_eq!(list.data[0].id, "gpt-4");
+    }
+
+    #[test]
+    fn provider_debug_format() {
+        let provider = OpenAiProvider::new(test_config());
+        let debug = format!("{provider:?}");
+        assert!(debug.contains("OpenAiProvider"));
+        assert!(debug.contains("Test OpenAI"));
+    }
+
+    #[test]
+    fn api_key_missing_returns_error() {
+        let mut config = test_config();
+        config.api_key = None;
+        let provider = OpenAiProvider::new(config);
+        let result = provider.api_key();
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            LlmError::ProviderNotConfigured(name) => assert_eq!(name, "Test OpenAI"),
+            _ => panic!("Expected ProviderNotConfigured"),
+        }
+    }
 }

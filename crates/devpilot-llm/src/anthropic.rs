@@ -1257,4 +1257,200 @@ mod tests {
             _ => panic!("Expected MessageStart"),
         }
     }
+
+    #[test]
+    fn parse_stop_reason_end_turn() {
+        assert_eq!(
+            AnthropicProvider::parse_stop_reason(Some("end_turn")),
+            FinishReason::Stop
+        );
+    }
+
+    #[test]
+    fn parse_stop_reason_max_tokens() {
+        assert_eq!(
+            AnthropicProvider::parse_stop_reason(Some("max_tokens")),
+            FinishReason::Length
+        );
+    }
+
+    #[test]
+    fn parse_stop_reason_tool_use() {
+        assert_eq!(
+            AnthropicProvider::parse_stop_reason(Some("tool_use")),
+            FinishReason::ToolUse
+        );
+    }
+
+    #[test]
+    fn parse_stop_reason_none_defaults_to_stop() {
+        assert_eq!(
+            AnthropicProvider::parse_stop_reason(None),
+            FinishReason::Stop
+        );
+    }
+
+    #[test]
+    fn parse_stop_reason_unknown_defaults_to_stop() {
+        assert_eq!(
+            AnthropicProvider::parse_stop_reason(Some("unknown")),
+            FinishReason::Stop
+        );
+    }
+
+    #[test]
+    fn convert_tools_to_anthropic_format() {
+        let tools = vec![ToolDefinition {
+            name: "read_file".into(),
+            description: "Read a file".into(),
+            input_schema: serde_json::json!({"type": "object"}),
+        }];
+        let ant_tools = AnthropicProvider::convert_tools(&tools);
+        assert_eq!(ant_tools.len(), 1);
+        assert_eq!(ant_tools[0].name, "read_file");
+        assert_eq!(ant_tools[0].description, "Read a file");
+    }
+
+    #[test]
+    fn convert_response_text_block() {
+        let blocks = vec![AntContentBlock {
+            block_type: "text".into(),
+            text: Some("Hello!".into()),
+            thinking: None,
+            signature: None,
+            id: None,
+            name: None,
+            input: None,
+        }];
+        let content = AnthropicProvider::convert_response_content(blocks);
+        assert_eq!(content.len(), 1);
+        match &content[0] {
+            ContentBlock::Text { text } => assert_eq!(text, "Hello!"),
+            _ => panic!("Expected Text block"),
+        }
+    }
+
+    #[test]
+    fn convert_response_tool_use_block() {
+        let blocks = vec![AntContentBlock {
+            block_type: "tool_use".into(),
+            text: None,
+            thinking: None,
+            signature: None,
+            id: Some("toolu_123".into()),
+            name: Some("read_file".into()),
+            input: Some(serde_json::json!({"path": "/tmp/test.txt"})),
+        }];
+        let content = AnthropicProvider::convert_response_content(blocks);
+        assert_eq!(content.len(), 1);
+        match &content[0] {
+            ContentBlock::ToolUse { id, name, input } => {
+                assert_eq!(id, "toolu_123");
+                assert_eq!(name, "read_file");
+                assert_eq!(input["path"], "/tmp/test.txt");
+            }
+            _ => panic!("Expected ToolUse block"),
+        }
+    }
+
+    #[test]
+    fn convert_response_tool_use_with_missing_fields_defaults() {
+        let blocks = vec![AntContentBlock {
+            block_type: "tool_use".into(),
+            text: None,
+            thinking: None,
+            signature: None,
+            id: None,
+            name: None,
+            input: None,
+        }];
+        let content = AnthropicProvider::convert_response_content(blocks);
+        assert_eq!(content.len(), 1);
+        match &content[0] {
+            ContentBlock::ToolUse { id, name, input } => {
+                assert_eq!(id, "");
+                assert_eq!(name, "");
+                assert_eq!(input, &serde_json::json!({}));
+            }
+            _ => panic!("Expected ToolUse block"),
+        }
+    }
+
+    #[test]
+    fn convert_messages_filters_system_role() {
+        let msgs = vec![
+            Message::text(MessageRole::System, "You are helpful"),
+            Message::text(MessageRole::User, "Hello"),
+        ];
+        let ant_msgs = AnthropicProvider::convert_messages(&msgs);
+        assert_eq!(ant_msgs.len(), 1);
+        assert_eq!(ant_msgs[0].role, "user");
+    }
+
+    #[test]
+    fn convert_text_only_uses_string() {
+        // Single text block should produce array (Anthropic always uses arrays)
+        let msgs = vec![Message::text(MessageRole::User, "Hello")];
+        let ant_msgs = AnthropicProvider::convert_messages(&msgs);
+        let content = ant_msgs[0].content.as_array().unwrap();
+        assert_eq!(content.len(), 1);
+        assert_eq!(content[0]["type"], "text");
+        assert_eq!(content[0]["text"], "Hello");
+    }
+
+    #[test]
+    fn provider_debug_format() {
+        let provider = AnthropicProvider::new(test_config());
+        let debug = format!("{provider:?}");
+        assert!(debug.contains("AnthropicProvider"));
+        assert!(debug.contains("Test Anthropic"));
+    }
+
+    #[test]
+    fn api_key_missing_returns_error() {
+        let mut config = test_config();
+        config.api_key = None;
+        let provider = AnthropicProvider::new(config);
+        let result = provider.api_key();
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            LlmError::ProviderNotConfigured(name) => assert_eq!(name, "Test Anthropic"),
+            _ => panic!("Expected ProviderNotConfigured"),
+        }
+    }
+
+    #[test]
+    fn deserialize_ant_error() {
+        let json = r#"{
+            "error": {
+                "type": "invalid_request_error",
+                "message": "model not found"
+            }
+        }"#;
+        let err: AntError = serde_json::from_str(json).unwrap();
+        assert_eq!(err.error.message, "model not found");
+    }
+
+    #[test]
+    fn deserialize_ant_response() {
+        let json = r#"{
+            "id": "msg_001",
+            "model": "claude-sonnet-4-20250514",
+            "content": [
+                {"type": "text", "text": "Hello!"}
+            ],
+            "stop_reason": "end_turn",
+            "usage": {
+                "input_tokens": 10,
+                "output_tokens": 5
+            }
+        }"#;
+        let resp: AntResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.id, "msg_001");
+        assert_eq!(resp.model, "claude-sonnet-4-20250514");
+        assert_eq!(resp.content.len(), 1);
+        assert_eq!(resp.stop_reason.as_deref(), Some("end_turn"));
+        assert_eq!(resp.usage.input_tokens, 10);
+        assert_eq!(resp.usage.output_tokens, 5);
+    }
 }

@@ -193,4 +193,120 @@ mod tests {
         let err = LlmError::ProviderNotConfigured("openai".into());
         assert!(err.display_message().contains("openai"));
     }
+
+    #[test]
+    fn not_retryable_stream_error() {
+        let err = LlmError::StreamError("broken pipe".into());
+        assert!(!err.is_retryable());
+    }
+
+    #[test]
+    fn not_retryable_invalid_request() {
+        let err = LlmError::InvalidRequest("missing field".into());
+        assert!(!err.is_retryable());
+    }
+
+    #[test]
+    fn not_retryable_model_not_found() {
+        let err = LlmError::ModelNotFound("nonexistent-model".into());
+        assert!(!err.is_retryable());
+    }
+
+    #[test]
+    fn not_retryable_unexpected_response() {
+        let err = LlmError::UnexpectedResponse("bad format".into());
+        assert!(!err.is_retryable());
+    }
+
+    #[test]
+    fn display_message_network_error() {
+        let err = LlmError::NetworkError("connection refused".into());
+        let msg = err.display_message();
+        assert!(msg.contains("Network error"));
+        assert!(msg.contains("connection refused"));
+    }
+
+    #[test]
+    fn display_message_stream_error() {
+        let err = LlmError::StreamError("timeout".into());
+        let msg = err.display_message();
+        assert!(msg.contains("Stream error"));
+    }
+
+    #[test]
+    fn display_message_invalid_request() {
+        let err = LlmError::InvalidRequest("missing model".into());
+        let msg = err.display_message();
+        assert!(msg.contains("Invalid request"));
+        assert!(msg.contains("missing model"));
+    }
+
+    #[test]
+    fn display_message_timeout() {
+        let err = LlmError::Timeout("30s".into());
+        let msg = err.display_message();
+        assert!(msg.contains("timed out"));
+        assert!(msg.contains("30s"));
+    }
+
+    #[test]
+    fn display_message_unexpected_response() {
+        let err = LlmError::UnexpectedResponse("invalid JSON".into());
+        let msg = err.display_message();
+        assert!(msg.contains("Unexpected response"));
+        assert!(msg.contains("invalid JSON"));
+    }
+
+    #[test]
+    fn display_message_auth_error() {
+        let err = LlmError::AuthError("bad key".into());
+        let msg = err.display_message();
+        assert!(msg.contains("Authentication failed"));
+        assert!(msg.contains("bad key"));
+    }
+
+    #[test]
+    fn rate_limit_error_retry_after_none() {
+        let err = LlmError::RateLimitError { retry_after: None };
+        assert!(err.is_retryable());
+    }
+
+    #[test]
+    fn error_display_api_error() {
+        let err = LlmError::ApiError {
+            status: 500,
+            message: "internal".into(),
+        };
+        let display = format!("{err}");
+        assert!(display.contains("500"));
+        assert!(display.contains("internal"));
+    }
+
+    #[test]
+    fn error_display_network_error() {
+        let err = LlmError::NetworkError("timeout".into());
+        let display = format!("{err}");
+        assert!(display.contains("Network error"));
+    }
+
+    #[test]
+    fn error_display_timeout() {
+        let err = LlmError::Timeout("30s elapsed".into());
+        let display = format!("{err}");
+        assert!(display.contains("Timeout"));
+    }
+
+    #[test]
+    fn not_retryable_provider_not_configured() {
+        let err = LlmError::ProviderNotConfigured("test".into());
+        assert!(!err.is_retryable());
+    }
+
+    #[test]
+    fn display_message_provider_not_configured_message() {
+        let err = LlmError::ProviderNotConfigured("my-provider".into());
+        let msg = err.display_message();
+        assert!(msg.contains("Provider not configured"));
+        assert!(msg.contains("my-provider"));
+    }
 }
