@@ -456,6 +456,7 @@ export interface IPCCommands {
   send_message: {
     provider: ProviderConfigIPC;
     chatRequest: ChatRequestIPC;
+    allProviders?: ProviderConfigIPC[];
   };
   send_message_stream: {
     provider: ProviderConfigIPC;
@@ -463,6 +464,9 @@ export interface IPCCommands {
     sessionId: string;
     userMessage: string;
     workingDir?: string;
+    mode?: string;
+    reasoningEffort?: number;
+    allProviders?: ProviderConfigIPC[];
   };
   check_provider: { config: ProviderConfigIPC };
   list_provider_models: { config: ProviderConfigIPC };
@@ -582,6 +586,8 @@ export interface ProviderConfigIPC {
   apiKey?: string;
   models: ModelInfoIPC[];
   enabled: boolean;
+  /** Ordered IDs of fallback providers to try on retryable errors. */
+  fallbackProviderIds?: string[];
 }
 
 export interface ModelInfoIPC {

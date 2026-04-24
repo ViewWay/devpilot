@@ -6,6 +6,7 @@ import { mapProviderType } from "../lib/utils";
 export interface Provider {
   id: string;
   name: string;
+  providerType?: string;
   baseUrl: string;
   apiKey: string;
   models: ModelConfig[];
@@ -13,6 +14,8 @@ export interface Provider {
   lastTested?: string;
   testStatus?: "ok" | "error";
   testError?: string;
+  /** Ordered IDs of fallback providers to try on retryable errors. */
+  fallbackProviderIds?: string[];
 }
 
 export interface ModelConfig {

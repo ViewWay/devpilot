@@ -2,6 +2,7 @@
 resolver = "3"
 members = [
     "crates/devpilot-core",
+    "crates/devpilot-index",
     "crates/devpilot-sandbox",
     "crates/devpilot-search",
     "crates/devpilot-scheduler",

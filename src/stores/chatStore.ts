@@ -714,7 +714,34 @@ export const useChatStore = create<ChatState>((set, get) => ({
             outputPricePerMillion: m.outputPrice,
           })),
           enabled: provider.enabled,
+          fallbackProviderIds: provider.fallbackProviderIds ?? [],
         };
+
+        // Collect all enabled providers for failover resolution
+        const allProviders = useProviderStore
+          .getState()
+          .providers.filter((p) => p.enabled && p.id !== provider.id)
+          .map((p) => ({
+            id: p.id,
+            name: p.name,
+            providerType: mapProviderType(p.id),
+            baseUrl: p.baseUrl,
+            apiKey: p.apiKey || undefined,
+            models: p.models.map((m) => ({
+              id: m.id,
+              name: m.name,
+              provider: mapProviderType(p.id),
+              maxInputTokens: m.maxTokens,
+              maxOutputTokens: 4096,
+              supportsStreaming: m.supportsStreaming,
+              supportsTools: true,
+              supportsVision: m.supportsVision,
+              inputPricePerMillion: m.inputPrice,
+              outputPricePerMillion: m.outputPrice,
+            })),
+            enabled: p.enabled,
+            fallbackProviderIds: p.fallbackProviderIds ?? [],
+          }));
 
         // Build messages history
         const messages: Array<{ role: string; content: UserContentBlock[] }> = session.messages.map((m) => ({
@@ -983,6 +1010,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           workingDir,
           mode: activeMode,
           reasoningEffort,
+          allProviders,
         });
 
         return; // Tauri handled it

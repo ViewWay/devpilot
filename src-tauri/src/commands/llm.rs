@@ -66,6 +66,10 @@ pub struct StreamMessageRequest {
     /// Reasoning effort (0-100).
     #[serde(default)]
     pub reasoning_effort: Option<u8>,
+    /// All configured providers (for failover resolution).
+    /// If empty or the primary has no fallback_provider_ids, failover is disabled.
+    #[serde(default)]
+    pub all_providers: Vec<ProviderConfig>,
 }
 
 /// Result of a streaming send_message_stream call (emitted at the end).
@@ -177,7 +181,35 @@ pub async fn send_message_stream(
     state: State<'_, AppState>,
     request: StreamMessageRequest,
 ) -> Result<StreamResult, String> {
-    let provider = create_provider(request.provider.clone()).map_err(|e| e.display_message())?;
+    let provider = {
+        // Resolve fallback providers if configured
+        let fallback_refs = devpilot_llm::resolve_fallback_configs(
+            &request.provider.fallback_provider_ids,
+            &request.all_providers,
+        );
+        let fallback_owned: Vec<ProviderConfig> = fallback_refs.into_iter().cloned().collect();
+
+        if fallback_owned.is_empty() {
+            // No failover — use primary directly
+            let p = create_provider(request.provider.clone()).map_err(|e| e.display_message())?;
+            p as Arc<dyn devpilot_llm::ModelProvider>
+        } else {
+            // Wrap with FallbackProvider for transparent failover
+            let registry = devpilot_llm::ProviderRegistry::with_defaults();
+            let fb = devpilot_llm::FallbackProvider::from_configs(
+                &registry,
+                &request.provider,
+                &fallback_owned,
+            )
+            .map_err(|e| e.display_message())?;
+            info!(
+                "Streaming with failover chain of {} providers for session {}",
+                fb.chain_len(),
+                request.session_id
+            );
+            Arc::new(fb) as Arc<dyn devpilot_llm::ModelProvider>
+        }
+    };
     let session_id = request.session_id.clone();
     let model_id = request.chat_request.model.clone();
 
