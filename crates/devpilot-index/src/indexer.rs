@@ -346,9 +346,10 @@ impl SymbolIndex {
 
                     // Check file size
                     if let Ok(metadata) = std::fs::metadata(path)
-                        && metadata.len() > self.config.max_file_size {
-                            continue;
-                        }
+                        && metadata.len() > self.config.max_file_size
+                    {
+                        continue;
+                    }
 
                     files.push(path.to_path_buf());
                 }
@@ -451,26 +452,23 @@ impl SymbolIndex {
             .or_else(|| trimmed.strip_prefix("pub fn "))
             .or_else(|| trimmed.strip_prefix("async fn "))
             .or_else(|| trimmed.strip_prefix("fn "))
-            && let Some(name) = rest.split('(').next() {
-                let name = name.trim().trim_start_matches('<');
-                if !name.is_empty() && !name.starts_with('|') {
-                    symbols.push(CodeSymbol {
-                        name: name.to_string(),
-                        kind: if trimmed.contains(" fn ") {
-                            SymbolKind::Function
-                        } else {
-                            SymbolKind::Function
-                        },
-                        full_path: format!("{file_path}::{name}"),
-                        language,
-                        file_path: file_path.to_string(),
-                        line,
-                        column: 0,
-                        container: None,
-                        doc_summary: None,
-                    });
-                }
+            && let Some(raw_name) = rest.split('(').next()
+        {
+            let name = raw_name.trim().trim_start_matches('<');
+            if !name.is_empty() && !name.starts_with('|') {
+                symbols.push(CodeSymbol {
+                    name: name.to_string(),
+                    kind: SymbolKind::Function,
+                    full_path: format!("{file_path}::{name}"),
+                    language,
+                    file_path: file_path.to_string(),
+                    line,
+                    column: 0,
+                    container: None,
+                    doc_summary: None,
+                });
             }
+        }
 
         // struct / enum / trait / impl
         for (prefix, kind) in [
@@ -527,34 +525,34 @@ impl SymbolIndex {
             && let Some(rest) = trimmed
                 .strip_prefix("impl ")
                 .or_else(|| trimmed.strip_prefix("impl<"))
-            {
-                let target = rest
-                    .split('{')
-                    .next()
-                    .unwrap_or(rest)
-                    .split(" for ")
-                    .last()
-                    .unwrap_or(rest)
-                    .split('<')
-                    .next()
-                    .unwrap_or(rest)
-                    .trim()
-                    .trim_start_matches('>')
-                    .to_string();
-                if !target.is_empty() && target != "{" {
-                    symbols.push(CodeSymbol {
-                        name: format!("impl {target}"),
-                        kind: SymbolKind::Impl,
-                        full_path: format!("{file_path}::impl::{target}"),
-                        language,
-                        file_path: file_path.to_string(),
-                        line,
-                        column: 0,
-                        container: Some(target),
-                        doc_summary: None,
-                    });
-                }
+        {
+            let target = rest
+                .split('{')
+                .next()
+                .unwrap_or(rest)
+                .split(" for ")
+                .last()
+                .unwrap_or(rest)
+                .split('<')
+                .next()
+                .unwrap_or(rest)
+                .trim()
+                .trim_start_matches('>')
+                .to_string();
+            if !target.is_empty() && target != "{" {
+                symbols.push(CodeSymbol {
+                    name: format!("impl {target}"),
+                    kind: SymbolKind::Impl,
+                    full_path: format!("{file_path}::impl::{target}"),
+                    language,
+                    file_path: file_path.to_string(),
+                    line,
+                    column: 0,
+                    container: Some(target),
+                    doc_summary: None,
+                });
             }
+        }
     }
 
     fn extract_ts_symbol(
@@ -740,22 +738,23 @@ impl SymbolIndex {
             if rest.starts_with('(') {
                 // Method
                 if let Some(after_paren) = rest.split(')').nth(1)
-                    && let Some(name) = after_paren.trim().split('(').next() {
-                        let name = name.trim();
-                        if !name.is_empty() {
-                            symbols.push(CodeSymbol {
-                                name: name.to_string(),
-                                kind: SymbolKind::Method,
-                                full_path: format!("{file_path}::{name}"),
-                                language,
-                                file_path: file_path.to_string(),
-                                line,
-                                column: 0,
-                                container: None,
-                                doc_summary: None,
-                            });
-                        }
+                    && let Some(raw_name) = after_paren.trim().split('(').next()
+                {
+                    let name = raw_name.trim();
+                    if !name.is_empty() {
+                        symbols.push(CodeSymbol {
+                            name: name.to_string(),
+                            kind: SymbolKind::Method,
+                            full_path: format!("{file_path}::{name}"),
+                            language,
+                            file_path: file_path.to_string(),
+                            line,
+                            column: 0,
+                            container: None,
+                            doc_summary: None,
+                        });
                     }
+                }
             } else if let Some(name) = rest.split('(').next() {
                 let name = name.trim();
                 if !name.is_empty() {
@@ -805,26 +804,28 @@ impl SymbolIndex {
         // var / const
         for prefix in &["var ", "const "] {
             if let Some(rest) = trimmed.strip_prefix(prefix)
-                && let Some(name) = rest.split('=').next().or_else(|| rest.split(' ').next()) {
-                    let name = name.trim();
-                    if !name.is_empty() && !name.starts_with('(') {
-                        symbols.push(CodeSymbol {
-                            name: name.to_string(),
-                            kind: if *prefix == "var " {
-                                SymbolKind::Variable
-                            } else {
-                                SymbolKind::Const
-                            },
-                            full_path: format!("{file_path}::{name}"),
-                            language,
-                            file_path: file_path.to_string(),
-                            line,
-                            column: 0,
-                            container: None,
-                            doc_summary: None,
-                        });
-                    }
+                && let Some(raw_name) =
+                    rest.split('=').next().or_else(|| rest.split(' ').next())
+            {
+                let name = raw_name.trim();
+                if !name.is_empty() && !name.starts_with('(') {
+                    symbols.push(CodeSymbol {
+                        name: name.to_string(),
+                        kind: if *prefix == "var " {
+                            SymbolKind::Variable
+                        } else {
+                            SymbolKind::Const
+                        },
+                        full_path: format!("{file_path}::{name}"),
+                        language,
+                        file_path: file_path.to_string(),
+                        line,
+                        column: 0,
+                        container: None,
+                        doc_summary: None,
+                    });
                 }
+            }
         }
     }
 
@@ -1197,7 +1198,7 @@ type Handler interface {
         let stats = index.stats();
         assert_eq!(stats.files_indexed, 1);
         assert!(stats.symbols_count >= 2);
-        assert!(stats.index_time_ms > 0 || stats.index_time_ms == 0); // may be 0 if very fast
+        // index_time_ms is u64, always >= 0
     }
 
     #[test]
@@ -1236,8 +1237,7 @@ type Handler interface {
         let content = "fn x() {}\n".repeat(200_000); // ~1.6MB
         fs::write(&large_file, content).unwrap();
 
-        let mut config = IndexConfig::default();
-        config.max_file_size = 100; // 100 bytes limit
+        let config = IndexConfig { max_file_size: 100, ..Default::default() };
         let index = SymbolIndex::new(config);
         index.index_directory(dir.path()).unwrap();
 
