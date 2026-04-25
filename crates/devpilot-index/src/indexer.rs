@@ -163,12 +163,13 @@ impl SymbolIndex {
             _ => return Ok(Vec::new()),
         }
 
-        let tree = parser.parse(&source, None).ok_or_else(|| {
-            crate::error::IndexError::ParseError {
-                path: path.to_string_lossy().to_string(),
-                msg: "tree-sitter parse returned None".into(),
-            }
-        })?;
+        let tree =
+            parser
+                .parse(&source, None)
+                .ok_or_else(|| crate::error::IndexError::ParseError {
+                    path: path.to_string_lossy().to_string(),
+                    msg: "tree-sitter parse returned None".into(),
+                })?;
 
         Ok(self.extract_symbols(&tree.root_node(), &source, path, &lang))
     }
@@ -202,7 +203,11 @@ impl SymbolIndex {
             });
         }
 
-        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        results.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         results.truncate(50);
         results
     }
@@ -290,10 +295,16 @@ impl SymbolIndex {
             }
             "struct_item" => (Some(SymbolKind::Struct), node.child_by_field_name("name")),
             "enum_item" => (Some(SymbolKind::Enum), node.child_by_field_name("name")),
-            "enum_variant" => (Some(SymbolKind::EnumVariant), node.child_by_field_name("name")),
+            "enum_variant" => (
+                Some(SymbolKind::EnumVariant),
+                node.child_by_field_name("name"),
+            ),
             "trait_item" => (Some(SymbolKind::Trait), node.child_by_field_name("name")),
             "impl_item" => (Some(SymbolKind::Impl), node.child_by_field_name("trait")),
-            "type_item" => (Some(SymbolKind::TypeAlias), node.child_by_field_name("name")),
+            "type_item" => (
+                Some(SymbolKind::TypeAlias),
+                node.child_by_field_name("name"),
+            ),
             "const_item" => (Some(SymbolKind::Const), node.child_by_field_name("name")),
             "static_item" => (Some(SymbolKind::Static), node.child_by_field_name("name")),
             "mod_item" => (Some(SymbolKind::Module), node.child_by_field_name("name")),
@@ -304,13 +315,15 @@ impl SymbolIndex {
                 (Some(SymbolKind::Function), node.child_by_field_name("name"))
             }
             "class_declaration" => (Some(SymbolKind::Class), node.child_by_field_name("name")),
-            "interface_declaration" => {
-                (Some(SymbolKind::Interface), node.child_by_field_name("name"))
-            }
+            "interface_declaration" => (
+                Some(SymbolKind::Interface),
+                node.child_by_field_name("name"),
+            ),
             "enum_declaration" => (Some(SymbolKind::Enum), node.child_by_field_name("name")),
-            "type_alias_declaration" => {
-                (Some(SymbolKind::TypeAlias), node.child_by_field_name("name"))
-            }
+            "type_alias_declaration" => (
+                Some(SymbolKind::TypeAlias),
+                node.child_by_field_name("name"),
+            ),
             "method_definition" | "public_field_definition" | "field_definition" => {
                 let is_method = kind == "method_definition";
                 (
@@ -322,15 +335,9 @@ impl SymbolIndex {
                     node.child_by_field_name("name"),
                 )
             }
-            "variable_declarator" => (
-                Some(SymbolKind::Variable),
-                node.child_by_field_name("name"),
-            ),
+            "variable_declarator" => (Some(SymbolKind::Variable), node.child_by_field_name("name")),
             // Python
-            "function_definition" => (
-                Some(SymbolKind::Function),
-                node.child_by_field_name("name"),
-            ),
+            "function_definition" => (Some(SymbolKind::Function), node.child_by_field_name("name")),
             "class_definition" => (Some(SymbolKind::Class), node.child_by_field_name("name")),
             // Go
             "method_declaration" if *lang == LanguageId::Go => {
@@ -363,9 +370,9 @@ impl SymbolIndex {
 
         // Recurse into children
         let child_count = node.child_count();
-        let new_container = name_node.as_ref().and_then(|nn| {
-            nn.utf8_text(source.as_bytes()).ok().map(|s| s.to_string())
-        });
+        let new_container = name_node
+            .as_ref()
+            .and_then(|nn| nn.utf8_text(source.as_bytes()).ok().map(|s| s.to_string()));
 
         for i in 0..child_count {
             let child = node.child(i).unwrap();

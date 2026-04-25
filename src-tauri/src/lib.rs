@@ -273,7 +273,9 @@ impl AppState {
             pty_manager: Arc::new(Mutex::new(PtyManager::new())),
             approval_gate,
             active_streams: Arc::new(Mutex::new(HashMap::new())),
-            symbol_index: Arc::new(AsyncMutex::new(SymbolIndex::new(devpilot_index::IndexConfig::default()))),
+            symbol_index: Arc::new(AsyncMutex::new(SymbolIndex::new(
+                devpilot_index::IndexConfig::default(),
+            ))),
         })
     }
 }
