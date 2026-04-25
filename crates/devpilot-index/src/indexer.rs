@@ -606,20 +606,19 @@ impl SymbolIndex {
                 if let Some(name) = rest.split('=').next() {
                     let name = name.trim();
                     // Arrow function: const name = () =>
-                    if rest.contains("=>")
-                        && !name.is_empty() {
-                            symbols.push(CodeSymbol {
-                                name: name.to_string(),
-                                kind: SymbolKind::Function,
-                                full_path: format!("{file_path}::{name}"),
-                                language,
-                                file_path: file_path.to_string(),
-                                line,
-                                column: 0,
-                                container: None,
-                                doc_summary: None,
-                            });
-                        }
+                    if rest.contains("=>") && !name.is_empty() {
+                        symbols.push(CodeSymbol {
+                            name: name.to_string(),
+                            kind: SymbolKind::Function,
+                            full_path: format!("{file_path}::{name}"),
+                            language,
+                            file_path: file_path.to_string(),
+                            line,
+                            column: 0,
+                            container: None,
+                            doc_summary: None,
+                        });
+                    }
                 }
                 return;
             }
@@ -804,8 +803,7 @@ impl SymbolIndex {
         // var / const
         for prefix in &["var ", "const "] {
             if let Some(rest) = trimmed.strip_prefix(prefix)
-                && let Some(raw_name) =
-                    rest.split('=').next().or_else(|| rest.split(' ').next())
+                && let Some(raw_name) = rest.split('=').next().or_else(|| rest.split(' ').next())
             {
                 let name = raw_name.trim();
                 if !name.is_empty() && !name.starts_with('(') {
@@ -1237,7 +1235,10 @@ type Handler interface {
         let content = "fn x() {}\n".repeat(200_000); // ~1.6MB
         fs::write(&large_file, content).unwrap();
 
-        let config = IndexConfig { max_file_size: 100, ..Default::default() };
+        let config = IndexConfig {
+            max_file_size: 100,
+            ..Default::default()
+        };
         let index = SymbolIndex::new(config);
         index.index_directory(dir.path()).unwrap();
 

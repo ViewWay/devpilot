@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use devpilot_bridge::BridgeManager;
 use devpilot_core::{Agent, AgentConfig, EventBus};
+use devpilot_index::SymbolIndex;
 use devpilot_mcp::McpManager;
 use devpilot_media::MediaManager;
 use devpilot_store::Store;
@@ -186,6 +187,11 @@ pub fn run() {
             commands::git::git_add_files,
             commands::git::git_add_all,
             commands::git::git_unstage_files,
+            // Symbol Index
+            commands::symbol::index_directory,
+            commands::symbol::clear_symbol_index,
+            commands::symbol::search_symbols,
+            commands::symbol::get_index_stats,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -216,6 +222,8 @@ pub struct AppState {
     pub approval_gate: devpilot_core::ApprovalGate,
     /// Active agent streams — maps session ID → abort handle for cancellation.
     pub active_streams: Arc<Mutex<HashMap<String, tokio::task::AbortHandle>>>,
+    /// Symbol index — code symbol extraction and fuzzy search.
+    pub symbol_index: Arc<Mutex<SymbolIndex>>,
 }
 
 impl AppState {
@@ -265,6 +273,7 @@ impl AppState {
             pty_manager: Arc::new(Mutex::new(PtyManager::new())),
             approval_gate,
             active_streams: Arc::new(Mutex::new(HashMap::new())),
+            symbol_index: Arc::new(Mutex::new(SymbolIndex::with_defaults())),
         })
     }
 }

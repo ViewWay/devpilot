@@ -18,6 +18,7 @@ pub mod sandbox;
 pub mod scheduler;
 pub mod search;
 pub mod skills;
+pub mod symbol;
 pub mod tools;
 
 /// Health check / ping command.

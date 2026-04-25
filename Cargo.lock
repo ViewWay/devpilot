@@ -835,6 +835,7 @@ dependencies = [
  "devpilot-bridge",
  "devpilot-core",
  "devpilot-git",
+ "devpilot-index",
  "devpilot-llm",
  "devpilot-mcp",
  "devpilot-media",

@@ -27,6 +27,7 @@ devpilot-media = { path = "../crates/devpilot-media" }
 devpilot-mcp = { path = "../crates/devpilot-mcp" }
 devpilot-memory = { path = "../crates/devpilot-memory" }
 devpilot-git = { path = "../crates/devpilot-git" }
+devpilot-index = { path = "../crates/devpilot-index" }
 portable-pty = "0.8"
 base64.workspace = true
 tauri = { version = "2", features = [] }
