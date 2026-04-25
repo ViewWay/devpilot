@@ -31,3 +31,4 @@ src-tauri/Cargo.lock
 *.log
 *.tsbuildinfo
 .claude/
+Claude.reg
