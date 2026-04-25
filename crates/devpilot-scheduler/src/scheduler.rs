@@ -205,7 +205,6 @@ impl Scheduler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::task::TaskSchedule;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[tokio::test]
