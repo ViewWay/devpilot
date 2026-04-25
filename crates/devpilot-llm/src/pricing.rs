@@ -49,6 +49,19 @@ fn build_catalog() -> HashMap<PricingKey, ModelPricing> {
         ("anthropic".into(), "claude-haiku-4-20250514".into()),
         pricing!(0.80, 4.0, 0.08, 1.0),
     );
+    // Claude 4 family (latest aliases)
+    m.insert(
+        ("anthropic".into(), "claude-sonnet-4".into()),
+        pricing!(3.0, 15.0, 0.3, 3.75),
+    );
+    m.insert(
+        ("anthropic".into(), "claude-opus-4".into()),
+        pricing!(15.0, 75.0, 1.5, 18.75),
+    );
+    m.insert(
+        ("anthropic".into(), "claude-haiku-4".into()),
+        pricing!(0.80, 4.0, 0.08, 1.0),
+    );
     // Claude 3.5 family (legacy)
     m.insert(
         ("anthropic".into(), "claude-3-5-sonnet-20241022".into()),
@@ -73,6 +86,10 @@ fn build_catalog() -> HashMap<PricingKey, ModelPricing> {
         pricing!(10.0, 40.0, 2.50, 0.0),
     );
     m.insert(
+        ("openai".into(), "o3-mini".into()),
+        pricing!(1.50, 6.0, 0.375, 0.0),
+    );
+    m.insert(
         ("openai".into(), "o4-mini".into()),
         pricing!(1.50, 6.0, 0.375, 0.0),
     );
@@ -88,8 +105,16 @@ fn build_catalog() -> HashMap<PricingKey, ModelPricing> {
         pricing!(1.25, 10.0, 0.315, 0.0),
     );
     m.insert(
+        ("google".into(), "gemini-2.5-flash-preview-05-20".into()),
+        pricing!(0.15, 0.60, 0.0375, 0.0),
+    );
+    m.insert(
         ("google".into(), "gemini-2.0-flash".into()),
         pricing!(0.10, 0.40, 0.025, 0.0),
+    );
+    m.insert(
+        ("google".into(), "gemini-2.0-flash-lite".into()),
+        pricing!(0.075, 0.30, 0.01875, 0.0),
     );
 
     // ── DeepSeek ────────────────────────────────────────
@@ -104,16 +129,49 @@ fn build_catalog() -> HashMap<PricingKey, ModelPricing> {
 
     // ── GLM (智谱) ──────────────────────────────────────
     m.insert(("glm".into(), "glm-4-plus".into()), pricing!(50.0, 50.0));
+    m.insert(("glm".into(), "glm-4".into()), pricing!(100.0, 100.0));
+    m.insert(("glm".into(), "glm-4-flash".into()), pricing!(0.1, 0.1));
+    m.insert(("glm".into(), "glm-4-air".into()), pricing!(1.0, 1.0));
 
     // ── Qwen (通义千问) ─────────────────────────────────
     m.insert(("qwen".into(), "qwen-max".into()), pricing!(20.0, 60.0));
     m.insert(("qwen".into(), "qwen-plus".into()), pricing!(4.0, 12.0));
+    m.insert(("qwen".into(), "qwen-turbo".into()), pricing!(0.3, 0.6));
+    m.insert(("qwen".into(), "qwen-long".into()), pricing!(0.5, 2.0));
 
     // ── Kimi (Moonshot) ─────────────────────────────────
     m.insert(
         ("kimi".into(), "moonshot-v1-8k".into()),
         pricing!(12.0, 12.0),
     );
+    m.insert(
+        ("kimi".into(), "moonshot-v1-32k".into()),
+        pricing!(24.0, 24.0),
+    );
+    m.insert(
+        ("kimi".into(), "moonshot-v1-128k".into()),
+        pricing!(60.0, 60.0),
+    );
+
+    // ── MiniMax ─────────────────────────────────────────
+    m.insert(
+        ("minimax".into(), "MiniMax-Text-01".into()),
+        pricing!(1.0, 8.0),
+    );
+
+    // ── VolcEngine (豆包) ──────────────────────────────
+    m.insert(
+        ("volcengine".into(), "doubao-pro-32k".into()),
+        pricing!(0.5, 1.0),
+    );
+    m.insert(
+        ("volcengine".into(), "doubao-pro-128k".into()),
+        pricing!(5.0, 9.0),
+    );
+
+    // ── OpenRouter (passthrough pricing varies) ────────
+    // OpenRouter uses provider-specific pricing, so we default to zero
+    // and rely on the per-model config from the provider settings.
 
     m
 }
@@ -253,11 +311,63 @@ mod tests {
     #[test]
     fn catalog_covers_all_major_providers() {
         // Verify we have entries for each major provider
-        let providers = ["anthropic", "openai", "google", "deepseek", "glm", "qwen"];
+        let providers = [
+            "anthropic",
+            "openai",
+            "google",
+            "deepseek",
+            "glm",
+            "qwen",
+            "kimi",
+            "minimax",
+            "volcengine",
+        ];
         for provider in providers {
             let catalog = build_catalog();
             let has_entry = catalog.keys().any(|(p, _)| p == provider);
             assert!(has_entry, "Missing pricing entry for provider: {provider}");
         }
+    }
+
+    #[test]
+    fn lookup_claude_sonnet_4_alias() {
+        let pricing = lookup_pricing("anthropic", "claude-sonnet-4").unwrap();
+        assert_eq!(pricing.input_per_million, 3.0);
+    }
+
+    #[test]
+    fn lookup_glm_flash() {
+        let pricing = lookup_pricing("glm", "glm-4-flash").unwrap();
+        assert_eq!(pricing.input_per_million, 0.1);
+    }
+
+    #[test]
+    fn lookup_qwen_turbo() {
+        let pricing = lookup_pricing("qwen", "qwen-turbo").unwrap();
+        assert_eq!(pricing.input_per_million, 0.3);
+    }
+
+    #[test]
+    fn lookup_minimax() {
+        let pricing = lookup_pricing("minimax", "MiniMax-Text-01").unwrap();
+        assert_eq!(pricing.input_per_million, 1.0);
+    }
+
+    #[test]
+    fn lookup_volcengine() {
+        let pricing = lookup_pricing("volcengine", "doubao-pro-32k").unwrap();
+        assert_eq!(pricing.input_per_million, 0.5);
+    }
+
+    #[test]
+    fn lookup_gemini_flash_lite() {
+        let pricing = lookup_pricing("google", "gemini-2.0-flash-lite").unwrap();
+        assert_eq!(pricing.input_per_million, 0.075);
+    }
+
+    #[test]
+    fn lookup_kimi_128k() {
+        let pricing = lookup_pricing("kimi", "moonshot-v1-128k").unwrap();
+        assert_eq!(pricing.input_per_million, 60.0);
     }
 }
