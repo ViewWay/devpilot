@@ -393,6 +393,18 @@ function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
     // Usage
     case "get_usage":
       return { totalInputTokens: 0, totalOutputTokens: 0, totalCost: 0, byProvider: {} };
+    // Symbol Index
+    case "index_directory":
+      return { filesIndexed: 42, symbolsExtracted: 256, durationMs: 120 };
+    case "clear_symbol_index":
+      return null;
+    case "search_symbols":
+      return [
+        { name: "AppState", kind: "Struct", filePath: "src-tauri/src/lib.rs", line: 25, signature: "pub struct AppState" },
+        { name: "index_directory", kind: "Function", filePath: "src-tauri/src/commands/symbol.rs", line: 10, signature: "pub async fn index_directory(" },
+      ];
+    case "get_index_stats":
+      return { filesIndexed: 0, symbolsCount: 0, lastIndexedAt: null };
     default:
       console.warn(`[IPC mock] Unhandled command: ${cmd}`);
       return null;
@@ -576,6 +588,12 @@ export interface IPCCommands {
   uninstall_skill: { name: string };
   toggle_skill: { name: string };
   search_skills: { query: string };
+
+  // Symbol Index
+  index_directory: { directory: string; respectGitignore?: boolean };
+  clear_symbol_index: void;
+  search_symbols: { query: string; kind?: string; limit?: number };
+  get_index_stats: void;
 }
 
 export interface ProviderConfigIPC {
@@ -1047,4 +1065,48 @@ export async function configGlobalExists(): Promise<boolean> {
 
 export async function configProjectExists(projectDir: string): Promise<boolean> {
   return invoke<boolean>("config_project_exists", { projectDir });
+}
+
+// ── Symbol Index Types & Helpers ─────────────────────────────
+
+export interface SymbolEntryIPC {
+  name: string;
+  kind: string;
+  filePath: string;
+  line: number;
+  signature: string;
+}
+
+export interface IndexDirectoryResultIPC {
+  filesIndexed: number;
+  symbolsExtracted: number;
+  durationMs: number;
+}
+
+export interface IndexStatsIPC {
+  filesIndexed: number;
+  symbolsCount: number;
+  lastIndexedAt: string | null;
+}
+
+export async function indexDirectory(
+  directory: string,
+  respectGitignore?: boolean,
+): Promise<IndexDirectoryResultIPC> {
+  return invoke<IndexDirectoryResultIPC>("index_directory", { directory, respectGitignore: respectGitignore ?? true });
+}
+
+export async function clearSymbolIndex(): Promise<void> {
+  return invoke("clear_symbol_index");
+}
+
+export async function searchSymbols(
+  query: string,
+  options?: { kind?: string; limit?: number },
+): Promise<SymbolEntryIPC[]> {
+  return invoke<SymbolEntryIPC[]>("search_symbols", { query, ...options });
+}
+
+export async function getIndexStats(): Promise<IndexStatsIPC> {
+  return invoke<IndexStatsIPC>("get_index_stats");
 }
