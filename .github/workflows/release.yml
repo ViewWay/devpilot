@@ -13,6 +13,9 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   # ── Create GitHub Release ──────────────────────────────
   create-release:
@@ -39,12 +42,31 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            const version = '${{ steps.version.outputs.version }}';
+            const tag = `v${version}`;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // Try to find existing release first
+            try {
+              const { data: releases } = await github.rest.repos.listReleases({ owner, repo });
+              const existing = releases.find(r => r.tag_name === tag);
+              if (existing) {
+                core.setOutput('release_id', existing.id);
+                core.info(`Using existing release: ${existing.id}`);
+                return;
+              }
+            } catch (e) {
+              core.info(`No existing release found: ${e.message}`);
+            }
+
+            // Create new release
             const { data } = await github.rest.repos.createRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: `v${{ steps.version.outputs.version }}`,
-              name: `DevPilot v${{ steps.version.outputs.version }}`,
-              body: `## DevPilot v${{ steps.version.outputs.version }}\n\nSee [CHANGELOG.md](https://github.com/ViewWay/devpilot/blob/master/CHANGELOG.md) for details.`,
+              owner,
+              repo,
+              tag_name: tag,
+              name: `DevPilot v${version}`,
+              body: `## DevPilot v${version}\\n\\nSee [CHANGELOG.md](https://github.com/ViewWay/devpilot/blob/master/CHANGELOG.md) for details.`,
               draft: true,
               prerelease: false,
             });
