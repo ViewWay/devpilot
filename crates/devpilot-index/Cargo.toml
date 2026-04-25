@@ -12,6 +12,10 @@ tokio = { workspace = true, features = ["fs", "rt", "macros", "sync"] }
 tracing = { workspace = true }
 thiserror = { workspace = true }
 tree-sitter = "0.24"
+tree-sitter-rust = "0.23"
+tree-sitter-javascript = "0.23"
+tree-sitter-typescript = "0.23"
+tree-sitter-python = "0.23"
 walkdir = "2"
 rayon = "1.10"
 dashmap = "6"

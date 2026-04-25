@@ -15,6 +15,9 @@ pub enum IndexError {
 
     #[error("Parse error in {path}: {msg}")]
     ParseError { path: String, msg: String },
+
+    #[error("Tree-sitter language error: {0}")]
+    Language(#[from] tree_sitter::LanguageError),
 }
 
 pub type IndexResult<T> = Result<T, IndexError>;

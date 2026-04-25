@@ -223,7 +223,7 @@ pub struct AppState {
     /// Active agent streams — maps session ID → abort handle for cancellation.
     pub active_streams: Arc<Mutex<HashMap<String, tokio::task::AbortHandle>>>,
     /// Symbol index — code symbol extraction and fuzzy search.
-    pub symbol_index: Arc<Mutex<SymbolIndex>>,
+    pub symbol_index: Arc<AsyncMutex<SymbolIndex>>,
 }
 
 impl AppState {
@@ -273,7 +273,7 @@ impl AppState {
             pty_manager: Arc::new(Mutex::new(PtyManager::new())),
             approval_gate,
             active_streams: Arc::new(Mutex::new(HashMap::new())),
-            symbol_index: Arc::new(Mutex::new(SymbolIndex::with_defaults())),
+            symbol_index: Arc::new(AsyncMutex::new(SymbolIndex::new(devpilot_index::IndexConfig::default()))),
         })
     }
 }

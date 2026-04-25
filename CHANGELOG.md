@@ -1,375 +1,207 @@
-# DevPilot Changelog
+# Changelog
 
 All notable changes to DevPilot will be documented in this file.
 
-## [0.4.0] — 2026-04-21
-
-### Added — Claude Code Session Import
-
-- **ClaudeImportSection**: Full UI in Settings > Data Management for importing Claude Code sessions
-  - Auto-scan default Claude Code threads directory (~/.claude/threads/)
-  - Custom directory picker for non-default locations
-  - Thread list with filename, preview, message count, and file size
-  - Select/deselect individual threads or toggle all
-  - Batch import with progress feedback and result summary
-  - i18n keys (EN + ZH) for all import UI strings
-- **Backend**: claude_import.rs (534 lines) — parse JSONL thread files, scan directories, batch import
-- **IPC**: 4 new Tauri commands (scan_claude_threads_cmd, scan_claude_threads_from, import_claude_thread, import_claude_threads_batch)
-
-## [0.4.0] — 2026-04-20
-
-### Added — Phase 9 UI Density Optimization
-
-- TopBar: increased height h-11→h-12, spacing gap-1.5→gap-2/px-2→px-3, removed overflow-hidden for natural breathing room
-- TopBar: model selector ghost style (removed border), mode tabs use bg-muted/50 pill background instead of bordered group
-- TopBar: all divider lines changed to border/40 for subtle visual separation
-- Sidebar: frosted glass effect (bg-sidebar/80 + backdrop-blur-sm), search box borderless with bg-muted/50
-- Sidebar: wider session item padding (gap-2→2.5, px-2→2.5, py-1.5→2) for less cramped list
-- MessageList: wider spacing space-y-6→space-y-8, padding py-6→py-8/px-4→px-6
-- MessageList: narrower max-width max-w-4xl→max-w-3xl (2xl:max-w-4xl) following CodePilot's readability-first approach
-- MessageList: assistant/tool messages gap-2.5→gap-3, suggestion cards p-3→p-4, all borders softened to /40
-- MessageInput: frosted glass bottom bar (bg-background/80 + backdrop-blur-md), matching max-width with MessageList
-- Global: all border-divider lines changed to border/40 opacity for subtle, non-distracting visual separation
-
-### Added — Phase 8 UI Overhaul + Provider Enhancements
-
-- AppShell: sidebar always rendered (CSS class toggle), eliminates layout jumps on toggle
-- TopBar: responsive overflow — WorkingDir hidden on <lg, ReasoningEffort hidden on <md
-- MessageList/MessageInput: wider max-width (max-w-4xl / max-w-5xl at 2xl breakpoint) for fullscreen usage
-- CheckpointPanel: absolute overlay positioning with slide-in animation, no longer squeezes chat area
-- SplitView: min-width guards (left 280px, right 200px) prevent panel collapse to zero
-- TerminalPanel: theme-aware colors from CSS variables (replaced hardcoded #1a1b26/#16161e), auto-adapts to dark/light
-- CSS: finer scrollbar (5px, oklch alpha), prose line-height, empty-state dot pattern, focus-visible outlines, transition-layout utility
-- Provider health diagnostics: providerStore.diagnoseProvider() with DiagnosticReport type, mock + Tauri IPC
-- LLM retry logic: exponential backoff for transient errors (Rust backend)
-- Chinese providers: Kimi (Moonshot), MiniMax, VolcEngine/Doubao native support
-- Google Gemini: native API provider + multimodal image attachment support
-
-### Added — Phase 4 Practical Features (15/15 完成)
-
-- TerminalPanel: integrate `sandbox_execute` IPC for real command execution with colored stdout/stderr + exit codes
-- FileTree: real directory file tree with expand/collapse + click-to-preview
-- PreviewPanel: real file reading via sandbox_execute, Monaco Editor with lang auto-detection, diff placeholder
-- System Prompt editor: collapsible text area above message input in ChatPanel, injected into message stream
-- Working directory selector: TopBar native folder picker via Tauri dialog API, forwarded to agent
-- Session export: JSON and Markdown format download via Blob, Sidebar export submenu
-- Stream-compacted event listener: auto-reload messages on context compaction during streaming
-- MCP Server management: full SettingsPage MCP tab, mcpStore (Zustand), CRUD + connect/disconnect
-  - McpServerConfig type, mcpStore with 8 actions, 6 IPC mock handlers
-  - Add/edit form with stdio/SSE transport, connect toggle, delete
-  - 18 i18n keys (EN + CN)
-- Font size control: uiStore fontSize (12-18px) + AppearanceTab slider → MessageBubble dynamic sizing
-- Sandbox policy selector: SecurityTab with Default/Permissive/Strict radio, TerminalPanel reads active policy
-- `Message` role union: added `"system"` variant for system prompt messages
-- uiStore: `previewFile`/`setPreviewFile`, `fontSize`/`setFontSize`, `sandboxPolicy`/`setSandboxPolicy`
-- i18n: 260+ keys (EN + CN) — system prompt, working directory, refresh, MCP, export, security, messages
-- tauri.conf.json: version 0.4.0, window title "DevPilot — AI Coding Agent"
-
-### Fixed — TypeScript & Dead Code Cleanup
-
-- Resolved all TypeScript compilation errors (role union, uiStore missing methods, unused params)
-- Removed dead code: `useTauri.ts` (254 lines), `Header.tsx` (76 lines), duplicate keyboard shortcut registration
-- ESLint: proper typing in SettingsPage, useCallback dependency fix
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [0.3.0] — 2026-04-19
+## [1.0.0] — First Public Release
 
-### Added — Chinese Provider Support (P3-6)
-
-- `ProviderType` enum: added `GLM`, `Qwen`, `DeepSeek` variants (serde-compatible)
-- `devpilot-llm/chinese.rs`: model catalogs for 3 Chinese providers (16 models total)
-  - GLM: glm-4-plus, glm-4-flash (free), glm-4-air, glm-4-long, glm-4v
-  - Qwen: qwen-max, qwen-plus, qwen-turbo, qwen-long, qwen-vl-max, qwq-32b
-  - DeepSeek: deepseek-chat (V3), deepseek-reasoner (R1), deepseek-coder
-- Preset config factories: `glm_config()`, `qwen_config()`, `deepseek_config()`
-- Provider registry: all Chinese providers registered (OpenAI-compatible API)
-- Frontend `mapProviderType`: maps Chinese provider IDs to correct type strings
-- 15 new Rust tests (protocol serde, chinese models, registry creation)
-- 42 new frontend tests (persistence + streaming stores)
-
-### Added — Frontend Integration
-
-- Router system: react-router-dom with /chat /scheduler /gallery /settings routes
-- `ActiveView` type extended: `"scheduler"` | `"gallery"` routes
-- Sidebar: bottom buttons navigate to scheduler/gallery/settings with active highlight
-- `SchedulerPage` stub route placeholder
-- `GalleryPage` stub route placeholder
-- Dynamic model selector in TopBar — derives from providerStore enabled providers
-- Model management UI in SettingsPage — add/edit/delete models per provider
-- Archived sessions section in sidebar with unarchive support
-- i18n keys: archived/unarchive, model management (10 keys), scheduler/gallery labels
-- Abort streaming support — `chatStore.abortStreaming()` + stop button in MessageInput
-
-### Added — Agent Loop Integration
-
-- `AppState` extended with `Agent` + `EventBus` instances
-- CoreEvent → Tauri event bridge: chunk/tool-start/tool-result/approval/done/error/compacted
-- `send_message_stream` IPC command now calls `Agent::run()` (full tool loop)
-- chatStore: listeners for all stream events including tool calls and approvals
-- `ApprovalOverlay` → `ApprovalQueue` integrated in ChatPanel
-- `resolveApproval` + `approveAll` in chatStore
-- Tool call rendering via `ToolCallView` in `MessageList`
-- Fix resolve_tool_approval IPC signature
-
-### Added — Tauri Capabilities
-
-- `capabilities/default.json`: shell, dialog, fs permissions for main window
-- CSP `connect-src`: added DeepSeek, Qwen, Moonshot, MiniMax, Volcengine, OpenRouter, LiteLLM, localhost (Ollama/LM Studio)
-
-### Added — Provider Persistence (P1)
-
-- Tauri IPC: `list_providers`, `get_provider`, `upsert_provider`, `get_provider_api_key`, `delete_provider` (42 total commands)
-- Provider config persisted to SQLite `providers` table
-- `providerStore.hydrateFromBackend()`: loads from SQLite on startup, merges with defaults
-- All provider mutations (add/update/remove/setApiKey) persist to backend
-
-### Added — API Key Encryption (P1)
-
-- `devpilot-store/crypto`: AES-256-GCM encryption for API keys at rest
-- Machine-specific key derivation (SHA-256 of data dir + label)
-- `Store::upsert_provider_with_key()` — encrypts before SQLite storage
-- `Store::get_provider_api_key()` — decrypts on read
-- Frontend hydration restores encrypted API keys from backend
-- 4 unit tests (roundtrip, different ciphertexts, invalid inputs)
-
-### Added — Context Compaction (P2)
-
-- `compact_session` Tauri IPC command — uses `devpilot-core::compact::compact_messages` with Summarize strategy
-- Store: `delete_session_messages()` helper for compaction
-- Frontend: `/compact` slash command triggers real backend compaction, reloads messages, shows summary
-
-### Added — Checkpoint / Rewind (P2)
-
-- `CheckpointInfo` type with camelCase serde
-- `checkpoints` SQLite table (id, session_id, message_id, summary, token_count, created_at)
-- Store: checkpoint CRUD (create, list, get, delete, delete_session_checkpoints)
-- Store: `rewind_to_checkpoint()` — deletes messages after checkpoint + newer checkpoints
-- Tauri IPC: `create_checkpoint`, `list_checkpoints`, `rewind_checkpoint` commands (45 total)
-
-### Added — Streaming Usage Tracking (P2)
-
-- Usage persisted to DB after `stream_done` event
-- Daily aggregation via existing `Store::add_usage()` upsert
-
-### Added — MCP Client (P2-3)
-
-- `devpilot-mcp` crate: Model Context Protocol client with stdio + SSE transport
-- `McpTransport` trait: bidirectional JSON-RPC transport abstraction
-- `StdioTransport`: spawns child process, communicates over stdin/stdout
-- `SseTransport`: connects to remote HTTP endpoint via reqwest
-- `McpClient`: individual server connection — initialize handshake, tool discovery, tool execution
-- `McpManager`: manages multiple MCP servers, registers tools into `ToolRegistry`
-- `McpProxyTool`: adapts MCP tools into devpilot `Tool` trait for agent loop integration
-- Tool naming convention: `mcp__<server_id>__<tool_name>`
-- SQLite persistence: `mcp_servers` table (id, name, transport, command, args, url, env, enabled)
-- Tauri IPC: `list_mcp_servers`, `upsert_mcp_server`, `delete_mcp_server`, `mcp_connect_server`, `mcp_disconnect_server`, `mcp_list_connected` (51 total commands)
-- `AppState` extended with `mcp_manager: Arc<AsyncMutex<Option<McpManager>>>`
-- 32 unit tests (transport serde, client mock, manager lifecycle, error display)
-
-### Added — Checkpoint Frontend UI (P3-5)
-
-- `CheckpointInfo` type in `src/types/index.ts`
-- `checkpointStore` — Zustand store: `loadCheckpoints`, `createCheckpoint`, `rewindCheckpoint`
-- `CheckpointPanel` component — side panel with timeline view, rewind button per checkpoint, create button
-- `ChatPanel` — History icon toggle button, CheckpointPanel integration
-- IPC mock cases for `list_checkpoints`, `create_checkpoint`, `rewind_checkpoint`
-- i18n: 8 checkpoint keys (EN + CN) — checkpoints, createCheckpoint, noCheckpoints, rewindToHere, etc.
-
-### Added — P3 Polish (Error Handling + i18n + Tests)
-
-- `src/lib/errors.ts` — unified error helpers: `getErrorMessage`, `reportError`, `safeAsync`
-- `persistence.ts` — all `console.error` replaced with `reportError()` for consistent toast + logging
-- `SchedulerPage.tsx` — all hardcoded strings replaced with `t()` i18n calls, `reportError` for error handling
-- i18n: 13 new keys (EN + CN) — `creating`, `createTask`, `httpMethod`, `httpHeaders`, `httpBody`, `customActionId`, `maxExecutionsUnlimited`, `errorGeneric`, `errorPersistence`, `errorStream`, `errorCompact`, `errorProvider`
-- Tests: `errors.test.ts` (8 tests), `schedulerStore.test.ts` (6 tests), `checkpointStore.test.ts` (7 tests)
-- Frontend test count: 100 tests across 9 files, all passing
-
-### Added — P3-4 E2E Integration Tests
-
-- `src-tauri/tests/e2e_test.rs` — 10 end-to-end tests exercising Store→SQLite via `Store::open_in_memory()`
-  - Session CRUD lifecycle (create/read/list/update/delete)
-  - Message CRUD lifecycle (add/list/update content)
-  - Settings CRUD (get/set/list/upsert/unicode/long JSON)
-  - Provider lifecycle with encrypted API key roundtrip
-  - Checkpoint create/list/rewind with message cleanup
-  - Multi-session isolation verification
-  - Full chat flow simulation (session → messages → checkpoint → rewind → update title)
-  - Multiple providers with mixed API key state
-  - Session with tool-use and tool-result messages
-- `src-tauri/Cargo.toml`: added `[dev-dependencies] chrono`
-- Total Rust tests: 202 (192 crate tests + 10 E2E)
-
-### Stats (as of HEAD)
-
-| Metric         | Value                          |
-| -------------- | ------------------------------ |
-| Rust crates    | 12 crates, 12,116 LOC          |
-| Rust tests     | 202 tests, all passing         |
-| Frontend       | 55+ files, ~10,007 LOC         |
-| Frontend tests | 142 tests (11 files), all pass |
-| IPC commands   | 51 registered (28 #[command])  |
-| i18n keys      | 249 (EN + CN)                  |
-
-### Fixed
-
-- Unused `mut` and variable warnings in scheduler tests
-- Unused `ResourceLimits` import in sandbox tests
-- **IPC resolve_tool_approval mismatch** — frontend sent `{ callId, approved }` but backend expected `{ request: { requestId, approved } }`. Corrected both ipc.ts and chatStore.ts.
-- **Stream race condition** — early stream events missed because listeners registered after `invoke()`. Moved listener setup before the invoke call.
-- **Sidebar navigation** — settings/scheduler/gallery buttons had no navigation handlers. Wired to `useNavigate()`.
-- **Model disappear** — switching providers could leave invalid model selected. Auto-select first available model.
-- **Unused imports** — multiple clippy warnings from stale imports after refactoring.
-
-### Changed
-
-- `send_message_stream` now accepts `user_message` + `working_dir` params (agent loop inputs)
-- Streaming listener registration moved BEFORE `invoke()` call to prevent race condition
-- TopBar model selector: now dynamic (from providerStore) instead of hardcoded DEFAULT_MODELS
-- SettingsPage: expanded ProviderCard with full model CRUD form
-- Sidebar settings button: now uses `navigate('/settings')` instead of `setActiveView`
-- Removed DemoApproval overlay from production chat rendering
+The inaugural release of DevPilot — a multi-model AI coding agent built with
+Tauri 2, React 19, and TypeScript. This release represents the culmination of
+ten development phases (P0–P10) delivering a fully functional desktop
+application with 15 Rust crates, 60+ IPC commands, and support for 12+ LLM
+providers.
 
 ---
 
-## [0.2.0] — 2026-04-19
+### Core — P0/P1
 
-### Added — Backend Crates
+#### Architecture
 
-#### devpilot-bridge (799 lines, 12 tests)
+- Tauri 2 + React 19 + TypeScript multi-model AI coding agent
+- 15 Rust crates: `protocol`, `llm`, `store`, `tools`, `core`, `sandbox`,
+  `search`, `scheduler`, `bridge`, `media`, `mcp`, `memory`, `index`, `git`
+- 60+ Tauri IPC commands bridging frontend and backend
 
-- `BridgeManager`: register, remove, enable, disable bridges
-- `PlatformSender` trait: `send()`, `validate_config()`, `platform_name()`
-- Built-in platforms: Telegram (Bot API), Discord (Webhook), Feishu (Bot)
-- `BridgeConfig` with URL validation, rate limiting, retry with backoff
-- Rich payloads: title, metadata, color per platform
-- Message templating with `{title}`, `{content}`, `{metadata}` placeholders
+#### LLM Providers
 
-#### devpilot-media (544 lines, 8 tests)
+- Multi-provider LLM support:
+  - OpenAI (GPT-4o, GPT-4, o-series, etc.)
+  - Anthropic (Claude 3.5/4)
+  - Google Gemini
+  - DeepSeek
+  - Qwen (Tongyi)
+  - GLM (ZhiPu)
+  - Kimi (Moonshot)
+  - MiniMax
+  - VolcEngine / Doubao
+  - OpenRouter
+  - LiteLLM
+- Provider failover with automatic fallback on errors
+- Health diagnostics per provider endpoint
+- Centralized pricing catalog with fallback lookup for cost estimation
 
-- `MediaManager`: orchestrates multi-provider image generation
-- `ImageGenerator` trait with async `generate()`
-- Providers: OpenAI DALL-E 3, Stability AI (Stable Diffusion), Generic OpenAI-compatible
-- `ImageSize` presets: 256x256 to 1792x1024
-- `GenerateRequest` / `GenerateResponse` / `ImageData` types
-- Provider registration (custom generators pluggable at runtime)
+#### Persistence & Security
 
-### Added — src-tauri IPC Integration
+- SQLite database for all persistent storage
+- AES-256 encrypted API keys at rest
 
-- 5 new IPC command modules: sandbox, search, scheduler, bridge, media
-- `AppState` extended with `SchedulerState`, `BridgeManager`, `MediaState`
-- 16 new Tauri invoke commands (21 total)
-- All 10 backend crates wired into Tauri binary
+#### Agent Engine
 
-### Changed
-
-- Workspace now has 10 crate members (up from 8)
-- devpilot-store types restructured:
-  - `ProviderInfo` renamed to `ProviderRecord` (field: `api_key_encrypted` → `api_key_set: bool`, added `created_at`)
-  - `SessionInfo`: added `reasoning_effort`, `archived_at`, `message_count` fields
-  - `MessageInfo`: added `token_cache_read`, `token_cache_write` fields
-  - `UsageRecord`: restructured from per-session to daily aggregated records
-  - SQL migrations, queries, and row mappers updated to match
-- src-tauri: removed `get_session_usage` command (method no longer exists)
-
-### Fixed
-
-- devpilot-store: 11 compile errors due to type sync drift (see Changed above)
-- src-tauri `lib.rs`: removed reference to deleted `get_session_usage` IPC handler
-- devpilot-media: `ImageProvider` missing `Hash` derive — needed for `HashMap` key
-- devpilot-media: test `use crate::ImageSize` not imported in providers.rs test module
-- src-tauri IPC: 39 API mismatch errors across sandbox/search/scheduler/bridge/media modules
-  - SandboxedCommand builder API corrected
-  - SearchQuery field names aligned
-  - TaskAction variant names aligned
-  - BridgeManager method signatures aligned
-  - MessagePayload field names aligned
+- Streaming response handling with real-time token output
+- Tool execution loop with structured call/results cycle
+- Context compaction to manage long conversations within token limits
 
 ---
 
-## [0.1.0] — 2026-04-19
+### Advanced Features — P2/P3
 
-### Added — Backend Crates
+#### Terminal
 
-#### devpilot-protocol (470 lines, 34 tests)
+- Integrated terminal panel powered by xterm.js (frontend) and portable-pty
+  (Rust backend)
+- Full PTY integration with shell access from within the app
 
-- Shared types: `ChatRequest`, `ChatResponse`, `Message`, `MessageRole`
-- `ProviderConfig` with API key management
-- `ToolCall`, `ToolResult`, `SessionMode` (Default derive)
-- Cost tracking: `TokenUsage`, `CostInfo`
+#### Editor & File Browser
 
-#### devpilot-llm (2,785 lines, 2 tests)
+- Monaco Editor file preview with full syntax highlighting
+- File tree browser with real directory scanning and navigation
 
-- Multi-provider LLM client (OpenAI, Anthropic, Ollama, OpenRouter, Qwen)
-- Streaming support with `StreamEvent`
-- Provider registry + factory pattern
-- Token estimation (`estimate_chat_tokens`)
-- Retry with exponential backoff
+#### Safety & Control
 
-#### devpilot-store (801 lines, 6 tests)
+- Tool call approval system requiring explicit user consent
+- Sandbox policies for restricting tool execution scope
+- Session checkpoint and rewind — save and restore conversation state
 
-- SQLite persistence via rusqlite
-- Session store trait + implementation
-- Provider config CRUD
-- Message history with pagination
-- File-based DB (not in-memory) for durability
+#### Internationalization
 
-#### devpilot-tools (1,835 lines, 28 tests)
+- Full i18n coverage with English (EN) and Chinese (CN) locales
 
-- Tool registry with trait-based plugin system
-- 4 built-in tools: ShellExec, FileRead, FileWrite, ApplyPatch
-- `ToolOutput` struct with `ok()`/`err()` builder methods
-- `ExecutionResult` wrapping `Option<ToolOutput>`
-- `ToolExecutor` with context and definition resolution
+#### Error Handling
 
-#### devpilot-core (1,311 lines, 16 tests)
+- Unified error handling framework across Rust and TypeScript layers
 
-- `AgentLoop` with `run()` — main agent execution cycle
-- `SessionManager` + `SessionStore` trait
-- `EventBus` with broadcast channel
-- `ContextCompactor` for message history compression
-- `CoreError` enum
+---
 
-#### devpilot-sandbox (728 lines, 17 tests)
+### Real-World Integration — P4
 
-- `SandboxPolicy`: default/permissive/strict presets
-- `SandboxedCommand`: builder with policy checks, timeout, output cap
-- `FsRule` first-match-wins filesystem access control
-- `NetworkPolicy`: Allow/Deny/Disabled
-- `ResourceLimits`: timeout, max output, max processes
-- `SizeLimit`: configurable KB/MB/GB helpers
+- All UI panels connected to real IPC backends (no stubs or mocks)
+- Full 7-event stream model: `text`, `tool`, `stream-compacted`, and related
+  event types for complete agent lifecycle coverage
+- Working directory selector for project-scoped sessions
+- System prompt editor for customizing agent behavior
+- Session export in JSON and Markdown formats
 
-#### devpilot-search (581 lines, 14 tests)
+---
 
-- `SearchEngine`: async file + content search
-- Fuzzy matching with consecutive/boundary/coverage scoring
-- Regex content search with concurrent file scanning (semaphore)
-- Glob-to-regex conversion for file filtering
-- `SearchQuery`/`SearchMatch` types
+### Persona & Split View — P5
 
-#### devpilot-scheduler (562 lines, 12 tests)
+#### Persona System
 
-- `Scheduler`: async cron loop with start/stop lifecycle
-- `TaskDef`: cron expressions, max executions, pause/resume
-- `TaskAction`: ShellCommand, HttpRequest, Custom
-- `TaskCallback` for external action handling
-- Automatic removal of expired tasks
+- Persona files system: `SOUL.md`, `USER.md`, `MEMORY.md`, `AGENTS.md`
+- Daily memory with automatic journaling
+- Cross-source search across persona and memory files
 
-### Changed
+#### Multi-Session
 
-- Workspace now has 8 crate members (up from 0)
-- `SessionMode` gained `Default` derive for agent ergonomics
-- `.gitignore` updated with `.claude/` exclusion
+- Dual-session split view for running two agent sessions side by side
+- Resizable divider panel between sessions
 
-### Fixed
+---
 
-- `ToolOutput` is a struct (not enum) — agent.rs rewritten to use `ok()`/`err()`
-- `ExecutionResult` has `output: Option<ToolOutput>` — must extract `.output`
-- `definitions()` is async — added `.await` in agent loop
-- `session_id` move in tests — clone before async blocks
-- `auto_title` test threshold: 48-char input < 50-char threshold = no truncation
-- FsRule strict policy: Deny `/` was overriding Write `/tmp/sandbox` — fixed with first-match-wins
-- Default policy: added Read `/home/` rule for home directory access
-- Glob-to-regex: `'|'` missing in char pattern (`'{' '}'` → `'{' | '}'`)
-- Fuzzy test: "xyzabc" has no 'r' char — changed to "parser"
-- Engine tests: relative paths fail in cargo test — use `CARGO_MANIFEST_DIR` + parent traversal
+### Generative UI & Shortcuts — P6
+
+- iframe sandbox renderer for live preview of HTML code blocks generated by the
+  agent
+- 9 customizable keyboard shortcuts with click-to-rebind UI
+
+---
+
+### Polish & Release — P7
+
+#### Interaction Modes
+
+- Code mode — direct code generation and editing
+- Plan mode — step-by-step planning before execution
+- Ask mode — question-and-answer without side effects
+
+#### Skills System
+
+- Skills framework with `SKILL.md` parser for defining reusable agent
+  capabilities
+
+#### Data Management
+
+- Full data export/import covering sessions, providers, settings, and usage
+  statistics
+- Claude Code session import for migrating from existing workflows
+
+#### Accessibility
+
+- 53 accessibility (a11y) i18n keys
+- ARIA roles throughout the component tree
+- Keyboard navigation support for all interactive elements
+
+#### Auto-Update
+
+- Integrated auto-update via `tauri-plugin-updater`
+
+---
+
+### UI Refinement — P8/P9
+
+- Responsive layout with sidebar always-rendered for consistent navigation
+- Frosted glass sidebar effect with backdrop blur
+- Blurred input area for visual focus separation
+- Soft borders using `border/40` tokens across the interface
+- Refined scrollbar styling
+- CodePilot-style spacing and density throughout all panels
+
+---
+
+### Developer Tools — P10
+
+#### Code Navigation
+
+- Code symbol index powered by tree-sitter grammars
+  - Supported languages: Rust, TypeScript, JavaScript, Python, Go
+- Fuzzy search over extracted symbols for quick navigation
+
+#### Git Integration
+
+- Full Git panel with:
+  - Status view (staged, unstaged, untracked)
+  - Diff viewer
+  - Commit log
+  - Stash management
+  - Branch listing and switching
+  - Worktree support
+
+---
+
+### Stats
+
+| Metric             | Value             |
+| ------------------ | ----------------- |
+| Rust crates        | 15                |
+| Rust LOC           | ~20,000+          |
+| Rust tests         | 546 (all passing) |
+| Frontend files     | 70+               |
+| Frontend LOC       | ~15,400           |
+| Frontend tests     | 545 (all passing) |
+| Tauri IPC commands | 60+               |
+| LLM providers      | 12+               |
+| i18n locales       | EN + CN           |
+
+---
+
+### Contributors
+
+Thanks to everyone who contributed to the v1.0.0 release.
+
+---
+
+[1.0.0]: https://github.com/user/devpilot/releases/tag/v1.0.0
