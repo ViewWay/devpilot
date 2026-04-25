@@ -3,7 +3,7 @@ name = "devpilot-media"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Image generation — DALL-E, Stable Diffusion, and other providers"
+description = "Image generation — DALL-E, Stable Diffusion, Gemini, and other providers"
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }

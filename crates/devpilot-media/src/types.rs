@@ -10,6 +10,7 @@ pub enum ImageProvider {
     OpenAI,
     StabilityAI,
     Generic,
+    Gemini,
 }
 
 impl ImageProvider {
@@ -19,6 +20,7 @@ impl ImageProvider {
             ImageProvider::OpenAI => "https://api.openai.com/v1",
             ImageProvider::StabilityAI => "https://api.stability.ai/v1",
             ImageProvider::Generic => "",
+            ImageProvider::Gemini => "https://generativelanguage.googleapis.com",
         }
     }
 
@@ -28,6 +30,7 @@ impl ImageProvider {
             ImageProvider::OpenAI => "dall-e-3",
             ImageProvider::StabilityAI => "stable-diffusion-xl-1024-v1-0",
             ImageProvider::Generic => "",
+            ImageProvider::Gemini => "gemini-2.0-flash-exp",
         }
     }
 }

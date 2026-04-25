@@ -25,7 +25,7 @@ describe("schedulerStore", () => {
   describe("fetchTasks", () => {
     it("loads tasks successfully", async () => {
       const mockTasks = [
-        { id: "t1", name: "Task 1", cronExpr: "0 * * * *", action: { type: "shellCommand", command: "echo hi" }, status: "Active", executionCount: 5, maxExecutions: null, createdAt: "2026-01-01T00:00:00Z", nextRun: "2026-01-01T01:00:00Z" },
+        { id: "t1", name: "Task 1", cronExpr: "0 * * * *", scheduleType: "cron", action: { type: "shellCommand", command: "echo hi" }, status: "Active", executionCount: 5, maxExecutions: null, createdAt: "2026-01-01T00:00:00Z", nextRun: "2026-01-01T01:00:00Z" },
       ];
       mockInvoke.mockResolvedValueOnce(mockTasks);
 
@@ -33,6 +33,16 @@ describe("schedulerStore", () => {
       expect(useSchedulerStore.getState().tasks).toEqual(mockTasks);
       expect(useSchedulerStore.getState().loading).toBe(false);
       expect(useSchedulerStore.getState().error).toBeNull();
+    });
+
+    it("loads interval tasks successfully", async () => {
+      const mockTasks = [
+        { id: "t2", name: "Interval Task", intervalSeconds: 30, scheduleType: "interval", status: "Active", executionCount: 100, maxExecutions: null },
+      ];
+      mockInvoke.mockResolvedValueOnce(mockTasks);
+
+      await useSchedulerStore.getState().fetchTasks();
+      expect(useSchedulerStore.getState().tasks).toEqual(mockTasks);
     });
 
     it("handles errors", async () => {
@@ -45,17 +55,35 @@ describe("schedulerStore", () => {
   });
 
   describe("createTask", () => {
-    it("creates a task and refreshes", async () => {
+    it("creates a cron task and refreshes", async () => {
       mockInvoke
         .mockResolvedValueOnce("new-task-id")
         .mockResolvedValueOnce([]);
 
       const action = { type: "shellCommand" as const, command: "echo hi" };
-      const id = await useSchedulerStore.getState().createTask("Test", "0 * * * *", action);
+      const schedule = { type: "cron" as const, expr: "0 * * * *" };
+      const id = await useSchedulerStore.getState().createTask("Test", schedule, action);
       expect(id).toBe("new-task-id");
       expect(mockInvoke).toHaveBeenCalledWith("scheduler_create_task", {
         name: "Test",
-        cronExpr: "0 * * * *",
+        schedule,
+        action,
+        maxExecutions: undefined,
+      });
+    });
+
+    it("creates an interval task and refreshes", async () => {
+      mockInvoke
+        .mockResolvedValueOnce("interval-task-id")
+        .mockResolvedValueOnce([]);
+
+      const action = { type: "shellCommand" as const, command: "collect-metrics" };
+      const schedule = { type: "interval" as const, seconds: 30 };
+      const id = await useSchedulerStore.getState().createTask("Metrics", schedule, action);
+      expect(id).toBe("interval-task-id");
+      expect(mockInvoke).toHaveBeenCalledWith("scheduler_create_task", {
+        name: "Metrics",
+        schedule,
         action,
         maxExecutions: undefined,
       });

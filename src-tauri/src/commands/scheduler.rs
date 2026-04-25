@@ -1,7 +1,7 @@
 //! Tauri commands for task scheduling.
 
 use crate::AppState;
-use devpilot_scheduler::{Scheduler, TaskAction, TaskDef};
+use devpilot_scheduler::{Scheduler, TaskAction, TaskDef, TaskSchedule};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::State;
@@ -18,12 +18,31 @@ pub struct SchedulerState {
 pub struct CreateTaskRequest {
     /// Task name.
     pub name: String,
-    /// Cron expression (e.g., "0 * * * * *").
-    pub cron_expr: String,
+    /// Schedule definition: cron expression or interval in seconds.
+    pub schedule: TaskScheduleDef,
     /// Action to perform.
     pub action: TaskActionDef,
     /// Max executions (None = unlimited).
     pub max_executions: Option<usize>,
+}
+
+/// Serializable schedule definition.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum TaskScheduleDef {
+    /// Cron expression.
+    Cron { expr: String },
+    /// Fixed interval in seconds.
+    Interval { seconds: u64 },
+}
+
+impl From<TaskScheduleDef> for TaskSchedule {
+    fn from(def: TaskScheduleDef) -> Self {
+        match def {
+            TaskScheduleDef::Cron { expr } => TaskSchedule::Cron { expr },
+            TaskScheduleDef::Interval { seconds } => TaskSchedule::Interval { seconds },
+        }
+    }
 }
 
 /// Serializable task action.
@@ -70,7 +89,12 @@ impl From<TaskActionDef> for TaskAction {
 pub struct TaskInfo {
     pub id: String,
     pub name: Option<String>,
-    pub cron_expr: String,
+    /// For backward compat, the cron expression if present.
+    pub cron_expr: Option<String>,
+    /// Interval in seconds if this is an interval task.
+    pub interval_seconds: Option<u64>,
+    /// Human-readable schedule type.
+    pub schedule_type: String,
     pub status: String,
     pub execution_count: usize,
     pub max_executions: Option<usize>,
@@ -83,11 +107,26 @@ pub async fn scheduler_create_task(
     req: CreateTaskRequest,
 ) -> Result<String, String> {
     let sched = state.scheduler_state.scheduler.lock().await;
-    let mut task = TaskDef::from_cron(&req.cron_expr).map_err(|e| format!("Invalid cron: {e}"))?;
-    task = task.with_name(&req.name).with_action(req.action.into());
-    if let Some(max) = req.max_executions {
-        task = task.with_max_executions(max);
-    }
+
+    let task = match &req.schedule {
+        TaskScheduleDef::Cron { expr } => {
+            let mut task = TaskDef::from_cron(expr).map_err(|e| format!("Invalid cron: {e}"))?;
+            task = task.with_name(&req.name).with_action(req.action.into());
+            if let Some(max) = req.max_executions {
+                task = task.with_max_executions(max);
+            }
+            task
+        }
+        TaskScheduleDef::Interval { seconds } => {
+            let mut task = TaskDef::from_interval(*seconds);
+            task = task.with_name(&req.name).with_action(req.action.into());
+            if let Some(max) = req.max_executions {
+                task = task.with_max_executions(max);
+            }
+            task
+        }
+    };
+
     let id = task.id.clone();
     sched
         .add_task(task)
@@ -103,13 +142,27 @@ pub async fn scheduler_list_tasks(state: State<'_, AppState>) -> Result<Vec<Task
     let tasks = sched.list_tasks().await;
     Ok(tasks
         .into_iter()
-        .map(|t| TaskInfo {
-            id: t.id,
-            name: t.name,
-            cron_expr: t.cron_expr,
-            status: format!("{:?}", t.status),
-            execution_count: t.execution_count,
-            max_executions: t.max_executions,
+        .map(|t| {
+            let cron_expr = t.cron_expr().map(String::from);
+            let interval_seconds = t.interval_secs();
+            let is_interval = t.is_interval();
+            let status = format!("{:?}", t.status);
+            let execution_count = t.execution_count;
+            let max_executions = t.max_executions;
+            TaskInfo {
+                id: t.id,
+                name: t.name,
+                cron_expr,
+                interval_seconds,
+                schedule_type: if is_interval {
+                    "interval".to_string()
+                } else {
+                    "cron".to_string()
+                },
+                status,
+                execution_count,
+                max_executions,
+            }
         })
         .collect())
 }

@@ -14,4 +14,4 @@ mod transport;
 pub use client::McpClient;
 pub use error::{McpError, McpResult};
 pub use manager::McpManager;
-pub use transport::{McpServerConfig, McpTransport, TransportType};
+pub use transport::{HttpTransport, McpServerConfig, McpTransport, TransportType};

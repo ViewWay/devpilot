@@ -176,8 +176,9 @@ function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
       return `task-${Date.now()}`;
     case "scheduler_list_tasks":
       return [
-        { id: "task-1", name: "Daily Backup", cronExpr: "0 2 * * *", status: "Active", executionCount: 42, maxExecutions: null },
-        { id: "task-2", name: "Health Check", cronExpr: "*/15 * * * *", status: "Paused", executionCount: 120, maxExecutions: null },
+        { id: "task-1", name: "Daily Backup", cronExpr: "0 2 * * *", scheduleType: "cron", status: "Active", executionCount: 42, maxExecutions: null },
+        { id: "task-2", name: "Health Check", cronExpr: "*/15 * * * *", scheduleType: "cron", status: "Paused", executionCount: 120, maxExecutions: null },
+        { id: "task-3", name: "Metrics", intervalSeconds: 30, scheduleType: "interval", status: "Active", executionCount: 500, maxExecutions: null },
       ];
     case "scheduler_remove_task":
     case "scheduler_pause_task":
@@ -289,8 +290,8 @@ function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
     // Scheduler saved records
     case "scheduler_list_saved":
       return [
-        { id: "task-1", name: "Daily Backup", cronExpr: "0 2 * * *", status: "Active", executionCount: 42, maxExecutions: null },
-        { id: "task-2", name: "Health Check", cronExpr: "*/15 * * * *", status: "Paused", executionCount: 120, maxExecutions: null },
+        { id: "task-1", name: "Daily Backup", schedule: "0 2 * * *", prompt: "backup", model: null, provider: null, enabled: true, lastRunAt: null, nextRunAt: null, createdAt: "2026-01-01T00:00:00Z" },
+        { id: "task-2", name: "Health Check", schedule: "*/15 * * * *", prompt: "health", model: null, provider: null, enabled: false, lastRunAt: null, nextRunAt: null, createdAt: "2026-01-01T00:00:00Z" },
       ];
     case "scheduler_list_runs":
       return [];
@@ -515,7 +516,7 @@ export interface IPCCommands {
   // Scheduler
   scheduler_create_task: {
     name: string;
-    cronExpr: string;
+    schedule: { type: "cron"; expr: string } | { type: "interval"; seconds: number };
     action: { type: string; command?: string; url?: string; method?: string; headers?: [string, string][]; body?: string; id?: string };
     maxExecutions?: number;
   };
@@ -822,7 +823,12 @@ export const TOOL_EVENTS = {
 export interface TaskInfoIPC {
   id: string;
   name?: string;
-  cronExpr: string;
+  /** Cron expression, present only for cron-based tasks. */
+  cronExpr?: string;
+  /** Interval in seconds, present only for interval-based tasks. */
+  intervalSeconds?: number;
+  /** Schedule type: "cron" or "interval". */
+  scheduleType: string;
   status: string;
   executionCount: number;
   maxExecutions?: number;

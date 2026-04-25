@@ -34,6 +34,10 @@ impl MediaManager {
             ImageProvider::Generic,
             providers::get_generator(ImageProvider::Generic),
         );
+        generators.insert(
+            ImageProvider::Gemini,
+            providers::get_generator(ImageProvider::Gemini),
+        );
 
         Self {
             generators: Arc::new(RwLock::new(generators)),
@@ -77,10 +81,11 @@ mod tests {
     async fn available_providers() {
         let mgr = MediaManager::new();
         let providers = mgr.available_providers().await;
-        assert_eq!(providers.len(), 3);
+        assert_eq!(providers.len(), 4);
         assert!(providers.contains(&ImageProvider::OpenAI));
         assert!(providers.contains(&ImageProvider::StabilityAI));
         assert!(providers.contains(&ImageProvider::Generic));
+        assert!(providers.contains(&ImageProvider::Gemini));
     }
 
     #[tokio::test]
@@ -105,7 +110,7 @@ mod tests {
     async fn register_custom_generator() {
         let mgr = MediaManager::new();
         let providers = mgr.available_providers().await;
-        assert_eq!(providers.len(), 3);
+        assert_eq!(providers.len(), 4);
 
         // Registering overwrites existing
         mgr.register_generator(
@@ -114,6 +119,24 @@ mod tests {
         )
         .await;
         let providers = mgr.available_providers().await;
-        assert_eq!(providers.len(), 3);
+        assert_eq!(providers.len(), 4);
+    }
+
+    #[tokio::test]
+    async fn generate_gemini_validates_request() {
+        let mgr = MediaManager::new();
+        let req = GenerateRequest {
+            prompt: "".into(),
+            model: "gemini-2.0-flash-exp".into(),
+            size: ImageSize::S1024x1024,
+            n: 1,
+            provider: ImageProvider::Gemini,
+            api_key: "AIzaSyTESTKEY".into(),
+            api_base: None,
+            negative_prompt: None,
+            seed: None,
+        };
+        let result = mgr.generate(req).await;
+        assert!(result.is_err());
     }
 }

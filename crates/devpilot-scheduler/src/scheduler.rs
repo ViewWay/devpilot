@@ -10,7 +10,7 @@ use tokio::time::{self, Duration};
 /// Callback type for task execution.
 pub type TaskCallback = Arc<dyn Fn(TaskDef) + Send + Sync>;
 
-/// The scheduler manages cron tasks.
+/// The scheduler manages cron and interval tasks.
 pub struct Scheduler {
     tasks: Arc<RwLock<HashMap<TaskId, TaskDef>>>,
     running: Arc<Mutex<bool>>,
@@ -205,6 +205,7 @@ impl Scheduler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::task::TaskSchedule;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[tokio::test]
@@ -219,6 +220,20 @@ mod tests {
         assert_eq!(tasks.len(), 1);
         assert_eq!(tasks[0].id, id);
         assert_eq!(tasks[0].name.as_deref(), Some("test-task"));
+    }
+
+    #[tokio::test]
+    async fn add_and_list_interval_tasks() {
+        let scheduler = Scheduler::new();
+        let task = TaskDef::from_interval(60).with_name("interval-task");
+
+        let id = scheduler.add_task(task).await.unwrap();
+        let tasks = scheduler.list_tasks().await;
+        assert_eq!(tasks.len(), 1);
+        assert_eq!(tasks[0].id, id);
+        assert_eq!(tasks[0].name.as_deref(), Some("interval-task"));
+        assert!(tasks[0].is_interval());
+        assert_eq!(tasks[0].interval_secs(), Some(60));
     }
 
     #[tokio::test]
@@ -250,6 +265,22 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn pause_and_resume_interval_task() {
+        let scheduler = Scheduler::new();
+        let task = TaskDef::from_interval(30);
+        let id = scheduler.add_task(task).await.unwrap();
+
+        scheduler.pause_task(&id).await.unwrap();
+        let t = scheduler.get_task(&id).await.unwrap();
+        assert_eq!(t.status, TaskStatus::Paused);
+
+        scheduler.resume_task(&id).await.unwrap();
+        let t = scheduler.get_task(&id).await.unwrap();
+        assert_eq!(t.status, TaskStatus::Active);
+        assert!(t.next_run.is_some());
+    }
+
+    #[tokio::test]
     async fn duplicate_task_rejected() {
         let scheduler = Scheduler::new();
         let task = TaskDef::from_cron("0 * * * * *").unwrap();
@@ -278,7 +309,7 @@ mod tests {
             .await
             .unwrap();
         scheduler
-            .add_task(TaskDef::from_cron("0 */2 * * * *").unwrap())
+            .add_task(TaskDef::from_interval(120))
             .await
             .unwrap();
         assert_eq!(scheduler.active_count().await, 2);
@@ -316,5 +347,53 @@ mod tests {
         handle.await.unwrap();
 
         assert!(counter.load(Ordering::SeqCst) >= 1);
+    }
+
+    #[tokio::test]
+    async fn interval_callback_fires() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let counter_clone = counter.clone();
+
+        let scheduler = Scheduler::new().with_callback(Arc::new(move |_task| {
+            counter_clone.fetch_add(1, Ordering::SeqCst);
+        }));
+
+        // Use a 1-second interval
+        let task = TaskDef::from_interval(1).with_max_executions(1);
+        scheduler.add_task(task).await.unwrap();
+
+        let sched = Arc::new(scheduler);
+        let sched_clone = sched.clone();
+        let handle = tokio::spawn(async move {
+            sched_clone.start().await;
+        });
+
+        // Wait up to 3 seconds for it to fire
+        time::sleep(Duration::from_secs(3)).await;
+        sched.stop().await;
+        handle.await.unwrap();
+
+        assert!(counter.load(Ordering::SeqCst) >= 1);
+    }
+
+    #[tokio::test]
+    async fn mixed_cron_and_interval_tasks() {
+        let scheduler = Scheduler::new();
+
+        let cron_task = TaskDef::from_cron("0 * * * * *")
+            .unwrap()
+            .with_name("cron-task");
+        let interval_task = TaskDef::from_interval(300).with_name("interval-task");
+
+        scheduler.add_task(cron_task).await.unwrap();
+        scheduler.add_task(interval_task).await.unwrap();
+
+        let tasks = scheduler.list_tasks().await;
+        assert_eq!(tasks.len(), 2);
+
+        let cron_t: Vec<_> = tasks.iter().filter(|t| t.is_cron()).collect();
+        let interval_t: Vec<_> = tasks.iter().filter(|t| t.is_interval()).collect();
+        assert_eq!(cron_t.len(), 1);
+        assert_eq!(interval_t.len(), 1);
     }
 }

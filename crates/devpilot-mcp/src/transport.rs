@@ -61,6 +61,15 @@ pub enum TransportType {
     },
     /// Connect to a remote server via Server-Sent Events.
     Sse { url: String },
+    /// Connect via Streamable HTTP (MCP spec 2025-03).
+    /// Sends JSON-RPC over HTTP POST with optional session management.
+    Http {
+        /// The server URL endpoint.
+        url: String,
+        /// Optional custom headers (e.g. Authorization, API keys).
+        #[serde(default)]
+        headers: HashMap<String, String>,
+    },
 }
 
 /// Full configuration for a single MCP server.
@@ -321,6 +330,147 @@ impl McpTransport for SseTransport {
 }
 
 // ---------------------------------------------------------------------------
+// Streamable HTTP transport (MCP spec 2025-03)
+// ---------------------------------------------------------------------------
+
+/// Streamable HTTP transport for MCP servers.
+///
+/// Sends JSON-RPC requests via HTTP POST and supports optional session
+/// management through the `Mcp-Session-Id` header, as defined in the
+/// MCP Streamable HTTP transport specification (2025-03).
+pub struct HttpTransport {
+    url: String,
+    headers: HashMap<String, String>,
+    session_id: Mutex<Option<String>>,
+    http: reqwest::Client,
+    next_id: AtomicU64,
+    alive: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl HttpTransport {
+    /// Create a new HTTP transport targeting the given URL.
+    pub fn new(url: &str, headers: HashMap<String, String>) -> Self {
+        Self {
+            url: url.to_string(),
+            headers,
+            session_id: Mutex::new(None),
+            http: reqwest::Client::new(),
+            next_id: AtomicU64::new(1),
+            alive: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true)),
+        }
+    }
+
+    /// Build a request with the common headers applied.
+    fn build_request(&self, body: &str) -> reqwest::RequestBuilder {
+        let mut req = self
+            .http
+            .post(&self.url)
+            .header("Content-Type", "application/json")
+            .header("Accept", "application/json, text/event-stream")
+            .body(body.to_string());
+
+        for (key, value) in &self.headers {
+            req = req.header(key.as_str(), value.as_str());
+        }
+
+        req
+    }
+}
+
+#[async_trait]
+impl McpTransport for HttpTransport {
+    async fn send_request(&self, method: &str, params: Option<Value>) -> McpResult<Value> {
+        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
+        let req = JsonRpcRequest {
+            jsonrpc: "2.0",
+            id,
+            method: method.to_string(),
+            params,
+        };
+
+        let body = serde_json::to_string(&req)?;
+
+        let mut http_req = self.build_request(&body);
+
+        // Attach session ID if we have one from a previous response.
+        {
+            let sid = self.session_id.lock().await;
+            if let Some(ref session_id) = *sid {
+                http_req = http_req.header("Mcp-Session-Id", session_id.as_str());
+            }
+        }
+
+        let resp = http_req.send().await?;
+
+        if !resp.status().is_success() {
+            return Err(McpError::Transport(format!(
+                "HTTP {}: {}",
+                resp.status(),
+                resp.text().await.unwrap_or_default()
+            )));
+        }
+
+        // Capture session ID from response headers if present.
+        if let Some(sid) = resp.headers().get("Mcp-Session-Id")
+            && let Ok(sid_str) = sid.to_str()
+        {
+            let mut guard = self.session_id.lock().await;
+            *guard = Some(sid_str.to_string());
+        }
+
+        let rpc_resp: JsonRpcResponse = resp.json().await?;
+
+        if let Some(err) = rpc_resp.error {
+            return Err(McpError::JsonRpc {
+                code: err.code,
+                message: err.message,
+            });
+        }
+
+        rpc_resp
+            .result
+            .ok_or_else(|| McpError::Protocol("No result in response".into()))
+    }
+
+    async fn send_notification(&self, method: &str, params: Option<Value>) -> McpResult<()> {
+        let req = JsonRpcRequest {
+            jsonrpc: "2.0",
+            id: 0,
+            method: method.to_string(),
+            params,
+        };
+
+        let body = serde_json::to_string(&req)?;
+        let mut http_req = self.build_request(&body);
+
+        {
+            let sid = self.session_id.lock().await;
+            if let Some(ref session_id) = *sid {
+                http_req = http_req.header("Mcp-Session-Id", session_id.as_str());
+            }
+        }
+
+        let resp = http_req.send().await?;
+        if !resp.status().is_success() {
+            return Err(McpError::Transport(format!(
+                "HTTP {} on notification",
+                resp.status()
+            )));
+        }
+        Ok(())
+    }
+
+    async fn shutdown(&self) -> McpResult<()> {
+        self.alive.store(false, Ordering::Relaxed);
+        Ok(())
+    }
+
+    fn is_alive(&self) -> bool {
+        self.alive.load(Ordering::Relaxed)
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Helper: build transport from config
 // ---------------------------------------------------------------------------
 
@@ -333,6 +483,10 @@ pub async fn create_transport(config: &TransportType) -> McpResult<Box<dyn McpTr
         }
         TransportType::Sse { url } => {
             let transport = SseTransport::new(url);
+            Ok(Box::new(transport))
+        }
+        TransportType::Http { url, headers } => {
+            let transport = HttpTransport::new(url, headers.clone());
             Ok(Box::new(transport))
         }
     }
@@ -452,5 +606,87 @@ mod tests {
         assert!(json.contains(r#""jsonrpc":"2.0""#));
         assert!(json.contains(r#""id":42"#));
         assert!(json.contains(r#""method":"tools/list""#));
+    }
+
+    // -----------------------------------------------------------------------
+    // HTTP transport tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_transport_type_http_serde_roundtrip() {
+        let http = TransportType::Http {
+            url: "http://localhost:8080/mcp".to_string(),
+            headers: {
+                let mut h = HashMap::new();
+                h.insert("Authorization".to_string(), "Bearer token123".to_string());
+                h
+            },
+        };
+        let json = serde_json::to_string(&http).unwrap();
+        assert!(json.contains(r#""type":"http""#));
+        assert!(json.contains(r#""url":"http://localhost:8080/mcp""#));
+
+        let deserialized: TransportType = serde_json::from_str(&json).unwrap();
+        if let TransportType::Http { url, headers } = deserialized {
+            assert_eq!(url, "http://localhost:8080/mcp");
+            assert_eq!(headers.get("Authorization").unwrap(), "Bearer token123");
+        } else {
+            panic!("Expected Http variant");
+        }
+    }
+
+    #[test]
+    fn test_transport_type_http_default_headers() {
+        let json = r#"{"type":"http","url":"http://example.com/mcp"}"#;
+        let transport: TransportType = serde_json::from_str(json).unwrap();
+        if let TransportType::Http { url, headers } = transport {
+            assert_eq!(url, "http://example.com/mcp");
+            assert!(headers.is_empty());
+        } else {
+            panic!("Expected Http variant");
+        }
+    }
+
+    #[test]
+    fn test_http_transport_new_is_alive() {
+        let transport = HttpTransport::new("http://localhost:3000/mcp", HashMap::new());
+        assert!(transport.is_alive());
+    }
+
+    #[tokio::test]
+    async fn test_http_transport_shutdown_sets_not_alive() {
+        let transport = HttpTransport::new("http://localhost:3000/mcp", HashMap::new());
+        assert!(transport.is_alive());
+        transport.shutdown().await.unwrap();
+        assert!(!transport.is_alive());
+    }
+
+    #[tokio::test]
+    async fn test_http_transport_with_custom_headers() {
+        let mut headers = HashMap::new();
+        headers.insert("Authorization".to_string(), "Bearer test".to_string());
+        let transport = HttpTransport::new("http://localhost:3000/mcp", headers);
+        assert!(transport.is_alive());
+        transport.shutdown().await.unwrap();
+        assert!(!transport.is_alive());
+    }
+
+    #[test]
+    fn test_server_config_with_http_transport() {
+        let config = McpServerConfig {
+            id: "remote-mcp".to_string(),
+            name: "Remote MCP".to_string(),
+            transport: TransportType::Http {
+                url: "http://localhost:8080/mcp".to_string(),
+                headers: HashMap::new(),
+            },
+            enabled: true,
+        };
+        let json = serde_json::to_string_pretty(&config).unwrap();
+        assert!(json.contains(r#""type": "http""#));
+
+        let deserialized: McpServerConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.id, "remote-mcp");
+        assert!(matches!(deserialized.transport, TransportType::Http { .. }));
     }
 }

@@ -245,20 +245,19 @@ impl SymbolIndex {
 
         let mut files = Vec::new();
         for entry in builder.build().flatten() {
-            if entry.file_type().map_or(false, |ft| ft.is_file()) {
+            if entry.file_type().is_some_and(|ft| ft.is_file()) {
                 let path = entry.into_path();
                 let lang = LanguageId::from_path(&path);
-                if lang.is_supported() {
-                    if self.config.extensions.is_empty()
-                        || path.extension().map_or(false, |ext| {
+                if lang.is_supported()
+                    && (self.config.extensions.is_empty()
+                        || path.extension().is_some_and(|ext| {
                             self.config
                                 .extensions
                                 .iter()
                                 .any(|e| e == ext.to_string_lossy().as_ref())
-                        })
-                    {
-                        files.push(path);
-                    }
+                        }))
+                {
+                    files.push(path);
                 }
             }
         }

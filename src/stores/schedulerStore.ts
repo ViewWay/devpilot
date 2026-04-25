@@ -27,6 +27,11 @@ export interface TaskRunRecord {
   completedAt: string | null;
 }
 
+/** Schedule definition for creating tasks. */
+export type TaskScheduleDef =
+  | { type: "cron"; expr: string }
+  | { type: "interval"; seconds: number };
+
 interface SchedulerState {
   tasks: TaskInfoIPC[];
   savedTasks: ScheduledTaskRecord[];
@@ -36,7 +41,7 @@ interface SchedulerState {
   fetchTasks: () => Promise<void>;
   fetchSavedTasks: () => Promise<void>;
   fetchTaskRuns: (taskId: string) => Promise<void>;
-  createTask: (name: string, cronExpr: string, action: TaskActionIPC, maxExecutions?: number) => Promise<string>;
+  createTask: (name: string, schedule: TaskScheduleDef, action: TaskActionIPC, maxExecutions?: number) => Promise<string>;
   removeTask: (taskId: string) => Promise<void>;
   pauseTask: (taskId: string) => Promise<void>;
   resumeTask: (taskId: string) => Promise<void>;
@@ -76,8 +81,8 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
     } catch { /* ignore */ }
   },
 
-  createTask: async (name, cronExpr, action, maxExecutions) => {
-    const id = await invoke<string>("scheduler_create_task", { name, cronExpr, action, maxExecutions });
+  createTask: async (name, schedule, action, maxExecutions) => {
+    const id = await invoke<string>("scheduler_create_task", { name, schedule, action, maxExecutions });
     await get().fetchTasks();
     return id;
   },

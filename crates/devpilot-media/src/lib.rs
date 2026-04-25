@@ -6,6 +6,7 @@
 //! - OpenAI DALL-E 3
 //! - Stability AI (Stable Diffusion)
 //! - Generic OpenAI-compatible endpoints
+//! - Google Gemini (image generation via generateContent)
 //!
 //! ## Quick Start
 //!

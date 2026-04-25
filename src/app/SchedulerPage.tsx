@@ -2,13 +2,17 @@ import { useEffect, useState, useCallback } from "react";
 import { useSchedulerStore } from "../stores/schedulerStore";
 import { useI18n } from "../i18n";
 import type { TaskActionIPC } from "../lib/ipc";
+import type { TaskScheduleDef } from "../stores/schedulerStore";
 import { reportError } from "../lib/errors";
 
 type ActionType = "shellCommand" | "httpRequest" | "custom";
+type ScheduleMode = "cron" | "interval";
 
 interface FormState {
   name: string;
+  scheduleMode: ScheduleMode;
   cronExpr: string;
+  intervalSeconds: string;
   actionType: ActionType;
   command: string;
   url: string;
@@ -21,7 +25,9 @@ interface FormState {
 
 const INITIAL_FORM: FormState = {
   name: "",
+  scheduleMode: "cron",
   cronExpr: "",
+  intervalSeconds: "30",
   actionType: "shellCommand",
   command: "",
   url: "",
@@ -31,6 +37,25 @@ const INITIAL_FORM: FormState = {
   customId: "",
   maxExecutions: "",
 };
+
+/** Format interval seconds into a human-readable string. */
+function formatInterval(seconds: number): string {
+  if (seconds < 60) { return `every ${seconds}s`; }
+  if (seconds < 3600) {
+    const m = seconds / 60;
+    return Number.isInteger(m) ? `every ${m}m` : `every ${m.toFixed(1)}m`;
+  }
+  const h = seconds / 3600;
+  return Number.isInteger(h) ? `every ${h}h` : `every ${h.toFixed(1)}h`;
+}
+
+/** Build schedule display text for a task. */
+function scheduleLabel(task: { cronExpr?: string; intervalSeconds?: number; scheduleType: string }): string {
+  if (task.scheduleType === "interval" && task.intervalSeconds !== undefined && task.intervalSeconds !== null) {
+    return formatInterval(task.intervalSeconds);
+  }
+  return task.cronExpr ?? "";
+}
 
 export function SchedulerPage() {
   const { t } = useI18n();
@@ -50,6 +75,19 @@ export function SchedulerPage() {
     setForm(INITIAL_FORM);
     setShowForm(false);
   }, []);
+
+  const buildSchedule = useCallback((): TaskScheduleDef | null => {
+    switch (form.scheduleMode) {
+      case "cron":
+        if (!form.cronExpr.trim()) { return null; }
+        return { type: "cron", expr: form.cronExpr.trim() };
+      case "interval": {
+        const secs = Number(form.intervalSeconds);
+        if (!secs || secs <= 0) { return null; }
+        return { type: "interval", seconds: secs };
+      }
+    }
+  }, [form]);
 
   const buildAction = useCallback((): TaskActionIPC | null => {
     switch (form.actionType) {
@@ -77,19 +115,20 @@ export function SchedulerPage() {
   }, [form]);
 
   const handleCreate = useCallback(async () => {
+    const schedule = buildSchedule();
     const action = buildAction();
-    if (!action) { return; }
+    if (!schedule || !action) { return; }
     setCreating(true);
     try {
       const maxExec = form.maxExecutions ? Number(form.maxExecutions) : undefined;
-      await createTask(form.name || t("newTask"), form.cronExpr, action, maxExec);
+      await createTask(form.name || t("newTask"), schedule, action, maxExec);
       resetForm();
     } catch (err) {
       reportError(err, "SchedulerPage.createTask");
     } finally {
       setCreating(false);
     }
-  }, [form, buildAction, createTask, resetForm, t]);
+  }, [form, buildSchedule, buildAction, createTask, resetForm, t]);
 
   const handleDelete = useCallback(
     async (id: string) => {
@@ -125,6 +164,8 @@ export function SchedulerPage() {
     }
   };
 
+  const isFormValid = buildSchedule() !== null && buildAction() !== null;
+
   return (
     <div className="max-w-4xl mx-auto p-6 text-foreground">
       {/* Header */}
@@ -148,25 +189,54 @@ export function SchedulerPage() {
       {/* Create Form */}
       {showForm && (
         <div className="mb-6 rounded-lg border border-border bg-card p-5 space-y-4">
-          {/* Name & Cron */}
+          {/* Name */}
+          <div>
+            <label className="mb-1 block text-sm text-muted-foreground">{t("taskName")}</label>
+            <input
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none"
+              placeholder={t("taskName")}
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            />
+          </div>
+
+          {/* Schedule Mode */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="mb-1 block text-sm text-muted-foreground">{t("taskName")}</label>
-              <input
-                className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none"
-                placeholder={t("taskName")}
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              />
+              <label className="mb-1 block text-sm text-muted-foreground">Schedule Type</label>
+              <select
+                className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
+                value={form.scheduleMode}
+                onChange={(e) => setForm((f) => ({ ...f, scheduleMode: e.target.value as ScheduleMode }))}
+              >
+                <option value="cron">Cron Expression</option>
+                <option value="interval">Fixed Interval</option>
+              </select>
             </div>
             <div>
-              <label className="mb-1 block text-sm text-muted-foreground">{t("cronExpression")}</label>
-              <input
-                className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none"
-                placeholder={t("cronPlaceholder")}
-                value={form.cronExpr}
-                onChange={(e) => setForm((f) => ({ ...f, cronExpr: e.target.value }))}
-              />
+              {form.scheduleMode === "cron" ? (
+                <>
+                  <label className="mb-1 block text-sm text-muted-foreground">{t("cronExpression")}</label>
+                  <input
+                    className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none"
+                    placeholder={t("cronPlaceholder")}
+                    value={form.cronExpr}
+                    onChange={(e) => setForm((f) => ({ ...f, cronExpr: e.target.value }))}
+                  />
+                </>
+              ) : (
+                <>
+                  <label className="mb-1 block text-sm text-muted-foreground">Interval (seconds)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none"
+                    placeholder="30"
+                    value={form.intervalSeconds}
+                    onChange={(e) => setForm((f) => ({ ...f, intervalSeconds: e.target.value }))}
+                  />
+                </>
+              )}
             </div>
           </div>
 
@@ -280,7 +350,7 @@ export function SchedulerPage() {
             </button>
             <button
               onClick={handleCreate}
-              disabled={creating || !form.cronExpr.trim() || !buildAction()}
+              disabled={creating || !isFormValid}
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {creating ? t("creating") : t("createTask")}
@@ -330,10 +400,15 @@ export function SchedulerPage() {
                       {task.name || t("newTask")}
                     </h3>
                     {statusBadge(task.status)}
+                    {task.scheduleType === "interval" && (
+                      <span className="inline-block rounded-full px-2 py-0.5 text-xs font-medium bg-blue-900/50 text-blue-400">
+                        interval
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <span className="font-mono text-xs bg-muted rounded px-1.5 py-0.5">
-                      {task.cronExpr}
+                      {scheduleLabel(task)}
                     </span>
                     <span>
                       {t("executionCount")}: {task.executionCount}
