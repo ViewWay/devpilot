@@ -161,7 +161,29 @@ impl GeminiProvider {
     fn base_url(&self) -> &str {
         &self.config.base_url
     }
+}
 
+/// Extract the Gemini function name from a tool_use_id.
+///
+/// Our IDs follow the pattern `call_{name}_{counter}` (e.g. `call_read_file_0`).
+/// This strips the `call_` prefix and the trailing `_{counter}` suffix to
+/// recover the original function name.  Falls back to stripping just `call_`
+/// if the pattern doesn't match, or returns the ID unchanged as a last resort.
+fn extract_gemini_func_name(tool_use_id: &str) -> &str {
+    match tool_use_id.strip_prefix("call_") {
+        Some(rest) => {
+            // Try to strip the trailing "_{N}" counter suffix.
+            if let Some(pos) = rest.rfind('_')
+                && rest[pos + 1..].chars().all(|c| c.is_ascii_digit()) {
+                    return &rest[..pos];
+                }
+            rest
+        }
+        None => tool_use_id,
+    }
+}
+
+impl GeminiProvider {
     /// Convert protocol messages to Gemini format.
     fn convert_messages(messages: &[Message]) -> Vec<GeminiContent> {
         messages
@@ -220,10 +242,14 @@ impl GeminiProvider {
                     content,
                     is_error,
                 } => {
+                    // Gemini requires the actual function name, not the call ID.
+                    // Our IDs are generated as "call_{name}_{counter}", so extract
+                    // the function name by stripping "call_" and the trailing "_N".
+                    let func_name = extract_gemini_func_name(tool_use_id);
                     if *is_error {
                         serde_json::json!({
                             "function_response": {
-                                "name": tool_use_id,
+                                "name": func_name,
                                 "response": {
                                     "error": content,
                                 }
@@ -237,17 +263,19 @@ impl GeminiProvider {
                             }));
                         serde_json::json!({
                             "function_response": {
-                                "name": tool_use_id,
+                                "name": func_name,
                                 "response": response_val,
                             }
                         })
                     }
                 }
                 ContentBlock::Thinking { .. } => {
-                    // Google doesn't have a native thinking block format for requests
-                    serde_json::Value::Null
+                    // Google doesn't have a native thinking block format for requests.
+                    // Return a sentinel that we'll filter out below.
+                    serde_json::json!({"__skip__": true})
                 }
             })
+            .filter(|v| v.get("__skip__").is_none())
             .collect()
     }
 
@@ -280,6 +308,10 @@ impl GeminiProvider {
     /// Convert Gemini response content back to protocol Message.
     fn convert_response_content(content: &GeminiContent) -> Message {
         let mut content_blocks = Vec::new();
+        // Track per-function call counter for unique IDs when the same
+        // function is called multiple times in one response.
+        let mut call_counters: std::collections::HashMap<String, usize> =
+            std::collections::HashMap::new();
 
         for part in &content.parts {
             if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
@@ -291,8 +323,10 @@ impl GeminiProvider {
             } else if let Some(fc) = part.get("function_call") {
                 let name = fc["name"].as_str().unwrap_or_default().to_string();
                 let input = fc.get("args").cloned().unwrap_or(serde_json::json!({}));
-                // Generate a deterministic ID from the function name
-                let id = format!("call_{}", name);
+                // Generate a unique ID: call_{name}_{counter}
+                let counter = call_counters.entry(name.clone()).or_insert(0);
+                let id = format!("call_{}_{}", name, counter);
+                *counter += 1;
                 content_blocks.push(ContentBlock::ToolUse { id, name, input });
             }
         }
@@ -812,5 +846,114 @@ mod tests {
         let msgs = vec![Message::text(MessageRole::Assistant, "Hi there")];
         let contents = GeminiProvider::convert_messages(&msgs);
         assert_eq!(contents[0].role, "model");
+    }
+
+    // ── Tests for extract_gemini_func_name ──
+
+    #[test]
+    fn extract_func_name_standard_id() {
+        assert_eq!(extract_gemini_func_name("call_read_file_0"), "read_file");
+    }
+
+    #[test]
+    fn extract_func_name_underscore_in_name() {
+        assert_eq!(
+            extract_gemini_func_name("call_apply_patch_1"),
+            "apply_patch"
+        );
+    }
+
+    #[test]
+    fn extract_func_name_no_counter() {
+        // Legacy IDs without counter suffix
+        assert_eq!(extract_gemini_func_name("call_read_file"), "read_file");
+    }
+
+    #[test]
+    fn extract_func_name_non_standard() {
+        // Non-standard ID without call_ prefix — returned as-is
+        assert_eq!(extract_gemini_func_name("some_other_id"), "some_other_id");
+    }
+
+    #[test]
+    fn extract_func_name_just_call() {
+        // Edge case: "call_" with nothing after
+        assert_eq!(extract_gemini_func_name("call_"), "");
+    }
+
+    // ── Tests for Thinking block filtering ──
+
+    #[test]
+    fn thinking_blocks_filtered_from_parts() {
+        let blocks = vec![
+            ContentBlock::Text {
+                text: "Hello".into(),
+            },
+            ContentBlock::Thinking {
+                thinking: "internal thought".into(),
+                signature: None,
+            },
+            ContentBlock::Text {
+                text: "World".into(),
+            },
+        ];
+        let parts = GeminiProvider::convert_content_to_parts(&blocks);
+        // Thinking block should be filtered out
+        assert_eq!(parts.len(), 2);
+        assert_eq!(parts[0]["text"].as_str(), Some("Hello"));
+        assert_eq!(parts[1]["text"].as_str(), Some("World"));
+    }
+
+    #[test]
+    fn tool_result_uses_func_name_not_id() {
+        let blocks = vec![ContentBlock::ToolResult {
+            tool_use_id: "call_read_file_0".into(),
+            content: "file contents".into(),
+            is_error: false,
+        }];
+        let parts = GeminiProvider::convert_content_to_parts(&blocks);
+        assert_eq!(parts.len(), 1);
+        assert_eq!(parts[0]["function_response"]["name"].as_str(), Some("read_file"));
+    }
+
+    #[test]
+    fn tool_result_error_uses_func_name() {
+        let blocks = vec![ContentBlock::ToolResult {
+            tool_use_id: "call_apply_patch_2".into(),
+            content: "patch failed".into(),
+            is_error: true,
+        }];
+        let parts = GeminiProvider::convert_content_to_parts(&blocks);
+        assert_eq!(parts.len(), 1);
+        assert_eq!(parts[0]["function_response"]["name"].as_str(), Some("apply_patch"));
+        assert_eq!(
+            parts[0]["function_response"]["response"]["error"].as_str(),
+            Some("patch failed")
+        );
+    }
+
+    // ── Tests for unique tool call IDs ──
+
+    #[test]
+    fn convert_response_generates_unique_ids() {
+        let content = GeminiContent {
+            role: "model".into(),
+            parts: vec![
+                serde_json::json!({"function_call": {"name": "read_file", "args": {"path": "a.rs"}}}),
+                serde_json::json!({"function_call": {"name": "read_file", "args": {"path": "b.rs"}}}),
+            ],
+        };
+        let msg = GeminiProvider::convert_response_content(&content);
+        assert_eq!(msg.content.len(), 2);
+        // Both are ToolUse for the same function but with different IDs
+        if let (ContentBlock::ToolUse { id: id1, name: n1, .. }, ContentBlock::ToolUse { id: id2, name: n2, .. }) = (&msg.content[0], &msg.content[1]) {
+            assert_ne!(id1, id2);
+            assert_eq!(n1, "read_file");
+            assert_eq!(n2, "read_file");
+            assert_eq!(id1, "call_read_file_0");
+            assert_eq!(id2, "call_read_file_1");
+        } else {
+            panic!("Expected ToolUse blocks");
+        }
     }
 }

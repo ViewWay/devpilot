@@ -7,8 +7,9 @@ export const SCHEDULED_TAB_ID = "__scheduled__";
 export const SKILLS_TAB_ID = "__skills__";
 export const GALLERY_TAB_ID = "__gallery__";
 export const BRIDGE_TAB_ID = "__bridge__";
+export const REMOTE_TAB_ID = "__remote__";
 
-export type TabType = "session" | "settings" | "scheduled" | "skills" | "gallery" | "bridge";
+export type TabType = "session" | "settings" | "scheduled" | "skills" | "gallery" | "bridge" | "remote";
 
 export type Tab = {
   sessionId: string;

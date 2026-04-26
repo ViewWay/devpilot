@@ -11,6 +11,7 @@ import { Loader2, AlertCircle, History, X, ChevronsUpDown } from "lucide-react";
 import { useI18n } from "../../i18n";
 import { SessionCostBadge } from "./SessionCostBadge";
 import { ContextSizeBar } from "./ContextSizeBar";
+import { SessionActionMenu } from "./SessionActionMenu";
 import { cn } from "../../lib/utils";
 
 interface SessionPanelViewProps {
@@ -205,6 +206,9 @@ function SecondaryPanelHeader({
           </>
         )}
       </div>
+
+      {/* Session actions menu */}
+      <SessionActionMenu sessionId={currentSessionId} />
 
       {/* Checkpoint toggle */}
       <button

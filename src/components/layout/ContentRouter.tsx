@@ -5,6 +5,7 @@ import { SchedulerPage } from "../../app/SchedulerPage";
 import { SkillsPage } from "../../app/SkillsPage";
 import { GalleryPage } from "../../app/GalleryPage";
 import { BridgePage } from "../../app/BridgePage";
+import { RemotePage } from "../../app/RemotePage";
 import { useI18n } from "../../i18n";
 import { MessageSquare } from "lucide-react";
 
@@ -47,6 +48,10 @@ export function ContentRouter() {
 
   if (activeTabType === "bridge") {
     return <BridgePage />;
+  }
+
+  if (activeTabType === "remote") {
+    return <RemotePage />;
   }
 
   // Session tab — ChatPanel handles the active session display

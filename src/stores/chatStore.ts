@@ -948,6 +948,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
             cleanup();
             // Refresh context size bar after stream completion
             try { window.dispatchEvent(new CustomEvent("context-size-refresh")); } catch { /* ignore */ }
+            // Auto-compact: check context usage and trigger compaction if over threshold
+            autoCompactIfNeeded(sessionId);
           },
         );
         unlistenError = await listen<{
@@ -1322,6 +1324,67 @@ function convertHydratedSession(hs: HydratedSession): Session {
       toolCalls: hm.toolCalls ? JSON.parse(hm.toolCalls) : undefined,
     })),
   };
+}
+
+// Auto-compact: check if context exceeds threshold and trigger compaction.
+// This runs after each streaming response completes.
+async function autoCompactIfNeeded(sessionId: string) {
+  try {
+    const isTauri = typeof window !== "undefined" &&
+      "__TAURI_INTERNALS__" in window;
+    if (!isTauri) {
+      return;
+    }
+
+    const result = await invoke<{
+      tokens: number;
+      limit: number;
+      percent: number;
+    }>("get_context_size", { sessionId });
+
+    // Default threshold is 80% if not configured in settings store
+    const threshold = 0.8;
+    if (result.percent / 100 >= threshold) {
+      const compactResult = await invoke<{
+        messagesRemoved: number;
+        summaryAdded: boolean;
+      }>("compact_session", { sessionId });
+
+      if (compactResult.messagesRemoved > 0) {
+        // Reload messages from DB to reflect compacted state
+        const dbMessages = await invoke<
+          Array<{
+            id: string;
+            sessionId: string;
+            role: string;
+            content: string;
+            model: string | null;
+            createdAt: string;
+          }>
+        >("get_session_messages", { sessionId });
+
+        useChatStore.setState((s) => ({
+          sessions: s.sessions.map((sess) =>
+            sess.id === sessionId
+              ? {
+                  ...sess,
+                  messages: dbMessages.map((m) => ({
+                    id: m.id,
+                    role: m.role as Message["role"],
+                    content: m.content,
+                    model: m.model ?? undefined,
+                    timestamp: m.createdAt,
+                  })),
+                }
+              : sess,
+          ),
+        }));
+      }
+    }
+  } catch (e) {
+    // Auto-compact is best-effort; don't disrupt the user
+    console.warn("[auto-compact] Failed:", e);
+  }
 }
 
 // Slash command handler

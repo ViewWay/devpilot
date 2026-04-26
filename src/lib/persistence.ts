@@ -142,6 +142,7 @@ export async function persistUpdateMessageContent(
   messageId: string,
   content: string,
 ): Promise<void> {
+  if (!isTauriRuntime()) { return; }
   try {
     await invoke("update_message_content", {
       messageId,

@@ -3,6 +3,7 @@ import { useI18n } from "../../i18n";
 import { useChatStore } from "../../stores/chatStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { ModelSelector } from "./ModelSelector";
+import { version as appVersion } from "../../../package.json";
 import { ModeTabs } from "./ModeTabs";
 import { ReasoningEffort } from "./ReasoningEffort";
 import { Send, Paperclip, Sparkles, StopCircle, X, Image, FileText } from "lucide-react";
@@ -476,7 +477,7 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
           <span>{t("inputHint")}</span>
           <div className="flex items-center gap-1">
             <Sparkles size={10} />
-            <span>DevPilot v0.4.0</span>
+            <span>DevPilot v{appVersion}</span>
           </div>
         </div>
       </div>

@@ -13,6 +13,8 @@ import { FilesPanel } from "../panels/FilesPanel";
 import { TerminalPanel } from "../panels/TerminalPanel";
 import { PreviewPanel } from "../panels/PreviewPanel";
 import { GitPanel } from "../panels/GitPanel";
+import { AgentTaskPanel } from "../panels/AgentTaskPanel";
+import { MarketplacePanel } from "../panels/MarketplacePanel";
 import { RightPanelTabs } from "../panels/RightPanelTabs";
 import { Loader2, AlertCircle, History, ChevronDown, ChevronRight } from "lucide-react";
 import { useI18n } from "../../i18n";
@@ -103,6 +105,8 @@ function RightContent() {
         {rightPanel === "terminal" && <TerminalPanel />}
         {rightPanel === "preview" && <PreviewPanel />}
         {rightPanel === "git" && <GitPanel />}
+        {rightPanel === "agent" && <AgentTaskPanel />}
+        {rightPanel === "marketplace" && <MarketplacePanel />}
       </div>
     </div>
   );

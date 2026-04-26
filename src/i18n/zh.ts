@@ -166,6 +166,7 @@ const zh = {
   gallery: "画廊",
   scheduler: "定时任务",
   bridge: "桥接",
+  remote: "远程",
   preview: "预览",
   terminal: "终端",
   close: "关闭",

@@ -166,6 +166,7 @@ const en = {
   gallery: "Gallery",
   scheduler: "Scheduler",
   bridge: "Bridge",
+  remote: "Remote",
   preview: "Preview",
   terminal: "Terminal",
   close: "Close",

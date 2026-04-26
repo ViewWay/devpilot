@@ -3,8 +3,8 @@ import { useI18n } from "../../i18n";
 import { useChatStore } from "../../stores/chatStore";
 import { useUIStore } from "../../stores/uiStore";
 import { useSettingsStore } from "../../stores/settingsStore";
-import { useTabStore, SETTINGS_TAB_ID, SCHEDULED_TAB_ID, SKILLS_TAB_ID, GALLERY_TAB_ID, BRIDGE_TAB_ID } from "../../stores/tabStore";
-import { Package, ImageIcon, Radio, ChevronDown, Upload } from "lucide-react";
+import { useTabStore, SETTINGS_TAB_ID, SCHEDULED_TAB_ID, SKILLS_TAB_ID, GALLERY_TAB_ID, BRIDGE_TAB_ID, REMOTE_TAB_ID } from "../../stores/tabStore";
+import { Package, ImageIcon, Radio, Smartphone, ChevronDown, Upload } from "lucide-react";
 import { SESSION_TEMPLATES } from "../../lib/sessionTemplates";
 import type { SessionTemplate } from "../../lib/sessionTemplates";
 
@@ -242,6 +242,15 @@ export function Sidebar() {
           icon={<Radio size={18} />}
         >
           {t("bridge")}
+        </NavItem>
+        <NavItem
+          active={activeTabId === REMOTE_TAB_ID}
+          collapsed={!sidebarOpen}
+          label={t("remote")}
+          onClick={() => openTab(REMOTE_TAB_ID, t("remote"), "remote")}
+          icon={<Smartphone size={18} />}
+        >
+          {t("remote")}
         </NavItem>
       </div>
 

@@ -6,9 +6,13 @@
 
 use crate::types::ModelPricing;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 /// Lookup key: (provider_type, model_id).
 type PricingKey = (String, String);
+
+/// Global pricing catalog, built once on first access.
+static CATALOG: LazyLock<HashMap<PricingKey, ModelPricing>> = LazyLock::new(build_catalog);
 
 macro_rules! pricing {
     ($input:expr, $output:expr) => {
@@ -180,31 +184,31 @@ fn build_catalog() -> HashMap<PricingKey, ModelPricing> {
 ///
 /// First tries an exact match on the model ID. If that fails, falls back to
 /// prefix matching (e.g., "claude-sonnet-4-20250514" matches a key starting
-/// with "claude-sonnet-4").
+/// with "claude-sonnet-4"). The prefix fallback returns the longest matching
+/// prefix to ensure deterministic results.
 ///
 /// Returns `None` if the model is not in the catalog.
 pub fn lookup_pricing(provider_type: &str, model_id: &str) -> Option<ModelPricing> {
-    let catalog = build_catalog();
-
     // Exact match first
-    if let Some(pricing) = catalog.get(&(provider_type.to_string(), model_id.to_string())) {
+    if let Some(pricing) = CATALOG.get(&(provider_type.to_string(), model_id.to_string())) {
         return Some(pricing.clone());
     }
 
-    // Prefix fallback: try matching on model ID prefix
-    // This handles cases like "claude-sonnet-4-20250514" → "claude-sonnet-4-..."
-    let model_prefix = model_id.split_once('-').map(|(p, _)| p).unwrap_or(model_id);
+    // Prefix fallback: find the longest prefix match for deterministic results.
+    // For example, "claude-sonnet-4-20250514" should match "claude-sonnet-4"
+    // rather than just "claude" when both exist in the catalog.
+    let mut best_match: Option<(&str, &ModelPricing)> = None;
+    let mut best_match_len = 0;
 
-    for ((provider, model), pricing) in &catalog {
-        if provider == provider_type {
-            let cat_prefix = model.split_once('-').map(|(p, _)| p).unwrap_or(model);
-            if cat_prefix == model_prefix {
-                return Some(pricing.clone());
+    for ((provider, model), pricing) in CATALOG.iter() {
+        if provider == provider_type && model_id.starts_with(model.as_str())
+            && model.len() > best_match_len {
+                best_match_len = model.len();
+                best_match = Some((model, pricing));
             }
-        }
     }
 
-    None
+    best_match.map(|(_, p)| p.clone())
 }
 
 /// Look up pricing, with fallback to the `ProviderConfig.models` list.

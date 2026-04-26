@@ -4,6 +4,7 @@ import { getHighlighter, resolveLang, ensureLang } from "@/lib/shiki";
 interface CodeBlockInnerProps {
   code: string;
   lang?: string;
+  showLineNumbers?: boolean;
 }
 
 /**
@@ -11,7 +12,7 @@ interface CodeBlockInnerProps {
  * Lazy-loaded to keep shiki-core out of the main bundle.
  * Only loads language grammars on demand to reduce initial load.
  */
-export function CodeBlockInner({ code, lang }: CodeBlockInnerProps) {
+export function CodeBlockInner({ code, lang, showLineNumbers = false }: CodeBlockInnerProps) {
   const [html, setHtml] = useState<string | null>(null);
 
   useEffect(() => {
@@ -36,6 +37,29 @@ export function CodeBlockInner({ code, lang }: CodeBlockInnerProps) {
           lang: resolvedLang,
           themes: { dark: "github-dark", light: "github-light" },
           defaultColor: false,
+          ...(showLineNumbers
+            ? {
+                transformers: [
+                  {
+                    // Prepend line numbers to each line
+                    name: "line-numbers",
+                    preprocess(html: string) {
+                      return html;
+                    },
+                    postprocess(html: string) {
+                      const lines = html.split("\n");
+                      const width = String(lines.length).length;
+                      return lines
+                        .map(
+                          (line, i) =>
+                            `<span class="shiki-line-number" style="user-select:none;opacity:0.4;display:inline-block;width:${width}ch;margin-right:1.5ch;text-align:right">${String(i + 1).padStart(width, " ")} </span>${line}`,
+                        )
+                        .join("\n");
+                    },
+                  },
+                ],
+              }
+            : {}),
         });
         setHtml(result);
       } catch {
@@ -48,7 +72,7 @@ export function CodeBlockInner({ code, lang }: CodeBlockInnerProps) {
     return () => {
       cancelled = true;
     };
-  }, [code, lang]);
+  }, [code, lang, showLineNumbers]);
 
   if (html) {
     return (
@@ -61,9 +85,9 @@ export function CodeBlockInner({ code, lang }: CodeBlockInnerProps) {
           .shiki-wrapper pre { margin: 0 !important; padding: 12px 16px !important; background: transparent !important; }
           .shiki-wrapper code { font-size: 12px !important; line-height: 1.6 !important; }
           .dark .shiki-wrapper .shiki,
-          .dark .shiki-wrapper span { color: var(--shiki-dark) !important; background-color: var(--shiki-dark-bg) !important; }
+          .dark .shiki-wrapper span:not(.shiki-line-number) { color: var(--shiki-dark) !important; background-color: var(--shiki-dark-bg) !important; }
           .shiki-wrapper .shiki,
-          .shiki-wrapper span { color: var(--shiki-light) !important; background-color: var(--shiki-light-bg) !important; }
+          .shiki-wrapper span:not(.shiki-line-number) { color: var(--shiki-light) !important; background-color: var(--shiki-light-bg) !important; }
         `}</style>
       </>
     );
@@ -71,7 +95,21 @@ export function CodeBlockInner({ code, lang }: CodeBlockInnerProps) {
 
   return (
     <pre className="overflow-x-auto p-3 text-xs leading-relaxed">
-      <code>{code}</code>
+      {showLineNumbers ? (
+        <code>
+          {code.split("\n").map((line, i) => (
+            <div key={i}>
+              <span style={{ opacity: 0.4, userSelect: "none", marginRight: "1.5ch" }}>
+                {String(i + 1).padStart(String(code.split("\n").length).length, " ")}{" "}
+              </span>
+              {line}
+              {"\n"}
+            </div>
+          ))}
+        </code>
+      ) : (
+        <code>{code}</code>
+      )}
     </pre>
   );
 }
