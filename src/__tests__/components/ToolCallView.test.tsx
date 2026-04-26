@@ -20,9 +20,10 @@ const baseToolCall: ToolCall = {
 };
 
 describe("ToolCallView", () => {
-  it("renders tool name and input", () => {
+  it("renders tool label and command preview for shell_exec", () => {
     render(<ToolCallView toolCall={baseToolCall} />);
-    expect(screen.getByText("shell_exec")).toBeInTheDocument();
+    // BashToolRenderer shows "shell" as label and the command as preview
+    expect(screen.getByText("shell")).toBeInTheDocument();
     expect(screen.getByText("ls -la")).toBeInTheDocument();
   });
 
@@ -56,11 +57,9 @@ describe("ToolCallView", () => {
     fireEvent.click(toggle);
 
     expect(toggle).toHaveAttribute("aria-expanded", "true");
-    // Output is inside a <pre> with whitespace, so check the pre element
-    const pre = document.querySelector("pre");
-    expect(pre).toBeInTheDocument();
-    expect(pre?.textContent).toContain("file1.txt");
-    expect(pre?.textContent).toContain("file2.txt");
+    // BashToolRenderer renders output in div elements (terminal variant), not <pre>
+    expect(screen.getByText("file1.txt")).toBeInTheDocument();
+    expect(screen.getByText("file2.txt")).toBeInTheDocument();
   });
 
   it("collapses on second toggle click", () => {
@@ -108,9 +107,10 @@ describe("ToolCallList", () => {
 
     render(<ToolCallList toolCalls={toolCalls} />);
 
-    expect(screen.getByText("shell_exec")).toBeInTheDocument();
-    expect(screen.getByText("file_read")).toBeInTheDocument();
-    expect(screen.getByText("file_write")).toBeInTheDocument();
+    // Check for the specialized renderer labels instead of raw tool names
+    expect(screen.getByText("shell")).toBeInTheDocument();
+    expect(screen.getByText("read")).toBeInTheDocument();
+    expect(screen.getByText("write")).toBeInTheDocument();
   });
 
   it("renders empty list without errors", () => {
