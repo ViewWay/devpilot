@@ -442,6 +442,9 @@ function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
       return crypto.randomUUID();
     case "session_rewind":
       return 0;
+    // External Editor
+    case "open_in_editor":
+      return `Opened ${args?.path ?? "file"} in editor`;
     default:
       console.warn(`[IPC mock] Unhandled command: ${cmd}`);
       return null;

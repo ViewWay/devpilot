@@ -77,11 +77,6 @@ pub struct ExecutionResult {
     pub duration_ms: u64,
 }
 
-/// Create a blocked [`ToolOutput`] with a human-readable message.
-fn blocked_output(tool_name: &str, reason: &str) -> ToolOutput {
-    ToolOutput::err(format!("Blocked: {tool_name} — {reason}"))
-}
-
 impl ToolExecutor {
     /// Create a new executor backed by the given tool registry.
     pub fn new(registry: Arc<ToolRegistry>) -> Self {
@@ -168,7 +163,7 @@ impl ToolExecutor {
                     }
                     _ => "operation blocked by permission policy".to_string(),
                 };
-                let output = blocked_output(tool_name, &reason);
+                let output = ToolOutput::err(format!("Blocked: {tool_name} — {reason}"));
                 return Ok(ExecutionResult {
                     approval: ApprovalStatus::Rejected,
                     output: Some(output),

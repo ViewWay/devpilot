@@ -603,23 +603,25 @@ impl PermissionGuard {
 
         // Path validation for file tools
         if Self::is_file_tool(tool_name)
-            && let Some(path) = Self::extract_path(input) {
-                if Self::is_path_blocked(&path, &policy.blocked_paths) {
-                    return ApprovalDecision::Blocked;
-                }
-                if !policy.allowed_paths.is_empty()
-                    && !Self::is_path_allowed(&path, &policy.allowed_paths)
-                {
-                    return ApprovalDecision::Blocked;
-                }
+            && let Some(path) = Self::extract_path(input)
+        {
+            if Self::is_path_blocked(&path, &policy.blocked_paths) {
+                return ApprovalDecision::Blocked;
             }
+            if !policy.allowed_paths.is_empty()
+                && !Self::is_path_allowed(&path, &policy.allowed_paths)
+            {
+                return ApprovalDecision::Blocked;
+            }
+        }
 
         // Shell dangerous-pattern check
         if tool_name == "shell_exec"
             && let Some(cmd) = input["command"].as_str()
-                && Self::is_command_dangerous(cmd) {
-                    return ApprovalDecision::Blocked;
-                }
+            && Self::is_command_dangerous(cmd)
+        {
+            return ApprovalDecision::Blocked;
+        }
 
         // Auto-approve read-only tools (if enabled)
         if policy.auto_approve_read && Self::is_read_tool(tool_name) {

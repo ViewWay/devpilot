@@ -145,3 +145,64 @@ pub fn git_add_all(repo_path: String) -> Result<(), String> {
 pub fn git_unstage_files(repo_path: String, paths: Vec<String>) -> Result<(), String> {
     devpilot_git::unstage_files(&repo_path, &paths).map_err(|e| e.to_string())
 }
+
+// ── Blame ──────────────────────────────────────────────────
+
+/// Get per-file blame with line-level commit info.
+#[tauri::command]
+pub fn git_blame(
+    repo_path: String,
+    file_path: String,
+) -> Result<Vec<devpilot_git::GitBlameLine>, String> {
+    devpilot_git::blame_file(&repo_path, &file_path).map_err(|e| e.to_string())
+}
+
+// ── Diff between two commits ──────────────────────────────
+
+/// Show diff between any two refs (commits, branches, tags).
+#[tauri::command]
+pub fn git_diff_commits(
+    repo_path: String,
+    from_ref: String,
+    to_ref: String,
+) -> Result<Vec<devpilot_git::GitDiffResult>, String> {
+    devpilot_git::diff_commits(&repo_path, &from_ref, &to_ref).map_err(|e| e.to_string())
+}
+
+// ── Discard changes ──────────────────────────────────────
+
+/// Discard working tree changes for specific files or all files.
+#[tauri::command]
+pub fn git_discard_changes(repo_path: String, paths: Option<Vec<String>>) -> Result<(), String> {
+    devpilot_git::discard_changes(&repo_path, paths.as_deref()).map_err(|e| e.to_string())
+}
+
+// ── Revert commit ────────────────────────────────────────
+
+/// Create a new commit that undoes a previous commit.
+#[tauri::command]
+pub fn git_revert_commit(repo_path: String, commit_hash: String) -> Result<String, String> {
+    devpilot_git::revert_commit(&repo_path, &commit_hash).map_err(|e| e.to_string())
+}
+
+// ── Merge branch ─────────────────────────────────────────
+
+/// Merge a branch into the current HEAD.
+#[tauri::command]
+pub fn git_merge_branch(repo_path: String, branch: String) -> Result<(), String> {
+    devpilot_git::merge_branch(&repo_path, &branch).map_err(|e| e.to_string())
+}
+
+// ── Stash list & apply ───────────────────────────────────
+
+/// List all stash entries.
+#[tauri::command]
+pub fn git_stash_list(repo_path: String) -> Result<Vec<devpilot_git::GitStashEntry>, String> {
+    devpilot_git::stash_list(&repo_path).map_err(|e| e.to_string())
+}
+
+/// Apply a stash entry by index (without dropping it).
+#[tauri::command]
+pub fn git_stash_apply(repo_path: String, stash_index: Option<usize>) -> Result<(), String> {
+    devpilot_git::stash_apply(&repo_path, stash_index.unwrap_or(0)).map_err(|e| e.to_string())
+}

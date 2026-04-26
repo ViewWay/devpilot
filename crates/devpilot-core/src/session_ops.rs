@@ -425,7 +425,7 @@ pub fn rewind_session(session: &mut Session, options: &RewindOptions) -> RewindR
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::session::{SessionConfig, SessionState};
+    use crate::session::SessionConfig;
     use devpilot_protocol::{ProviderType, ReasoningEffort, SessionMode};
 
     fn test_config() -> SessionConfig {

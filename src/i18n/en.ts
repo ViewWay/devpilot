@@ -920,6 +920,47 @@ const en = {
   hookNoHooksHint: "Add a hook to run custom commands during tool execution",
   hookBlockedBy: "Blocked by hook",
   hookToggle: "Toggle",
+
+  // --- Permission Mode ---
+  permissionMode: "Permission Mode",
+  permissionModeDesc: "Control how tools are authorized during agent execution.",
+  permissionPlan: "Plan Mode",
+  permissionPlanDesc: "Read-only — all write operations are blocked.",
+  permissionAuto: "Auto Mode",
+  permissionAutoDesc: "Auto-approve low/medium risk tools, prompt for high risk.",
+  permissionManual: "Manual Mode",
+  permissionManualDesc: "Every tool call requires explicit user approval.",
+
+  // --- External Editor ---
+  openInEditor: "Open in Editor",
+  openInEditorTooltip: "Open this file in your external editor",
+  editorOpened: "Opened in editor",
+  editorOpenFailed: "Failed to open editor",
+
+  // --- Diff View ---
+  diffNoChanges: "No changes",
+  diffLinesChanged: "{count} lines changed",
+  diffExpandAll: "Expand All",
+  diffCollapseAll: "Collapse All",
+  diffVirtualScrollHint: "Showing {visible} of {total} lines",
+
+  // --- Inline Diff ---
+  inlineDiffAdded: "added",
+  inlineDiffRemoved: "removed",
+  inlineDiffChanged: "changed",
+
+  // --- File Tree Enhancements ---
+  fileTreeOpenInEditor: "Open in Editor",
+  fileTreeCopyPath: "Copy Path",
+  fileTreeCopyRelativePath: "Copy Relative Path",
+  fileTreePathCopied: "Path copied!",
+  fileTreeNewFile: "New File",
+  fileTreeNewFolder: "New Folder",
+  fileTreeRevealInOS: "Reveal in File Manager",
+  fileTreeGitModified: "M",
+  fileTreeGitAdded: "A",
+  fileTreeGitDeleted: "D",
+  fileTreeGitUntracked: "U",
 } as const;
 
 export type TranslationKey = keyof typeof en;

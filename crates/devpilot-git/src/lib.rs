@@ -687,6 +687,356 @@ pub fn unstage_files(repo_path: &str, paths: &[String]) -> GitResult<()> {
     Ok(())
 }
 
+// ── Blame ────────────────────────────────────────────────
+
+/// A single line from `git blame`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitBlameLine {
+    /// Line number in the file (1-based).
+    pub line_no: u32,
+    /// Commit hash that last changed this line.
+    pub commit_hash: String,
+    /// Short commit hash (first 7 chars).
+    pub short_hash: String,
+    /// Author of the commit.
+    pub author: String,
+    /// Author timestamp formatted as "YYYY-MM-DD HH:MM".
+    pub time: String,
+    /// Line content.
+    pub content: String,
+}
+
+/// Per-file blame with line-level commit info.
+pub fn blame_file(repo_path: &str, file_path: &str) -> GitResult<Vec<GitBlameLine>> {
+    let repo = open_repo(repo_path)?;
+
+    let head = repo.head().map_err(map_git_err)?;
+    let head_commit = head.peel_to_commit().map_err(map_git_err)?;
+    let head_tree = head_commit.tree().map_err(map_git_err)?;
+
+    // Check the file exists in HEAD
+    let _entry = head_tree
+        .get_path(Path::new(file_path))
+        .map_err(|_| GitError::InvalidPath(format!("File not found in HEAD: {file_path}")))?;
+
+    let blame = repo
+        .blame_file(Path::new(file_path), None)
+        .map_err(map_git_err)?;
+
+    let blob = repo
+        .find_blob(
+            head_tree
+                .get_path(Path::new(file_path))
+                .map_err(map_git_err)?
+                .id(),
+        )
+        .map_err(map_git_err)?;
+
+    let content = std::str::from_utf8(blob.content()).unwrap_or("");
+    let lines = content.lines().collect::<Vec<_>>();
+
+    let mut result = Vec::new();
+    let mut line_idx = 0usize;
+
+    for hunk in blame.iter() {
+        let sig = hunk.final_signature();
+        let author = String::from_utf8_lossy(sig.name_bytes()).to_string();
+        let commit_id = hunk.final_commit_id();
+        let hash = commit_id.to_string();
+        let short_hash = if hash.len() >= 7 {
+            hash[..7].to_string()
+        } else {
+            hash.clone()
+        };
+        let time = {
+            let secs = hunk.final_signature().when().seconds();
+            chrono::DateTime::from_timestamp(secs, 0)
+                .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
+                .unwrap_or_default()
+        };
+
+        let sig_lines = hunk.lines_in_hunk();
+        for _ in 0..sig_lines {
+            let line_content = if line_idx < lines.len() {
+                lines[line_idx].to_string()
+            } else {
+                String::new()
+            };
+            result.push(GitBlameLine {
+                line_no: (line_idx + 1) as u32,
+                commit_hash: hash.clone(),
+                short_hash: short_hash.clone(),
+                author: author.clone(),
+                time: time.clone(),
+                content: line_content,
+            });
+            line_idx += 1;
+        }
+    }
+
+    Ok(result)
+}
+
+// ── Diff between two commits ────────────────────────────
+
+/// Show diff between any two refs (commits, branches, tags).
+pub fn diff_commits(
+    repo_path: &str,
+    from_ref: &str,
+    to_ref: &str,
+) -> GitResult<Vec<GitDiffResult>> {
+    let repo = open_repo(repo_path)?;
+
+    let from_obj = repo.revparse_single(from_ref).map_err(map_git_err)?;
+    let from_tree = from_obj.peel_to_tree().map_err(map_git_err)?;
+
+    let to_obj = repo.revparse_single(to_ref).map_err(map_git_err)?;
+    let to_tree = to_obj.peel_to_tree().map_err(map_git_err)?;
+
+    let mut opts = git2::DiffOptions::new();
+    let diff = repo
+        .diff_tree_to_tree(Some(&from_tree), Some(&to_tree), Some(&mut opts))
+        .map_err(map_git_err)?;
+
+    extract_diff_results(&diff)
+}
+
+// ── Discard changes ─────────────────────────────────────
+
+/// Discard working tree changes.
+///
+/// If `paths` is `Some`, only the listed files are checked out from HEAD.
+/// If `paths` is `None`, **all** modified files are restored (equivalent to
+/// `git checkout -- .`).
+pub fn discard_changes(repo_path: &str, paths: Option<&[String]>) -> GitResult<()> {
+    let repo = open_repo(repo_path)?;
+    let head = repo.head().map_err(map_git_err)?;
+    let head_tree = head.peel_to_tree().map_err(map_git_err)?;
+
+    let mut checkout_builder = git2::build::CheckoutBuilder::new();
+    checkout_builder.force();
+
+    if let Some(file_paths) = paths {
+        for p in file_paths {
+            checkout_builder.path(Path::new(p));
+        }
+    }
+
+    repo.checkout_tree(head_tree.as_object(), Some(&mut checkout_builder))
+        .map_err(map_git_err)?;
+
+    Ok(())
+}
+
+// ── Revert commit ───────────────────────────────────────
+
+/// Create a new commit that undoes the changes introduced by `commit_hash`.
+///
+/// This is equivalent to `git revert <commit_hash>`.
+pub fn revert_commit(repo_path: &str, commit_hash: &str) -> GitResult<String> {
+    let repo = open_repo(repo_path)?;
+
+    let oid = repo.revparse_single(commit_hash).map_err(map_git_err)?.id();
+    let revert_commit = repo.find_commit(oid).map_err(map_git_err)?;
+
+    // Revert creates a new commit that undoes the given commit.
+    // git2::Repository::revert does the heavy lifting.
+    repo.revert(&revert_commit, None).map_err(map_git_err)?;
+
+    // Check for conflicts
+    let mut index = repo.index().map_err(map_git_err)?;
+    if index.has_conflicts() {
+        // Abort the revert on conflict — caller can handle separately
+        repo.cleanup_state().map_err(map_git_err)?;
+        return Err(GitError::GitError(
+            "Revert resulted in conflicts; aborting.".into(),
+        ));
+    }
+
+    // Commit the revert
+    let tree_id = index.write_tree().map_err(map_git_err)?;
+    let tree = repo.find_tree(tree_id).map_err(map_git_err)?;
+
+    let head = repo.head().map_err(map_git_err)?;
+    let head_commit = head
+        .target()
+        .ok_or_else(|| GitError::GitError("No HEAD target".into()))?;
+    let parent = repo.find_commit(head_commit).map_err(map_git_err)?;
+
+    let sig = repo
+        .signature()
+        .unwrap_or_else(|_| git2::Signature::now("DevPilot", "devpilot@local").unwrap());
+
+    let orig_msg = revert_commit.message().unwrap_or("change");
+    let first_line = orig_msg.lines().next().unwrap_or("change");
+    let message = format!("Revert \"{first_line}\"");
+
+    let parents: Vec<&git2::Commit> = vec![&parent];
+    let new_id = repo
+        .commit(Some("HEAD"), &sig, &sig, &message, &tree, &parents)
+        .map_err(map_git_err)?;
+
+    repo.cleanup_state().map_err(map_git_err)?;
+
+    Ok(new_id.to_string())
+}
+
+// ── Merge branch ────────────────────────────────────────
+
+/// Merge `branch` into the current HEAD.
+///
+/// Fast-forward is used when possible; otherwise a merge commit is created.
+pub fn merge_branch(repo_path: &str, branch: &str) -> GitResult<()> {
+    let repo = open_repo(repo_path)?;
+
+    // Resolve the branch to an annotated commit
+    let branch_ref = repo
+        .find_reference(&format!("refs/heads/{branch}"))
+        .or_else(|_| repo.find_reference(&format!("refs/remotes/origin/{branch}")))
+        .map_err(|e| GitError::GitError(format!("Branch '{branch}' not found: {}", e.message())))?;
+    let annotated = repo
+        .reference_to_annotated_commit(&branch_ref)
+        .map_err(map_git_err)?;
+
+    let (analysis, _) = repo.merge_analysis(&[&annotated]).map_err(map_git_err)?;
+
+    if analysis.is_up_to_date() {
+        return Ok(());
+    }
+
+    if analysis.is_fast_forward() {
+        // Fast-forward merge
+        let head = repo.head().map_err(map_git_err)?;
+        let refname = head
+            .name()
+            .ok_or_else(|| GitError::GitError("No HEAD branch name".into()))?
+            .to_string();
+
+        let mut reference = repo.find_reference(&refname).map_err(map_git_err)?;
+        reference
+            .set_target(
+                annotated.id(),
+                &format!("Merge branch '{branch}' (fast-forward)"),
+            )
+            .map_err(map_git_err)?;
+        repo.set_head(&refname).map_err(map_git_err)?;
+        repo.checkout_head(Some(git2::build::CheckoutBuilder::new().force()))
+            .map_err(map_git_err)?;
+    } else {
+        // Normal merge — perform the merge and create a merge commit
+        repo.merge(&[&annotated], None, None).map_err(map_git_err)?;
+
+        // Check for conflicts
+        let mut index = repo.index().map_err(map_git_err)?;
+        if index.has_conflicts() {
+            // Leave the repository in merging state for the user to resolve
+            return Err(GitError::GitError(
+                "Merge conflicts detected. Please resolve them manually.".into(),
+            ));
+        }
+
+        let head = repo.head().map_err(map_git_err)?;
+        let head_commit = head
+            .target()
+            .ok_or_else(|| GitError::GitError("No HEAD target".into()))?;
+        let parent = repo.find_commit(head_commit).map_err(map_git_err)?;
+
+        let tree_id = index.write_tree().map_err(map_git_err)?;
+        let tree = repo.find_tree(tree_id).map_err(map_git_err)?;
+
+        let sig = repo
+            .signature()
+            .unwrap_or_else(|_| git2::Signature::now("DevPilot", "devpilot@local").unwrap());
+
+        // The merge commit has two parents: HEAD and the merged branch
+        let merge_commit = repo.find_commit(annotated.id()).map_err(map_git_err)?;
+        let parents: Vec<&git2::Commit> = vec![&parent, &merge_commit];
+
+        repo.commit(
+            Some("HEAD"),
+            &sig,
+            &sig,
+            &format!("Merge branch '{branch}'"),
+            &tree,
+            &parents,
+        )
+        .map_err(map_git_err)?;
+
+        repo.cleanup_state().map_err(map_git_err)?;
+    }
+
+    Ok(())
+}
+
+// ── Stash list & apply ──────────────────────────────────
+
+/// A single stash entry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitStashEntry {
+    /// Stash index (0 = most recent).
+    pub index: usize,
+    /// Stash commit hash.
+    pub commit_hash: String,
+    /// Short commit hash.
+    pub short_hash: String,
+    /// Stash message.
+    pub message: String,
+    /// Author timestamp formatted as "YYYY-MM-DD HH:MM".
+    pub time: String,
+}
+
+/// List all stash entries.
+pub fn stash_list(repo_path: &str) -> GitResult<Vec<GitStashEntry>> {
+    let mut repo = open_repo(repo_path)?;
+
+    // First pass: collect stash info (index, message, oid)
+    let mut stash_info: Vec<(usize, String, git2::Oid)> = Vec::new();
+    repo.stash_foreach(|index, msg, oid| {
+        stash_info.push((index, msg.to_string(), *oid));
+        true
+    })
+    .map_err(map_git_err)?;
+
+    // Second pass: resolve commit metadata from OIDs
+    let mut result = Vec::new();
+    for (index, message, oid) in stash_info {
+        let hash = oid.to_string();
+        let short_hash = if hash.len() >= 7 {
+            hash[..7].to_string()
+        } else {
+            hash.clone()
+        };
+
+        let time = repo
+            .find_commit(oid)
+            .ok()
+            .map(|c| {
+                let secs = c.time().seconds();
+                chrono::DateTime::from_timestamp(secs, 0)
+                    .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
+                    .unwrap_or_default()
+            })
+            .unwrap_or_default();
+
+        result.push(GitStashEntry {
+            index,
+            commit_hash: hash,
+            short_hash,
+            message,
+            time,
+        });
+    }
+
+    Ok(result)
+}
+
+/// Apply a stash entry by index (without dropping it).
+pub fn stash_apply(repo_path: &str, stash_index: usize) -> GitResult<()> {
+    let mut repo = open_repo(repo_path)?;
+    repo.stash_apply(stash_index, None).map_err(map_git_err)?;
+    Ok(())
+}
+
 // ── Tests ──────────────────────────────────────────────
 
 #[cfg(test)]

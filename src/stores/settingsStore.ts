@@ -16,6 +16,7 @@ interface PersistedSettings {
   reasoningEffort: number;
   fontSize: number;
   sandboxPolicy: "default" | "permissive" | "strict";
+  permissionMode: "plan" | "auto" | "manual";
   systemPrompt: string;
 }
 
@@ -37,6 +38,7 @@ const DEFAULTS: PersistedSettings = {
   reasoningEffort: 50,
   fontSize: 14,
   sandboxPolicy: "default",
+  permissionMode: "auto",
   systemPrompt: "",
 };
 
@@ -69,6 +71,7 @@ type SettingsState = PersistedSettings & {
   setLocale: (locale: Locale) => void;
   setFontSize: (size: number) => void;
   setSandboxPolicy: (policy: "default" | "permissive" | "strict") => void;
+  setPermissionMode: (mode: "plan" | "auto" | "manual") => void;
   setSystemPrompt: (prompt: string) => void;
 };
 
@@ -82,6 +85,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   reasoningEffort: hydrated.reasoningEffort ?? DEFAULTS.reasoningEffort,
   fontSize: hydrated.fontSize ?? DEFAULTS.fontSize,
   sandboxPolicy: hydrated.sandboxPolicy ?? DEFAULTS.sandboxPolicy,
+  permissionMode: hydrated.permissionMode ?? DEFAULTS.permissionMode,
   systemPrompt: hydrated.systemPrompt ?? DEFAULTS.systemPrompt,
   models: DEFAULT_MODELS,
 
@@ -114,6 +118,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setSandboxPolicy: (policy) => {
     set({ sandboxPolicy: policy });
     persist({ sandboxPolicy: policy });
+  },
+  setPermissionMode: (mode) => {
+    set({ permissionMode: mode });
+    persist({ permissionMode: mode });
   },
   setSystemPrompt: (prompt) => {
     set({ systemPrompt: prompt });

@@ -106,6 +106,8 @@ pub fn run() {
             commands::search::search_messages,
             commands::search::list_directory,
             commands::search::read_text_file,
+            // External Editor
+            commands::editor::open_in_editor,
             // Scheduler
             commands::scheduler::scheduler_create_task,
             commands::scheduler::scheduler_list_tasks,
@@ -195,6 +197,13 @@ pub fn run() {
             commands::git::git_add_files,
             commands::git::git_add_all,
             commands::git::git_unstage_files,
+            commands::git::git_blame,
+            commands::git::git_diff_commits,
+            commands::git::git_discard_changes,
+            commands::git::git_revert_commit,
+            commands::git::git_merge_branch,
+            commands::git::git_stash_list,
+            commands::git::git_stash_apply,
             // Symbol Index
             commands::symbol::index_directory,
             commands::symbol::clear_symbol_index,

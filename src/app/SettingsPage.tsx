@@ -19,6 +19,8 @@ import {
   configDeleteGlobal,
   configGlobalExists,
   type ConfigFileIPC,
+  type HookInfoIPC,
+  type HookResultIPC,
 } from "../lib/ipc";
 import { useMcpStore } from "../stores/mcpStore";
 import type { McpServerConfig } from "../types";
@@ -70,7 +72,7 @@ import {
 import { PersonaMemoryTab } from "../components/PersonaMemoryTab";
 import { useShortcutStore, SHORTCUT_DEFINITIONS, type ShortcutAction } from "../stores/shortcutStore";
 
-type TabId = "providers" | "appearance" | "shortcuts" | "usage" | "bridge" | "mcp" | "security" | "persona" | "data" | "config";
+type TabId = "providers" | "appearance" | "shortcuts" | "usage" | "bridge" | "mcp" | "security" | "hooks" | "persona" | "data" | "config";
 
 const TABS: { id: TabId; icon: typeof Settings; labelKey: string }[] = [
   { id: "providers", icon: Plug, labelKey: "providers" },
@@ -80,6 +82,7 @@ const TABS: { id: TabId; icon: typeof Settings; labelKey: string }[] = [
   { id: "bridge" as const, icon: MessageSquare, labelKey: "bridge" },
   { id: "mcp" as const, icon: Wrench, labelKey: "mcpServers" },
   { id: "security" as const, icon: Shield, labelKey: "security" },
+  { id: "hooks" as const, icon: Wrench, labelKey: "hooks" },
   { id: "persona" as const, icon: BookOpen, labelKey: "personaAndMemory" },
   { id: "data" as const, icon: Database, labelKey: "dataManagement" },
   { id: "config" as const, icon: FileText, labelKey: "config" },
@@ -126,6 +129,7 @@ export function SettingsPage() {
         {activeTab === "bridge" && <BridgeTab />}
         {activeTab === "mcp" && <McpTab />}
         {activeTab === "security" && <SecurityTab />}
+        {activeTab === "hooks" && <HooksTab />}
         {activeTab === "persona" && <PersonaMemoryTabWrapper />}
         {activeTab === "data" && <DataTab />}
         {activeTab === "config" && <ConfigTab />}
@@ -1550,12 +1554,58 @@ function SecurityTab() {
   const { t } = useI18n();
   const sandboxPolicy = useSettingsStore((s) => s.sandboxPolicy);
   const setSandboxPolicy = useSettingsStore((s) => s.setSandboxPolicy);
+  const permissionMode = useSettingsStore((s) => s.permissionMode);
+  const setPermissionMode = useSettingsStore((s) => s.setPermissionMode);
+
+  const PERMISSION_MODES: { id: "plan" | "auto" | "manual"; labelKey: string; descKey: string }[] = [
+    { id: "plan", labelKey: "permissionPlan", descKey: "permissionPlanDesc" },
+    { id: "auto", labelKey: "permissionAuto", descKey: "permissionAutoDesc" },
+    { id: "manual", labelKey: "permissionManual", descKey: "permissionManualDesc" },
+  ];
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h2 className="text-base font-semibold text-foreground">{t("security")}</h2>
         <p className="text-xs text-muted-foreground mt-1">{t("securityDesc")}</p>
+      </div>
+
+      {/* Permission Mode */}
+      <div>
+        <label className="text-xs font-medium text-foreground">{t("permissionMode")}</label>
+        <p className="text-[10px] text-muted-foreground mt-1 mb-3">{t("permissionModeDesc")}</p>
+        <div className="space-y-2">
+          {PERMISSION_MODES.map((mode) => (
+            <button
+              key={mode.id}
+              onClick={() => setPermissionMode(mode.id)}
+              className={cn(
+                "flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors",
+                permissionMode === mode.id
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:border-accent",
+              )}
+            >
+              <div className={cn(
+                "mt-0.5 h-4 w-4 shrink-0 rounded-full border-2",
+                permissionMode === mode.id
+                  ? "border-primary bg-primary"
+                  : "border-muted-foreground/30",
+              )} />
+              <div>
+                <div className={cn(
+                  "text-xs font-medium",
+                  permissionMode === mode.id ? "text-primary" : "text-foreground",
+                )}>
+                  {t(mode.labelKey)}
+                </div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">
+                  {t(mode.descKey)}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Sandbox Policy */}
@@ -1595,6 +1645,266 @@ function SecurityTab() {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+// --- Hooks Tab ---
+
+const HOOK_EVENTS = [
+  { id: "pre_tool_execute", labelKey: "hookPreTool" },
+  { id: "post_tool_execute", labelKey: "hookPostTool" },
+  { id: "pre_file_write", labelKey: "hookPreFileWrite" },
+  { id: "post_shell_exec", labelKey: "hookPostShellExec" },
+] as const;
+
+function HooksTab() {
+  const { t } = useI18n();
+  const [hooks, setHooks] = useState<HookInfoIPC[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [formName, setFormName] = useState("");
+  const [formEvent, setFormEvent] = useState("pre_tool_execute");
+  const [formCommand, setFormCommand] = useState("");
+  const [formTimeout, setFormTimeout] = useState(30);
+  const [testing, setTesting] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<HookResultIPC | null>(null);
+
+  const loadHooks = useCallback(async () => {
+    try {
+      const { listHooks } = await import("../lib/ipc");
+      const result = await listHooks();
+      setHooks(result);
+    } catch (err) {
+      console.error("Failed to load hooks:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadHooks(); }, [loadHooks]);
+
+  const handleAddHook = async () => {
+    if (!formName.trim() || !formCommand.trim()) {
+      return;
+    }
+    try {
+      const { addHook } = await import("../lib/ipc");
+      const newHook = await addHook(formName, formEvent, formCommand, formTimeout);
+      setHooks((prev) => [...prev, newHook]);
+      setFormName("");
+      setFormCommand("");
+      setShowForm(false);
+    } catch (err) {
+      console.error("Failed to add hook:", err);
+    }
+  };
+
+  const handleRemoveHook = async (id: string) => {
+    try {
+      const { removeHook } = await import("../lib/ipc");
+      await removeHook(id);
+      setHooks((prev) => prev.filter((h) => h.id !== id));
+    } catch (err) {
+      console.error("Failed to remove hook:", err);
+    }
+  };
+
+  const handleToggleHook = async (id: string) => {
+    try {
+      const { toggleHook } = await import("../lib/ipc");
+      const updated = await toggleHook(id);
+      setHooks((prev) => prev.map((h) => (h.id === id ? updated : h)));
+    } catch (err) {
+      console.error("Failed to toggle hook:", err);
+    }
+  };
+
+  const handleTestHook = async (id: string) => {
+    setTesting(id);
+    setTestResult(null);
+    try {
+      const { testHook } = await import("../lib/ipc");
+      const result = await testHook(id);
+      setTestResult(result);
+    } catch (err) {
+      console.error("Failed to test hook:", err);
+    } finally {
+      setTesting(null);
+    }
+  };
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-base font-semibold text-foreground">{t("hooks")}</h2>
+          <p className="text-xs text-muted-foreground mt-1">{t("hooksDesc")}</p>
+        </div>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="flex items-center gap-1 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+        >
+          <Plus size={12} />
+          {t("addHook")}
+        </button>
+      </div>
+
+      {/* Add hook form */}
+      {showForm && (
+        <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+          <div>
+            <label className="text-xs font-medium text-foreground">{t("hookName")}</label>
+            <input
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+              placeholder="My Hook"
+              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-ring"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-foreground">{t("hookEvent")}</label>
+            <select
+              value={formEvent}
+              onChange={(e) => setFormEvent(e.target.value)}
+              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-1.5 text-xs text-foreground outline-none focus:border-ring"
+            >
+              {HOOK_EVENTS.map((evt) => (
+                <option key={evt.id} value={evt.id}>{t(evt.labelKey)}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-foreground">{t("hookCommand")}</label>
+            <input
+              value={formCommand}
+              onChange={(e) => setFormCommand(e.target.value)}
+              placeholder={t("hookCommandPlaceholder") || "e.g. echo 'tool executed'"}
+              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-1.5 text-xs text-foreground font-mono placeholder:text-muted-foreground outline-none focus:border-ring"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-foreground">{t("hookTimeout")}</label>
+            <input
+              type="number"
+              value={formTimeout}
+              onChange={(e) => setFormTimeout(Number(e.target.value))}
+              min={1}
+              max={300}
+              className="mt-1 w-24 rounded-md border border-input bg-background px-3 py-1.5 text-xs text-foreground outline-none focus:border-ring"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setShowForm(false)}
+              className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {t("cancel") || "Cancel"}
+            </button>
+            <button
+              onClick={handleAddHook}
+              disabled={!formName.trim() || !formCommand.trim()}
+              className="rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
+            >
+              {t("addHook")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Hooks list */}
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 py-8 text-xs text-muted-foreground">
+          <Loader2 size={14} className="animate-spin" />
+          {t("loading")}
+        </div>
+      ) : hooks.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-border p-8 text-center">
+          <p className="text-xs text-muted-foreground">{t("hookNoHooks")}</p>
+          <p className="text-[10px] text-muted-foreground/70 mt-1">{t("hookNoHooksHint")}</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {hooks.map((hook) => (
+            <div
+              key={hook.id}
+              className={cn(
+                "rounded-lg border bg-card p-3",
+                hook.enabled ? "border-border" : "border-border opacity-60",
+              )}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-foreground">{hook.name}</span>
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground">
+                      {hook.event.replace(/_/g, " ")}
+                    </span>
+                    <span className={cn(
+                      "rounded px-1.5 py-0.5 text-[9px]",
+                      hook.enabled
+                        ? "bg-emerald-500/10 text-emerald-500"
+                        : "bg-muted text-muted-foreground",
+                    )}>
+                      {hook.enabled ? t("hookEnabled") : t("hookDisabled")}
+                    </span>
+                  </div>
+                  <code className="mt-1 block text-[10px] text-muted-foreground font-mono truncate">
+                    {hook.command}
+                  </code>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => handleTestHook(hook.id)}
+                    disabled={testing === hook.id}
+                    className="rounded-md px-2 py-1 text-[10px] text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+                  >
+                    {testing === hook.id ? (
+                      <Loader2 size={10} className="animate-spin inline" />
+                    ) : (
+                      t("hookTest")
+                    )}
+                  </button>
+                  <button
+                    onClick={() => handleToggleHook(hook.id)}
+                    className="rounded-md px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {t("hookToggle")}
+                  </button>
+                  <button
+                    onClick={() => handleRemoveHook(hook.id)}
+                    className="rounded-md px-2 py-1 text-[10px] text-destructive hover:bg-destructive/10 transition-colors"
+                  >
+                    <Trash2 size={10} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Test result */}
+              {testResult && testResult.hookId === hook.id && (
+                <div className="mt-2 rounded-md border border-border bg-background p-2 text-[10px] font-mono space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className={testResult.success ? "text-emerald-500" : "text-destructive"}>
+                      {testResult.success ? "✓" : "✗"} {testResult.exitCode !== null ? `exit ${testResult.exitCode}` : ""}
+                      {testResult.timedOut && " (timed out)"}
+                    </span>
+                  </div>
+                  {testResult.stdout && (
+                    <div className="text-muted-foreground">
+                      <span className="text-muted-foreground/60">{t("hookStdout")}:</span> {testResult.stdout.slice(0, 500)}
+                    </div>
+                  )}
+                  {testResult.stderr && (
+                    <div className="text-yellow-500">
+                      <span className="text-yellow-500/60">{t("hookStderr")}:</span> {testResult.stderr.slice(0, 500)}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

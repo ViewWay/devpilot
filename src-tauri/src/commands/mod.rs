@@ -9,6 +9,7 @@ pub mod agent;
 pub mod bridge;
 pub mod config;
 pub mod data;
+pub mod editor;
 pub mod git;
 pub mod hooks;
 pub mod llm;

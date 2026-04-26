@@ -920,6 +920,47 @@ const zh = {
   hookNoHooksHint: "添加一个钩子以在工具执行时运行自定义命令",
   hookBlockedBy: "被钩子阻止",
   hookToggle: "切换",
+
+  // --- Permission Mode ---
+  permissionMode: "权限模式",
+  permissionModeDesc: "控制工具执行时的授权方式。",
+  permissionPlan: "计划模式",
+  permissionPlanDesc: "只读 — 所有写操作被阻止。",
+  permissionAuto: "自动模式",
+  permissionAutoDesc: "自动批准低/中风险工具，高风险需确认。",
+  permissionManual: "手动模式",
+  permissionManualDesc: "每次工具调用都需要用户确认。",
+
+  // --- External Editor ---
+  openInEditor: "在外部编辑器中打开",
+  openInEditorTooltip: "在外部编辑器中打开此文件",
+  editorOpened: "已在编辑器中打开",
+  editorOpenFailed: "打开编辑器失败",
+
+  // --- Diff View ---
+  diffNoChanges: "无变更",
+  diffLinesChanged: "{count} 行已变更",
+  diffExpandAll: "全部展开",
+  diffCollapseAll: "全部折叠",
+  diffVirtualScrollHint: "显示 {total} 行中的 {visible} 行",
+
+  // --- Inline Diff ---
+  inlineDiffAdded: "新增",
+  inlineDiffRemoved: "删除",
+  inlineDiffChanged: "变更",
+
+  // --- File Tree Enhancements ---
+  fileTreeOpenInEditor: "在编辑器中打开",
+  fileTreeCopyPath: "复制路径",
+  fileTreeCopyRelativePath: "复制相对路径",
+  fileTreePathCopied: "路径已复制！",
+  fileTreeNewFile: "新建文件",
+  fileTreeNewFolder: "新建文件夹",
+  fileTreeRevealInOS: "在文件管理器中显示",
+  fileTreeGitModified: "改",
+  fileTreeGitAdded: "增",
+  fileTreeGitDeleted: "删",
+  fileTreeGitUntracked: "未",
 } as const;
 
 export default zh;
