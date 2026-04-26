@@ -232,7 +232,7 @@ export function MarketplacePanel() {
                 {/* Name + author */}
                 <div className="flex items-start justify-between gap-1">
                   <span className="text-xs font-medium truncate">{skill.name}</span>
-                  {skill.rating !== null && (
+                  {skill.rating !== undefined && skill.rating !== null && (
                     <div className="flex items-center gap-0.5 text-[10px] text-warning shrink-0">
                       <Star size={9} fill="currentColor" />
                       {skill.rating.toFixed(1)}
@@ -320,7 +320,7 @@ export function MarketplacePanel() {
                         by {skill.author}
                       </span>
                     )}
-                    {skill.rating !== null && (
+                    {skill.rating !== undefined && skill.rating !== null && (
                       <div className="flex items-center gap-0.5 text-[10px] text-warning">
                         <Star size={9} fill="currentColor" />
                         {skill.rating.toFixed(1)}
