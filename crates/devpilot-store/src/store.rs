@@ -822,6 +822,21 @@ impl Store {
         )?;
         Ok(removed)
     }
+
+    /// Rewind (delete) messages in a session that were created strictly after
+    /// the given `created_at` timestamp. Returns the number of messages deleted.
+    pub fn rewind_messages_after(&self, session_id: &str, created_at: &str) -> Result<usize> {
+        let removed: usize = self.conn.query_row(
+            "SELECT COUNT(*) FROM messages WHERE session_id = ?1 AND created_at > ?2",
+            rusqlite::params![session_id, created_at],
+            |row| row.get(0),
+        )?;
+        self.conn.execute(
+            "DELETE FROM messages WHERE session_id = ?1 AND created_at > ?2",
+            rusqlite::params![session_id, created_at],
+        )?;
+        Ok(removed)
+    }
 }
 
 // ── Helpers ────────────────────────────────────────────

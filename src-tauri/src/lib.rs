@@ -194,6 +194,25 @@ pub fn run() {
             commands::symbol::clear_symbol_index,
             commands::symbol::search_symbols,
             commands::symbol::get_index_stats,
+            // Agent Task Management
+            commands::agent::agent_task_create,
+            commands::agent::agent_task_update,
+            commands::agent::agent_task_list,
+            commands::agent::agent_task_output,
+            commands::agent::agent_task_stop,
+            // Agent Plan Mode
+            commands::agent::agent_enter_plan_mode,
+            commands::agent::agent_exit_plan_mode,
+            commands::agent::agent_is_plan_mode,
+            // Marketplace
+            commands::marketplace::marketplace_fetch_catalog,
+            commands::marketplace::marketplace_search_skills,
+            commands::marketplace::marketplace_install_skill,
+            commands::marketplace::marketplace_uninstall_skill,
+            // Session Operations
+            commands::session_ops::session_export,
+            commands::session_ops::session_fork,
+            commands::session_ops::session_rewind,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

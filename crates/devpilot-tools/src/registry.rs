@@ -42,6 +42,12 @@ impl ToolRegistry {
         reg.register(Arc::new(crate::ListDirectoryTool::new()))
             .await;
         reg.register(Arc::new(crate::GlobTool::new())).await;
+        reg.register(Arc::new(crate::TodoWriteTool::new())).await;
+        reg.register(Arc::new(crate::WebSearchTool::new())).await;
+        reg.register(Arc::new(crate::NotebookEditTool::new())).await;
+        reg.register(Arc::new(crate::AskUserTool::new())).await;
+        reg.register(Arc::new(crate::SendMessageTool::new())).await;
+        reg.register(Arc::new(crate::SleepTool::new())).await;
         reg
     }
 
@@ -238,5 +244,11 @@ mod tests {
         assert!(names.contains(&"apply_patch".to_string()));
         assert!(names.contains(&"list_directory".to_string()));
         assert!(names.contains(&"glob".to_string()));
+        assert!(names.contains(&"todo_write".to_string()));
+        assert!(names.contains(&"web_search".to_string()));
+        assert!(names.contains(&"notebook_edit".to_string()));
+        assert!(names.contains(&"ask_user".to_string()));
+        assert!(names.contains(&"send_message".to_string()));
+        assert!(names.contains(&"sleep".to_string()));
     }
 }

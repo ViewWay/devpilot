@@ -283,6 +283,7 @@ pub async fn send_message_stream(
                 })
                 .unwrap_or_default()
         },
+        context_window_tokens: None,
     };
 
     // Create session and load history from DB

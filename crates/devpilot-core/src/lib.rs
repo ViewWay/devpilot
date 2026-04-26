@@ -12,6 +12,7 @@ pub mod compact;
 pub mod error;
 pub mod event_bus;
 pub mod session;
+pub mod session_ops;
 
 pub use agent::{Agent, AgentConfig};
 pub use approval::ApprovalGate;
@@ -19,3 +20,7 @@ pub use compact::CompactStrategy;
 pub use error::CoreError;
 pub use event_bus::{CoreEvent, EventBus, EventBusReceiver};
 pub use session::{Session, SessionConfig, SessionState};
+pub use session_ops::{
+    ExportFormat, ExportOptions, ForkOptions, ForkResult, RewindOptions, RewindResult,
+    export_session, fork_session, rewind_session,
+};

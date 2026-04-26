@@ -38,6 +38,11 @@ pub struct SessionConfig {
     /// Per-session environment variables (KEY=VALUE pairs) injected into shell commands.
     #[serde(default)]
     pub env_vars: Vec<(String, String)>,
+    /// Model's context window size in tokens.
+    /// When set, the session uses this to decide when to auto-compact.
+    /// If `None`, the agent falls back to its own default threshold.
+    #[serde(default)]
+    pub context_window_tokens: Option<u32>,
 }
 
 /// Current state of a session.
@@ -66,6 +71,7 @@ impl std::fmt::Display for SessionState {
 }
 
 /// A conversation session.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Session {
     /// Unique session identifier.
     pub id: SessionId,
@@ -228,6 +234,31 @@ impl Session {
     fn touch(&mut self) {
         self.updated_at = chrono::Utc::now();
     }
+
+    /// Estimate the total tokens consumed by the current conversation.
+    ///
+    /// Uses the character-based heuristic (~4 chars/token) which is a rough
+    /// approximation suitable for deciding when to compact.
+    pub fn estimate_context_tokens(&self) -> u32 {
+        crate::compact::estimate_message_tokens(&self.messages)
+    }
+
+    /// Check if the conversation should be compacted based on context usage.
+    ///
+    /// Returns `true` when the estimated token count exceeds `threshold_fraction`
+    /// of the model's context window.  Default fraction is 0.75 (compact when
+    /// conversation reaches 75 % of the window, leaving room for the response).
+    ///
+    /// If `context_window_tokens` is not set on the session config, returns `false`.
+    pub fn should_compact(&self, threshold_fraction: f32) -> bool {
+        let window = match self.config.context_window_tokens {
+            Some(w) => w,
+            None => return false,
+        };
+        let estimated = self.estimate_context_tokens();
+        let threshold = (window as f32 * threshold_fraction) as u32;
+        estimated > threshold
+    }
 }
 
 #[cfg(test)]
@@ -245,6 +276,7 @@ mod tests {
             system_prompt: None,
             temperature: None,
             env_vars: vec![],
+            context_window_tokens: Some(128_000),
         }
     }
 
@@ -382,5 +414,70 @@ mod tests {
         session.truncate_messages(4);
         assert_eq!(session.messages.len(), 4);
         assert_eq!(session.messages[0].text_content(), "msg 6");
+    }
+
+    #[test]
+    fn estimate_context_tokens_empty() {
+        let session = Session::new(test_config());
+        assert_eq!(session.estimate_context_tokens(), 0);
+    }
+
+    #[test]
+    fn estimate_context_tokens_with_messages() {
+        let mut session = Session::new(test_config());
+        session.add_user_message("Hello, how are you doing today?");
+        session.add_assistant_message("I'm doing well, thanks for asking!");
+        let tokens = session.estimate_context_tokens();
+        assert!(
+            tokens > 0,
+            "Should estimate non-zero tokens for non-empty messages"
+        );
+    }
+
+    #[test]
+    fn should_compact_below_threshold() {
+        let mut session = Session::new(test_config());
+        // context_window_tokens = 128_000, threshold_fraction = 0.75 → 96_000
+        // Adding a short message should be well below threshold
+        session.add_user_message("Hello!");
+        assert!(!session.should_compact(0.75));
+    }
+
+    #[test]
+    fn should_compact_above_threshold() {
+        let mut config = test_config();
+        // Small window: 100 tokens
+        config.context_window_tokens = Some(100);
+        let mut session = Session::new(config);
+        // Add enough text to exceed 75 tokens (100 * 0.75 = 75)
+        // 400 chars / 4 = 100 tokens estimated
+        let long_msg = "a".repeat(400);
+        session.add_user_message(long_msg);
+        assert!(session.should_compact(0.75));
+    }
+
+    #[test]
+    fn should_compact_no_context_window() {
+        let mut config = test_config();
+        config.context_window_tokens = None;
+        let mut session = Session::new(config);
+        // Even with lots of messages, should_compact returns false without a window
+        let long_msg = "a".repeat(10_000);
+        session.add_user_message(long_msg);
+        assert!(!session.should_compact(0.75));
+    }
+
+    #[test]
+    fn should_compact_custom_fraction() {
+        let mut config = test_config();
+        config.context_window_tokens = Some(100);
+        let mut session = Session::new(config);
+        // 200 chars / 4 = 50 tokens → 50% of 100
+        let msg = "a".repeat(200);
+        session.add_user_message(msg);
+        // At fraction 0.4 (threshold = 40): 50 > 40 → compact
+        assert!(session.should_compact(0.4));
+        // At fraction 0.6 (threshold = 60): 50 < 60 → no compact
+        assert!(!session.should_compact(0.6));
     }
 }

@@ -128,18 +128,28 @@ impl Agent {
                 return Err(CoreError::MaxTurnsExceeded(self.config.max_turns));
             }
 
-            // Auto-compact if needed
-            if self.config.compact_threshold > 0 {
+            // Auto-compact if needed.
+            //
+            // Priority:
+            // 1. If the session has a `context_window_tokens` set, use the
+            //    model-aware threshold (75 % of the context window by default).
+            // 2. Otherwise, fall back to the agent's static `compact_threshold`.
+            let needs_compact = if session.config.context_window_tokens.is_some() {
+                session.should_compact(0.75)
+            } else if self.config.compact_threshold > 0 {
                 let estimated_tokens = estimate_message_tokens(&session.messages);
-                if estimated_tokens > self.config.compact_threshold {
-                    let result =
-                        compact_messages(&mut session.messages, self.config.compact_strategy);
-                    self.event_bus.emit(CoreEvent::Compacted {
-                        session_id: session.id.clone(),
-                        messages_removed: result.messages_removed,
-                        summary_added: result.summary_added,
-                    });
-                }
+                estimated_tokens > self.config.compact_threshold
+            } else {
+                false
+            };
+
+            if needs_compact {
+                let result = compact_messages(&mut session.messages, self.config.compact_strategy);
+                self.event_bus.emit(CoreEvent::Compacted {
+                    session_id: session.id.clone(),
+                    messages_removed: result.messages_removed,
+                    summary_added: result.summary_added,
+                });
             }
 
             // Get tool definitions for the request.
@@ -636,6 +646,7 @@ mod tests {
             system_prompt: None,
             temperature: None,
             env_vars: vec![],
+            context_window_tokens: None,
         });
 
         let result = agent.run(&mut session, &provider, "Hi there!".into()).await;
@@ -659,6 +670,7 @@ mod tests {
             system_prompt: None,
             temperature: None,
             env_vars: vec![],
+            context_window_tokens: None,
         });
 
         assert_eq!(session.state, SessionState::Idle);
@@ -684,6 +696,7 @@ mod tests {
             system_prompt: None,
             temperature: None,
             env_vars: vec![],
+            context_window_tokens: None,
         });
         session.set_state(SessionState::Archived);
 
@@ -809,6 +822,7 @@ mod tests {
             system_prompt: None,
             temperature: None,
             env_vars: vec![],
+            context_window_tokens: None,
         });
         // build_chat_request with Ask mode should always return tools: None
         let req = session.build_chat_request(vec![devpilot_protocol::ToolDefinition {
@@ -837,6 +851,7 @@ mod tests {
             system_prompt: None,
             temperature: None,
             env_vars: vec![],
+            context_window_tokens: None,
         });
 
         let result = agent
@@ -881,6 +896,7 @@ mod tests {
             system_prompt: None,
             temperature: None,
             env_vars: vec![],
+            context_window_tokens: None,
         });
         let tool_def = devpilot_protocol::ToolDefinition {
             name: "read_file".into(),

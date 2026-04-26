@@ -10,15 +10,18 @@ mod error;
 mod executor;
 mod registry;
 mod skill_loader;
+mod skills_marketplace;
 mod tools;
 
 pub use error::{ToolError, ToolResult};
 pub use executor::{ApprovalRequest, ApprovalStatus, RiskLevel, ToolExecutor};
 pub use registry::ToolRegistry;
 pub use skill_loader::SkillLoader;
+pub use skills_marketplace::SkillsMarketplace;
 pub use tools::{
-    ApplyPatchTool, FileReadTool, FileSearchTool, FileWriteTool, GlobTool, ListDirectoryTool,
-    ShellExecTool, WebFetchTool,
+    ApplyPatchTool, AskUserTool, FileReadTool, FileSearchTool, FileWriteTool, GlobTool,
+    ListDirectoryTool, NotebookEditTool, SendMessageTool, ShellExecTool, SleepTool, TodoWriteTool,
+    WebFetchTool, WebSearchTool,
 };
 
 use async_trait::async_trait;

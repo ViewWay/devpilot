@@ -409,6 +409,39 @@ function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
       ];
     case "get_index_stats":
       return { filesIndexed: 0, symbolsCount: 0, lastIndexedAt: null };
+    // Agent Tasks
+    case "agent_task_create":
+      return crypto.randomUUID();
+    case "agent_task_update":
+      return null;
+    case "agent_task_list":
+      return [];
+    case "agent_task_output":
+      return null;
+    case "agent_task_stop":
+      return null;
+    case "agent_enter_plan_mode":
+      return null;
+    case "agent_exit_plan_mode":
+      return null;
+    case "agent_is_plan_mode":
+      return false;
+    // Marketplace
+    case "marketplace_fetch_catalog":
+      return [];
+    case "marketplace_search_skills":
+      return [];
+    case "marketplace_install_skill":
+      return null;
+    case "marketplace_uninstall_skill":
+      return null;
+    // Session Operations
+    case "session_export":
+      return "# Exported Session\nMock export content";
+    case "session_fork":
+      return crypto.randomUUID();
+    case "session_rewind":
+      return 0;
     default:
       console.warn(`[IPC mock] Unhandled command: ${cmd}`);
       return null;

@@ -5,11 +5,13 @@ use devpilot_store::{
 };
 use tauri::State;
 
+pub mod agent;
 pub mod bridge;
 pub mod config;
 pub mod data;
 pub mod git;
 pub mod llm;
+pub mod marketplace;
 pub mod mcp;
 pub mod media;
 pub mod memory;
@@ -17,6 +19,7 @@ pub mod pty;
 pub mod sandbox;
 pub mod scheduler;
 pub mod search;
+pub mod session_ops;
 pub mod skills;
 pub mod symbol;
 pub mod tools;
