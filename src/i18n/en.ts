@@ -790,6 +790,12 @@ const en = {
   templatePicker: "New from Template",
   templatePickerDesc: "Choose a template to get started",
 
+  // --- Voice Input ---
+  "voiceInput.micTooltip": "Voice input",
+  "voiceInput.notSupported": "Voice input not supported in this browser",
+  "voiceInput.listening": "Listening…",
+  "voiceInput.transcript": "Transcript",
+
   // ── AskUserQuestion ────────────────────────────────────────────────
   askUserQuestion: "Agent Question",
   askRequired: "This question requires an answer",
@@ -804,6 +810,25 @@ const en = {
   previous: "Previous",
   next: "Next",
   more: "more",
+
+  // ── ContextSize ──────────────────────────────────────────────────
+  "contextSize.tokens": "tokens",
+  "contextSize.title": "Context Usage",
+
+  // ── Citation ────────────────────────────────────────────────────
+  "citation.title": "Citation",
+  "citation.source": "Source",
+  "citation.sources": "Sources",
+  "citation.noTitle": "Untitled source",
+
+  // ── Document Preview ─────────────────────────────────────────────
+  "docPreview.page": "Page",
+  "docPreview.of": "of",
+  "docPreview.zoom": "Zoom",
+  "docPreview.fullscreen": "Fullscreen",
+  "docPreview.close": "Close",
+  "docPreview.loading": "Loading document...",
+  "docPreview.noPreview": "This file type cannot be previewed.",
 } as const;
 
 export type TranslationKey = keyof typeof en;

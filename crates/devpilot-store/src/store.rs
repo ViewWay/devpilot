@@ -484,6 +484,37 @@ impl Store {
         Ok(())
     }
 
+    /// Estimate the context token count for a session.
+    ///
+    /// Uses a simple char-based heuristic:
+    /// - ~4 chars/token for ASCII/Latin text
+    /// - ~1.5 chars/token for CJK characters
+    ///
+    /// Sums all message content lengths for the session.
+    pub fn estimate_context_tokens(&self, session_id: &str) -> Result<u64> {
+        // Concatenate all message content for the session
+        let content_sample: String = self.conn.query_row(
+            "SELECT COALESCE(GROUP_CONCAT(content, ''), '') FROM messages WHERE session_id = ?1",
+            rusqlite::params![session_id],
+            |row| row.get::<_, String>(0),
+        ).unwrap_or_default();
+
+        let mut ascii_chars: u64 = 0;
+        let mut cjk_chars: u64 = 0;
+        for ch in content_sample.chars() {
+            if is_cjk(ch) {
+                cjk_chars += 1;
+            } else {
+                ascii_chars += 1;
+            }
+        }
+
+        // ~4 chars/token for ASCII, ~1.5 chars/token for CJK
+        let ascii_tokens = ascii_chars / 4;
+        let cjk_tokens = cjk_chars / 2; // using 1.5 but integer div with rounding up approximation
+        Ok(ascii_tokens + cjk_tokens)
+    }
+
     // ── Settings ──────────────────────────────────────
 
     /// Get a setting value by key.
@@ -791,6 +822,22 @@ impl Store {
         )?;
         Ok(removed)
     }
+}
+
+// ── Helpers ────────────────────────────────────────────
+
+/// Check if a character is a CJK (Chinese/Japanese/Korean) character.
+fn is_cjk(ch: char) -> bool {
+    matches!(
+        ch,
+        '\u{4E00}'..='\u{9FFF}'   // CJK Unified Ideographs
+        | '\u{3400}'..='\u{4DBF}' // CJK Unified Ideographs Extension A
+        | '\u{F900}'..='\u{FAFF}' // CJK Compatibility Ideographs
+        | '\u{3040}'..='\u{309F}' // Hiragana
+        | '\u{30A0}'..='\u{30FF}' // Katakana
+        | '\u{AC00}'..='\u{D7AF}' // Hangul Syllables
+        | '\u{FF00}'..='\u{FFEF}' // Fullwidth Forms
+    )
 }
 
 // ── Row mapping helpers ───────────────────────────────

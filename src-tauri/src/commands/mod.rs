@@ -417,6 +417,75 @@ pub struct ImportResult {
 
 // ── Compact ────────────────────────────────────────────
 
+// ── Context Size ──────────────────────────────────────
+
+/// Result of context size estimation for a session.
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContextSizeResult {
+    pub tokens: u64,
+    pub limit: u64,
+}
+
+/// Estimate the context token count for a session.
+///
+/// Returns `{ tokens, limit }` where `tokens` is the estimated token count
+/// and `limit` is the model's max input tokens (or 200000 default).
+#[tauri::command(rename_all = "camelCase")]
+pub fn get_context_size(
+    state: State<'_, AppState>,
+    session_id: String,
+) -> Result<ContextSizeResult, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+
+    // Estimate tokens from message content
+    let tokens = db
+        .estimate_context_tokens(&session_id)
+        .map_err(|e| e.to_string())?;
+
+    // Try to determine the limit from the session's model/provider info.
+    // Get the session to find its model and provider.
+    let session = db.get_session(&session_id).map_err(|e| e.to_string())?;
+    let limit = get_model_limit(&db, &session.model, &session.provider);
+
+    Ok(ContextSizeResult { tokens, limit })
+}
+
+/// Determine the max input token limit for a model.
+/// Falls back to 200000 if the model cannot be found.
+fn get_model_limit(db: &devpilot_store::Store, model_id: &str, provider_id: &str) -> u64 {
+    // Try to find the model in the provider's model list
+    if let Ok(Some(provider_json)) = db.get_setting(&format!("provider:{}", provider_id))
+        && let Ok(provider) = serde_json::from_str::<serde_json::Value>(&provider_json)
+        && let Some(models) = provider.get("models").and_then(|m| m.as_array())
+    {
+        for m in models {
+            if m.get("id").and_then(|v| v.as_str()) == Some(model_id)
+                && let Some(limit) = m.get("maxInputTokens").and_then(|v| v.as_u64())
+            {
+                return limit;
+            }
+        }
+    }
+
+    // Try to look up provider record directly
+    if let Ok(provider) = db.get_provider(provider_id)
+        && let Some(ref models_str) = provider.models
+        && let Ok(models_json) = serde_json::from_str::<serde_json::Value>(models_str)
+        && let Some(models) = models_json.as_array()
+    {
+        for m in models {
+            if m.get("id").and_then(|v| v.as_str()) == Some(model_id)
+                && let Some(limit) = m.get("maxInputTokens").and_then(|v| v.as_u64())
+            {
+                return limit;
+            }
+        }
+    }
+
+    200_000 // default fallback
+}
+
 /// Compact (context-compress) a session's messages in the database.
 /// Returns the number of messages removed.
 #[tauri::command(rename_all = "camelCase")]

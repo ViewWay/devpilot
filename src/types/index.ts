@@ -1,3 +1,14 @@
+export interface CitationSource {
+  /** 1-based citation index (displayed as [N]). */
+  index: number;
+  /** Optional human-readable title of the source. */
+  title?: string;
+  /** Optional URL linking to the source. */
+  url?: string;
+  /** Optional short snippet / excerpt from the source. */
+  snippet?: string;
+}
+
 export interface Message {
   id: string;
   role: "user" | "assistant" | "tool" | "system";
@@ -8,6 +19,8 @@ export interface Message {
   streaming?: boolean;
   /** Accumulated "thinking" text from the model's reasoning process. */
   thinkingContent?: string;
+  /** Citation / source references attached to the message. */
+  citations?: CitationSource[];
 }
 
 export interface ToolCall {

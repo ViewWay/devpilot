@@ -256,6 +256,9 @@ function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
       return null;
     case "cancel_stream":
       return false;
+    // Context Size
+    case "get_context_size":
+      return { tokens: 1234, limit: 200000 };
     // Diagnostics
     case "diagnose_provider": {
       const cfg = (args?.config ?? {}) as Record<string, unknown>;
@@ -485,6 +488,9 @@ export interface IPCCommands {
   list_provider_models: { config: ProviderConfigIPC };
   diagnose_provider: { config: ProviderConfigIPC };
   cancel_stream: { sessionId: string };
+
+  // Context Size
+  get_context_size: { sessionId: string };
 
   // Settings
   get_setting: { key: string };

@@ -65,6 +65,8 @@ pub fn run() {
             commands::rewind_checkpoint,
             // Compact
             commands::compact_session,
+            // Context Size
+            commands::get_context_size,
             // Data Import / Export
             commands::export_sessions,
             commands::import_sessions,

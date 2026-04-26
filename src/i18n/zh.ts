@@ -790,6 +790,12 @@ const zh = {
   templatePicker: "从模板新建",
   templatePickerDesc: "选择模板快速开始",
 
+  // --- Voice Input ---
+  "voiceInput.micTooltip": "语音输入",
+  "voiceInput.notSupported": "当前浏览器不支持语音输入",
+  "voiceInput.listening": "正在聆听…",
+  "voiceInput.transcript": "识别结果",
+
   // ── AskUserQuestion ────────────────────────────────────────────────
   askUserQuestion: "助手提问",
   askRequired: "此问题为必填",
@@ -804,6 +810,25 @@ const zh = {
   previous: "上一张",
   next: "下一张",
   more: "更多",
+
+  // ── ContextSize ──────────────────────────────────────────────────
+  "contextSize.tokens": "令牌",
+  "contextSize.title": "上下文用量",
+
+  // ── Citation ────────────────────────────────────────────────────
+  "citation.title": "引用",
+  "citation.source": "来源",
+  "citation.sources": "来源",
+  "citation.noTitle": "无标题来源",
+
+  // ── Document Preview ─────────────────────────────────────────────
+  "docPreview.page": "第",
+  "docPreview.of": "页，共",
+  "docPreview.zoom": "缩放",
+  "docPreview.fullscreen": "全屏",
+  "docPreview.close": "关闭",
+  "docPreview.loading": "正在加载文档...",
+  "docPreview.noPreview": "无法预览此文件类型。",
 } as const;
 
 export default zh;

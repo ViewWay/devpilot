@@ -1,5 +1,10 @@
+import { useState, useCallback } from "react";
 import { X, FileText, Image, GitBranch, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import {
+  DocumentPreviewModal,
+  type DocumentPreviewFile,
+} from "./DocumentPreviewModal";
 
 // ─── Types ─────────────────────────────────────────────────────────────
 
@@ -149,18 +154,43 @@ function ImagePreviewCard({
 function DocumentPreviewCard({
   file,
   onRemove,
+  onPreview,
 }: {
   file: PendingFile;
   onRemove: (id: string) => void;
+  onPreview?: (file: PendingFile) => void;
 }) {
   const ext = fileExtension(file.fileName);
   const isGithub = isGithubFile(file);
 
+  const isPreviewable =
+    !isGithub &&
+    file.status === "done" &&
+    (file.mimeType === "application/pdf" ||
+      file.mimeType ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      file.fileName.toLowerCase().endsWith(".pdf") ||
+      file.fileName.toLowerCase().endsWith(".docx"));
+
   return (
-    <div className="group/card relative flex w-32 shrink-0 flex-col rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2">
+    <div
+      className={cn(
+        "group/card relative flex w-32 shrink-0 flex-col rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2",
+        isPreviewable && "cursor-pointer transition-colors hover:border-[var(--color-brand)]/50 hover:bg-[var(--color-surface-container)]",
+      )}
+      onClick={() => onPreview?.(file)}
+      role={isPreviewable ? "button" : undefined}
+      tabIndex={isPreviewable ? 0 : undefined}
+      onKeyDown={(e) => {
+        if (isPreviewable && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onPreview?.(file);
+        }
+      }}
+    >
       {/* Remove button */}
       <button
-        onClick={() => onRemove(file.id)}
+        onClick={(e) => { e.stopPropagation(); onRemove(file.id); }}
         className="absolute right-1 top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full text-[var(--color-text-secondary)] opacity-0 transition-opacity group-hover/card:opacity-100 hover:bg-[var(--color-error)]/10 hover:text-[var(--color-error)]"
         aria-label={`Remove ${file.fileName}`}
       >
@@ -242,25 +272,59 @@ function DocumentPreviewCard({
  * with per-file progress bars, status indicators, and hover-to-remove buttons.
  */
 export function FileUploadPreview({ files, onRemove }: FileUploadPreviewProps) {
+  const [previewFile, setPreviewFile] = useState<DocumentPreviewFile | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  const openPreview = useCallback((file: PendingFile) => {
+    // Only allow preview for PDF/DOCX documents that are done uploading
+    const isPdfOrDocx =
+      file.mimeType === "application/pdf" ||
+      file.mimeType ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      file.fileName.toLowerCase().endsWith(".pdf") ||
+      file.fileName.toLowerCase().endsWith(".docx");
+    if (!isPdfOrDocx || file.status !== "done") {return;}
+
+    setPreviewFile({
+      file: file.file,
+      fileName: file.fileName,
+      mimeType: file.mimeType,
+    });
+    setPreviewOpen(true);
+  }, []);
+
+  const closePreview = useCallback(() => {
+    setPreviewOpen(false);
+    setPreviewFile(null);
+  }, []);
+
   if (files.length === 0) {
     return null;
   }
 
   return (
-    <div
-      className="flex gap-2 overflow-x-auto py-1 scrollbar-thin"
-      role="list"
-      aria-label="Pending file uploads"
-    >
-      {files.map((file) => (
-        <div key={file.id} role="listitem">
-          {file.fileType === "image" ? (
-            <ImagePreviewCard file={file} onRemove={onRemove} />
-          ) : (
-            <DocumentPreviewCard file={file} onRemove={onRemove} />
-          )}
-        </div>
-      ))}
-    </div>
+    <>
+      <div
+        className="flex gap-2 overflow-x-auto py-1 scrollbar-thin"
+        role="list"
+        aria-label="Pending file uploads"
+      >
+        {files.map((file) => (
+          <div key={file.id} role="listitem">
+            {file.fileType === "image" ? (
+              <ImagePreviewCard file={file} onRemove={onRemove} />
+            ) : (
+              <DocumentPreviewCard file={file} onRemove={onRemove} onPreview={openPreview} />
+            )}
+          </div>
+        ))}
+      </div>
+
+      <DocumentPreviewModal
+        open={previewOpen}
+        onClose={closePreview}
+        file={previewFile}
+      />
+    </>
   );
 }

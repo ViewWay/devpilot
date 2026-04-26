@@ -486,6 +486,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
       return { activeSessionId: id };
     });
+    // Refresh context size bar on session switch
+    try { window.dispatchEvent(new CustomEvent("context-size-refresh")); } catch { /* ignore */ }
   },
 
   deleteSession: (id) => {
@@ -944,6 +946,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
             persistUpdateMessageContent(sessionId, assistantMsgId, finalContent);
             set({ isLoading: false, streamingMessageId: null, _streamCleanup: null });
             cleanup();
+            // Refresh context size bar after stream completion
+            try { window.dispatchEvent(new CustomEvent("context-size-refresh")); } catch { /* ignore */ }
           },
         );
         unlistenError = await listen<{

@@ -6,6 +6,7 @@ import { ModelSelector } from "./ModelSelector";
 import { ModeTabs } from "./ModeTabs";
 import { ReasoningEffort } from "./ReasoningEffort";
 import { Send, Paperclip, Sparkles, StopCircle, X, Image, FileText } from "lucide-react";
+import { VoiceInput } from "./VoiceInput";
 import { cn } from "../../lib/utils";
 import type { Attachment, AttachmentIPC } from "../../types";
 
@@ -309,6 +310,13 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
     [handleSend, showCommands, filteredCommands, selectedIndex],
   );
 
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setInput((prev) => {
+      const separator = prev.trim() ? " " : "";
+      return prev + separator + text;
+    });
+  }, []);
+
   return (
     <div className="shrink-0 border-t border-[var(--color-border)]/40 bg-[var(--color-surface)]/80 backdrop-blur-md px-4 pb-4 pt-3">
       <div className="mx-auto w-full max-w-3xl relative 2xl:max-w-4xl">
@@ -431,6 +439,9 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
               onKeyDown={handleKeyDown}
               aria-label={t("a11y.messageInput")}
             />
+
+            {/* Voice Input */}
+            <VoiceInput onTranscript={handleVoiceTranscript} />
 
             {/* Send / Stop */}
             {isLoading || isStreaming ? (

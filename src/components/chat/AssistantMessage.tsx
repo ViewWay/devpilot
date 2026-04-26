@@ -5,6 +5,7 @@ import { ThinkingBlock } from "./ThinkingBlock";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { MessageActionBar } from "./MessageActionBar";
 import { StreamingIndicator } from "./StreamingIndicator";
+import { SourcesList } from "./SourcesList";
 import type { Message } from "../../types";
 
 type AssistantMessageProps = {
@@ -35,6 +36,11 @@ export function AssistantMessage({ message, isLast = false }: AssistantMessagePr
         {/* Main content */}
         <MarkdownRenderer content={message.content} fontSize={fontSize} />
         {message.streaming && <StreamingIndicator />}
+
+        {/* Citations / sources list */}
+        {message.citations && message.citations.length > 0 && (
+          <SourcesList sources={message.citations} />
+        )}
 
         {/* Footer: actions + metadata */}
         <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-secondary)]">

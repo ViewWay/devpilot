@@ -1,9 +1,27 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 import { CodeBlock } from "./CodeBlock";
 import { SandboxBlock } from "./SandboxBlock";
 import { MermaidRenderer } from "./MermaidRenderer";
+
+/**
+ * Preprocess markdown so that edge-case $$ blocks that aren't properly
+ * separated by blank lines are still picked up by remark-math.
+ *
+ * Handles cases like:
+ *   $$E=mc^2$$           (inline $$ on a single line)
+ *   $$\nx^2\n$$          (block without surrounding blank lines)
+ */
+function normalizeMathBlocks(md: string): string {
+  // Ensure standalone $$...$$ on a single line is treated as display math
+  return md.replace(/(^|\n)(\$\$[^\n$]+\$\$)(\n|$)/g, (_, pre, math, post) => {
+    return `${pre}\n\n${math}\n\n${post}`;
+  });
+}
 
 type MarkdownRendererProps = {
   /** The markdown content to render. */
@@ -16,14 +34,14 @@ type MarkdownRendererProps = {
 
 /**
  * MarkdownRenderer — reusable markdown rendering with all component overrides.
- * Handles code blocks (with syntax highlighting), tables, GFM, and sandbox blocks.
+ * Handles code blocks (with syntax highlighting), tables, GFM, math (KaTeX), and sandbox blocks.
  */
 export function MarkdownRenderer({ content, fontSize, className = "" }: MarkdownRendererProps) {
   return (
     <div className={`leading-relaxed text-assistant-bubble-foreground prose-sm ${className}`} style={fontSize ? { fontSize } : undefined}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeRaw]}
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeRaw, rehypeKatex]}
         components={{
           code({ className: codeClassName, children }) {
             const match = /language-(\w+)/.exec(codeClassName || "");
@@ -130,7 +148,7 @@ export function MarkdownRenderer({ content, fontSize, className = "" }: Markdown
           },
         }}
       >
-        {content}
+        {normalizeMathBlocks(content)}
       </ReactMarkdown>
     </div>
   );
