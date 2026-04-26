@@ -10,6 +10,7 @@ pub mod bridge;
 pub mod config;
 pub mod data;
 pub mod git;
+pub mod hooks;
 pub mod llm;
 pub mod marketplace;
 pub mod mcp;

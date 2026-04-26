@@ -8,13 +8,17 @@
 
 mod error;
 mod executor;
+mod hooks;
 mod registry;
 mod skill_loader;
 mod skills_marketplace;
 mod tools;
 
 pub use error::{ToolError, ToolResult};
-pub use executor::{ApprovalRequest, ApprovalStatus, RiskLevel, ToolExecutor};
+pub use executor::{ApprovalRequest, ApprovalStatus, ToolExecutor};
+// RiskLevel is now defined in devpilot-protocol — re-export from there.
+pub use devpilot_protocol::RiskLevel;
+pub use hooks::{Hook, HookContext, HookEvent, HookManager, HookResult, run_hook};
 pub use registry::ToolRegistry;
 pub use skill_loader::SkillLoader;
 pub use skills_marketplace::SkillsMarketplace;

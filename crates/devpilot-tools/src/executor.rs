@@ -1,6 +1,9 @@
 //! Tool executor — coordinates tool execution with approval flow.
 
-use crate::{Tool, ToolContext, ToolError, ToolOutput, ToolRegistry, ToolResult};
+use crate::{HookManager, Tool, ToolContext, ToolError, ToolOutput, ToolRegistry, ToolResult};
+use devpilot_protocol::{
+    ApprovalDecision, PermissionGuard, PermissionMode, PermissionPolicy, RiskLevel,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -38,6 +41,10 @@ pub struct ToolExecutor {
     /// In production this will be replaced with Tauri event emission.
     #[allow(clippy::type_complexity)]
     approval_callback: Option<Box<dyn Fn(ApprovalRequest) + Send + Sync>>,
+    /// Hook manager for running pre/post tool hooks.
+    hooks: Arc<RwLock<HookManager>>,
+    /// Permission policy governing tool execution.
+    policy: RwLock<PermissionPolicy>,
 }
 
 /// An approval request sent to the frontend.
@@ -59,18 +66,6 @@ pub struct ApprovalRequest {
     pub working_dir: Option<String>,
 }
 
-/// Risk classification for tool operations.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RiskLevel {
-    /// Read-only operations (ls, cat, grep, git status).
-    Low,
-    /// Write operations (file edits, git commits).
-    Medium,
-    /// Destructive operations (rm -rf, git push --force).
-    High,
-}
-
 /// Result of a tool execution including approval status.
 #[derive(Debug)]
 pub struct ExecutionResult {
@@ -82,6 +77,11 @@ pub struct ExecutionResult {
     pub duration_ms: u64,
 }
 
+/// Create a blocked [`ToolOutput`] with a human-readable message.
+fn blocked_output(tool_name: &str, reason: &str) -> ToolOutput {
+    ToolOutput::err(format!("Blocked: {tool_name} — {reason}"))
+}
+
 impl ToolExecutor {
     /// Create a new executor backed by the given tool registry.
     pub fn new(registry: Arc<ToolRegistry>) -> Self {
@@ -89,7 +89,37 @@ impl ToolExecutor {
             registry,
             pending: RwLock::new(HashMap::new()),
             approval_callback: None,
+            hooks: Arc::new(RwLock::new(HookManager::new())),
+            policy: RwLock::new(PermissionPolicy::default()),
         }
+    }
+
+    /// Create a new executor with a specific hook manager.
+    pub fn with_hooks(registry: Arc<ToolRegistry>, hooks: HookManager) -> Self {
+        Self {
+            registry,
+            pending: RwLock::new(HashMap::new()),
+            approval_callback: None,
+            hooks: Arc::new(RwLock::new(hooks)),
+            policy: RwLock::new(PermissionPolicy::default()),
+        }
+    }
+
+    /// Update the hook manager (e.g., after settings change).
+    pub async fn set_hooks(&self, hooks: HookManager) {
+        let mut guard = self.hooks.write().await;
+        *guard = hooks;
+    }
+
+    /// Update the permission policy (e.g., after settings change).
+    pub async fn set_permission_policy(&self, policy: PermissionPolicy) {
+        let mut guard = self.policy.write().await;
+        *guard = policy;
+    }
+
+    /// Get a clone of the current permission policy.
+    pub async fn permission_policy(&self) -> PermissionPolicy {
+        self.policy.read().await.clone()
     }
 
     /// Get a reference to the tool registry.
@@ -107,11 +137,10 @@ impl ToolExecutor {
 
     /// Execute a tool by name, handling approval if required.
     ///
-    /// If the tool requires approval, this will:
-    /// 1. Create an approval request
-    /// 2. Invoke the callback (if set)
-    /// 3. Wait for the user's decision
-    /// 4. Proceed or cancel
+    /// The permission guard runs **before** any other logic:
+    /// - **Blocked** → return an error immediately, no user prompt.
+    /// - **AutoApproved** → execute directly, no approval flow.
+    /// - **NeedsApproval** → existing approval callback flow.
     pub async fn execute(
         &self,
         tool_name: &str,
@@ -124,42 +153,76 @@ impl ToolExecutor {
             .await
             .ok_or_else(|| ToolError::NotFound(tool_name.to_string()))?;
 
-        // Check if approval is needed
-        if tool.requires_approval() {
-            // For now, auto-approve in headless mode (no callback set)
-            // In production, this will emit a Tauri event and wait
-            if self.approval_callback.is_some() {
-                let request = self.build_approval_request(tool.as_ref(), &input, ctx);
+        // ── Permission guard ──────────────────────────────────────────────
+        let policy = self.policy.read().await;
+        let decision = PermissionGuard::check(&policy, tool_name, &input);
+        drop(policy); // release the read lock early
 
-                // Store pending approval
-                let (tx, rx) = oneshot::channel();
+        match decision {
+            ApprovalDecision::Blocked => {
+                let reason = match PermissionMode::from_str_lossy(
+                    self.policy.read().await.mode.to_setting_str(),
+                ) {
+                    PermissionMode::Plan => {
+                        "write operations are disabled in Plan mode".to_string()
+                    }
+                    _ => "operation blocked by permission policy".to_string(),
+                };
+                let output = blocked_output(tool_name, &reason);
+                return Ok(ExecutionResult {
+                    approval: ApprovalStatus::Rejected,
+                    output: Some(output),
+                    duration_ms: 0,
+                });
+            }
+            ApprovalDecision::AutoApproved => {
+                // Execute directly — no approval flow needed.
+                let start = std::time::Instant::now();
+                let output = tool.execute(input, ctx).await?;
+                let duration_ms = start.elapsed().as_millis() as u64;
+                return Ok(ExecutionResult {
+                    approval: ApprovalStatus::AutoApproved,
+                    output: Some(output),
+                    duration_ms,
+                });
+            }
+            ApprovalDecision::NeedsApproval => {
+                // Fall through to the existing approval flow below.
+            }
+        }
+
+        // ── Existing approval flow ────────────────────────────────────────
+        if self.approval_callback.is_some() {
+            let request = self.build_approval_request(tool.as_ref(), &input, ctx);
+
+            // Store pending approval
+            let (tx, rx) = oneshot::channel();
+            {
+                let mut pending = self.pending.write().await;
+                pending.insert(request.id.clone(), PendingApproval { tx });
+            }
+
+            // Emit the approval request
+            if let Some(ref cb) = self.approval_callback {
+                cb(request);
+            }
+
+            // Wait for the decision
+            let approved = rx
+                .await
+                .map_err(|_| ToolError::Other("Approval channel dropped".into()))?;
+
+            if !approved {
+                // Clean up pending
                 {
                     let mut pending = self.pending.write().await;
-                    pending.insert(request.id.clone(), PendingApproval { tx });
+                    pending.remove(tool_name);
                 }
-
-                // Emit the approval request
-                if let Some(ref cb) = self.approval_callback {
-                    cb(request);
-                }
-
-                // Wait for the decision
-                let approved = rx
-                    .await
-                    .map_err(|_| ToolError::Other("Approval channel dropped".into()))?;
-
-                if !approved {
-                    // Clean up pending
-                    {
-                        let mut pending = self.pending.write().await;
-                        pending.remove(tool_name);
-                    }
-                    return Ok(ExecutionResult {
-                        approval: ApprovalStatus::Rejected,
-                        output: None,
-                        duration_ms: 0,
-                    });
-                }
+                return Ok(ExecutionResult {
+                    approval: ApprovalStatus::Rejected,
+                    output: None,
+                    duration_ms: 0,
+                });
             }
         }
 
@@ -169,11 +232,7 @@ impl ToolExecutor {
         let duration_ms = start.elapsed().as_millis() as u64;
 
         Ok(ExecutionResult {
-            approval: if tool.requires_approval() {
-                ApprovalStatus::Approved
-            } else {
-                ApprovalStatus::AutoApproved
-            },
+            approval: ApprovalStatus::Approved,
             output: Some(output),
             duration_ms,
         })

@@ -10,8 +10,9 @@
 //! 4. When LLM finishes (no more tool calls), return the response
 
 use devpilot_llm::provider::{ModelProvider, StreamResult};
+use devpilot_protocol::RiskLevel;
 use devpilot_protocol::{ContentBlock, FinishReason, Message, MessageRole, StreamEvent, Usage};
-use devpilot_tools::{RiskLevel, ToolContext, ToolExecutor};
+use devpilot_tools::{ToolContext, ToolExecutor};
 use futures::StreamExt;
 use std::sync::Arc;
 use std::time::Duration;

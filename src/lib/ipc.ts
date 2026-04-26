@@ -1155,3 +1155,49 @@ export async function searchSymbols(
 export async function getIndexStats(): Promise<IndexStatsIPC> {
   return invoke<IndexStatsIPC>("get_index_stats");
 }
+
+// ── Hooks Types & Helpers ──────────────────────────────────────
+
+export interface HookInfoIPC {
+  id: string;
+  name: string;
+  event: string;
+  command: string;
+  timeoutSecs: number;
+  enabled: boolean;
+}
+
+export interface HookResultIPC {
+  hookId: string;
+  hookName: string;
+  success: boolean;
+  stdout: string;
+  stderr: string;
+  exitCode: number | null;
+  timedOut: boolean;
+}
+
+export async function listHooks(): Promise<HookInfoIPC[]> {
+  return invoke<HookInfoIPC[]>("list_hooks");
+}
+
+export async function addHook(
+  name: string,
+  event: string,
+  command: string,
+  timeoutSecs?: number,
+): Promise<HookInfoIPC> {
+  return invoke<HookInfoIPC>("add_hook", { name, event, command, timeoutSecs: timeoutSecs ?? null });
+}
+
+export async function removeHook(id: string): Promise<void> {
+  return invoke("remove_hook", { id });
+}
+
+export async function toggleHook(id: string): Promise<HookInfoIPC> {
+  return invoke<HookInfoIPC>("toggle_hook", { id });
+}
+
+export async function testHook(id: string): Promise<HookResultIPC> {
+  return invoke<HookResultIPC>("test_hook", { id });
+}

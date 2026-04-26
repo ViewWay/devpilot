@@ -491,6 +491,284 @@ pub struct SkillInfo {
     pub updated_at: Option<String>,
 }
 
+// ── Risk Level ─────────────────────────────────────────
+
+/// Risk classification for tool operations.
+/// Shared across crates to avoid circular dependencies.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RiskLevel {
+    /// Read-only operations (ls, cat, grep, git status).
+    Low,
+    /// Write operations that modify files or run non-destructive commands.
+    Medium,
+    /// Destructive operations (rm -rf, force push, etc.).
+    High,
+}
+
+// ── Permission Types ──────────────────────────────────
+
+/// Which approval mode the agent operates under.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum PermissionMode {
+    /// Read-only mode — all write tools are blocked.
+    Plan,
+    /// Auto-approve tools below a configurable risk threshold.
+    #[default]
+    Auto,
+    /// Every tool call needs explicit user approval.
+    Manual,
+}
+
+impl PermissionMode {
+    /// Parse from the string stored in settings ("plan" | "auto" | "manual").
+    pub fn from_str_lossy(s: &str) -> Self {
+        match s {
+            "plan" => Self::Plan,
+            "manual" => Self::Manual,
+            _ => Self::Auto,
+        }
+    }
+
+    /// Serialize to the string stored in settings.
+    pub fn to_setting_str(self) -> &'static str {
+        match self {
+            Self::Plan => "plan",
+            Self::Auto => "auto",
+            Self::Manual => "manual",
+        }
+    }
+}
+
+/// The result of checking a tool call against the permission policy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalDecision {
+    /// Tool is auto-approved — execute directly.
+    AutoApproved,
+    /// Tool needs user approval — trigger the approval flow.
+    NeedsApproval,
+    /// Tool is blocked — return an error immediately.
+    Blocked,
+}
+
+/// Policy governing what the agent is allowed to do.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PermissionPolicy {
+    /// Active approval mode.
+    pub mode: PermissionMode,
+    /// Path whitelist for file operations. If non-empty, only these paths are allowed.
+    pub allowed_paths: Vec<String>,
+    /// Path blacklist — paths that are always denied (e.g. .git, node_modules).
+    pub blocked_paths: Vec<String>,
+    /// Whether to always auto-approve read-only tools regardless of mode.
+    pub auto_approve_read: bool,
+    /// Highest risk level that will be auto-approved in `Auto` mode.
+    pub max_auto_approve_risk: RiskLevel,
+}
+
+impl Default for PermissionPolicy {
+    fn default() -> Self {
+        Self {
+            mode: PermissionMode::Auto,
+            allowed_paths: vec![],
+            blocked_paths: vec![
+                ".git".into(),
+                "node_modules".into(),
+                ".env".into(),
+                "__pycache__".into(),
+                ".DS_Store".into(),
+            ],
+            auto_approve_read: true,
+            max_auto_approve_risk: RiskLevel::Medium,
+        }
+    }
+}
+
+/// Evaluates tool execution requests against a [`PermissionPolicy`].
+pub struct PermissionGuard;
+
+impl PermissionGuard {
+    /// Check whether a tool call should be auto-approved, needs approval, or is blocked.
+    pub fn check(
+        policy: &PermissionPolicy,
+        tool_name: &str,
+        input: &serde_json::Value,
+    ) -> ApprovalDecision {
+        // Plan mode: block all write tools
+        if policy.mode == PermissionMode::Plan && Self::is_write_tool(tool_name) {
+            return ApprovalDecision::Blocked;
+        }
+
+        // Path validation for file tools
+        if Self::is_file_tool(tool_name)
+            && let Some(path) = Self::extract_path(input) {
+                if Self::is_path_blocked(&path, &policy.blocked_paths) {
+                    return ApprovalDecision::Blocked;
+                }
+                if !policy.allowed_paths.is_empty()
+                    && !Self::is_path_allowed(&path, &policy.allowed_paths)
+                {
+                    return ApprovalDecision::Blocked;
+                }
+            }
+
+        // Shell dangerous-pattern check
+        if tool_name == "shell_exec"
+            && let Some(cmd) = input["command"].as_str()
+                && Self::is_command_dangerous(cmd) {
+                    return ApprovalDecision::Blocked;
+                }
+
+        // Auto-approve read-only tools (if enabled)
+        if policy.auto_approve_read && Self::is_read_tool(tool_name) {
+            return ApprovalDecision::AutoApproved;
+        }
+
+        // Manual mode: everything needs approval
+        if policy.mode == PermissionMode::Manual {
+            return ApprovalDecision::NeedsApproval;
+        }
+
+        // Auto mode: check risk level
+        if policy.mode == PermissionMode::Auto {
+            let risk = Self::classify_risk(tool_name, input);
+            if risk <= policy.max_auto_approve_risk {
+                return ApprovalDecision::AutoApproved;
+            }
+            return ApprovalDecision::NeedsApproval;
+        }
+
+        ApprovalDecision::NeedsApproval
+    }
+
+    /// Tools that write to the file system or execute commands.
+    fn is_write_tool(name: &str) -> bool {
+        matches!(name, "file_write" | "shell_exec" | "apply_patch")
+    }
+
+    /// Tools that read from the file system.
+    fn is_read_tool(name: &str) -> bool {
+        matches!(
+            name,
+            "file_read" | "file_search" | "list_directory" | "glob"
+        )
+    }
+
+    /// Tools that operate on file paths.
+    fn is_file_tool(name: &str) -> bool {
+        matches!(
+            name,
+            "file_read" | "file_write" | "apply_patch" | "file_search" | "list_directory" | "glob"
+        )
+    }
+
+    fn extract_path(input: &serde_json::Value) -> Option<String> {
+        input["path"].as_str().map(|s| s.to_string())
+    }
+
+    fn is_path_blocked(path: &str, blocked: &[String]) -> bool {
+        let path_lower = path.to_lowercase();
+        for pattern in blocked {
+            if path_lower.contains(&pattern.to_lowercase()) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn is_path_allowed(path: &str, allowed: &[String]) -> bool {
+        for prefix in allowed {
+            if path.starts_with(prefix) || path.starts_with(&format!("{}/", prefix)) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn is_command_dangerous(cmd: &str) -> bool {
+        let cmd_lower = cmd.to_lowercase();
+        let patterns = [
+            "rm -rf /",
+            "rm -rf /*",
+            "sudo rm",
+            "dd if=",
+            "mkfs.",
+            "> /dev/sd",
+            "chmod -r 777 /",
+            "chown -r",
+            ":(){ :|:& };:",
+        ];
+        for pat in &patterns {
+            if cmd_lower.contains(pat) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn classify_risk(tool_name: &str, input: &serde_json::Value) -> RiskLevel {
+        match tool_name {
+            "file_read" | "file_search" | "list_directory" | "glob" => RiskLevel::Low,
+            "shell_exec" => {
+                if let Some(cmd) = input["command"].as_str() {
+                    let destructive = [
+                        "rm -rf",
+                        "rm -r",
+                        "rmdir",
+                        "git push --force",
+                        "git push -f",
+                        "npm publish",
+                        "cargo publish",
+                        "drop table",
+                        "delete from",
+                        "truncate",
+                        "mkfs",
+                        "dd if=",
+                        "> /dev/",
+                        "format",
+                    ];
+                    let lower = cmd.to_lowercase();
+                    for p in &destructive {
+                        if lower.contains(p) {
+                            return RiskLevel::High;
+                        }
+                    }
+                    let write = [
+                        "git commit",
+                        "git add",
+                        "git push",
+                        "cargo build",
+                        "npm install",
+                        "pip install",
+                        "mkdir",
+                        "touch",
+                        "cp ",
+                        "mv ",
+                    ];
+                    for p in &write {
+                        if lower.contains(p) {
+                            return RiskLevel::Medium;
+                        }
+                    }
+                }
+                RiskLevel::Medium
+            }
+            "file_write" | "apply_patch" => RiskLevel::Medium,
+            _ => RiskLevel::Medium,
+        }
+    }
+}
+
+/// Build a [`PermissionPolicy`] from a stored `permission_mode` string and defaults.
+pub fn policy_from_mode(mode_str: &str) -> PermissionPolicy {
+    PermissionPolicy {
+        mode: PermissionMode::from_str_lossy(mode_str),
+        ..Default::default()
+    }
+}
+
 // ── Tests ──────────────────────────────────────────────
 
 #[cfg(test)]

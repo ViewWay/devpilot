@@ -92,6 +92,12 @@ pub fn run() {
             commands::tools::execute_tool,
             commands::tools::resolve_tool_approval,
             commands::tools::pending_approvals,
+            // Hooks
+            commands::hooks::list_hooks,
+            commands::hooks::add_hook,
+            commands::hooks::remove_hook,
+            commands::hooks::toggle_hook,
+            commands::hooks::test_hook,
             // Sandbox
             commands::sandbox::sandbox_execute,
             commands::sandbox::sandbox_default_policy,
