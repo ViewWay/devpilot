@@ -174,9 +174,10 @@ fn extract_gemini_func_name(tool_use_id: &str) -> &str {
         Some(rest) => {
             // Try to strip the trailing "_{N}" counter suffix.
             if let Some(pos) = rest.rfind('_')
-                && rest[pos + 1..].chars().all(|c| c.is_ascii_digit()) {
-                    return &rest[..pos];
-                }
+                && rest[pos + 1..].chars().all(|c| c.is_ascii_digit())
+            {
+                return &rest[..pos];
+            }
             rest
         }
         None => tool_use_id,
@@ -913,7 +914,10 @@ mod tests {
         }];
         let parts = GeminiProvider::convert_content_to_parts(&blocks);
         assert_eq!(parts.len(), 1);
-        assert_eq!(parts[0]["function_response"]["name"].as_str(), Some("read_file"));
+        assert_eq!(
+            parts[0]["function_response"]["name"].as_str(),
+            Some("read_file")
+        );
     }
 
     #[test]
@@ -925,7 +929,10 @@ mod tests {
         }];
         let parts = GeminiProvider::convert_content_to_parts(&blocks);
         assert_eq!(parts.len(), 1);
-        assert_eq!(parts[0]["function_response"]["name"].as_str(), Some("apply_patch"));
+        assert_eq!(
+            parts[0]["function_response"]["name"].as_str(),
+            Some("apply_patch")
+        );
         assert_eq!(
             parts[0]["function_response"]["response"]["error"].as_str(),
             Some("patch failed")
@@ -946,7 +953,15 @@ mod tests {
         let msg = GeminiProvider::convert_response_content(&content);
         assert_eq!(msg.content.len(), 2);
         // Both are ToolUse for the same function but with different IDs
-        if let (ContentBlock::ToolUse { id: id1, name: n1, .. }, ContentBlock::ToolUse { id: id2, name: n2, .. }) = (&msg.content[0], &msg.content[1]) {
+        if let (
+            ContentBlock::ToolUse {
+                id: id1, name: n1, ..
+            },
+            ContentBlock::ToolUse {
+                id: id2, name: n2, ..
+            },
+        ) = (&msg.content[0], &msg.content[1])
+        {
             assert_ne!(id1, id2);
             assert_eq!(n1, "read_file");
             assert_eq!(n2, "read_file");

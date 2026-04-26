@@ -55,8 +55,15 @@ pub async fn session_export(
             include_tools,
             include_think,
         ),
+        "html" => export_html(
+            &session,
+            &messages,
+            include_meta,
+            include_tools,
+            include_think,
+        ),
         other => Err(format!(
-            "Unsupported export format: '{}'. Use 'json', 'markdown', or 'txt'.",
+            "Unsupported export format: '{}'. Use 'json', 'markdown', 'html', or 'txt'.",
             other
         )),
     }
@@ -287,4 +294,101 @@ fn export_text(
     }
 
     Ok(txt)
+}
+
+/// HTML-escape a string for safe embedding in HTML output.
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
+
+fn export_html(
+    session: &SessionInfo,
+    messages: &[devpilot_store::MessageInfo],
+    include_meta: bool,
+    include_tools: bool,
+    include_think: bool,
+) -> Result<String, String> {
+    let mut html = String::new();
+
+    html.push_str("<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n");
+    html.push_str("<meta charset=\"UTF-8\">\n");
+    html.push_str("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n");
+    html.push_str(&format!("<title>{}</title>\n", html_escape(&session.title)));
+    html.push_str("<style>\n");
+    html.push_str("  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;\n");
+    html.push_str("         max-width: 800px; margin: 0 auto; padding: 20px; background: #fafafa; color: #333; }\n");
+    html.push_str("  .meta { background: #f0f0f0; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; }\n");
+    html.push_str("  .meta span { margin-right: 16px; }\n");
+    html.push_str("  .msg { padding: 12px 16px; border-radius: 8px; margin-bottom: 10px; }\n");
+    html.push_str("  .msg-user { background: #e3f2fd; }\n");
+    html.push_str("  .msg-assistant { background: #f5f5f5; }\n");
+    html.push_str("  .msg-system { background: #fff3e0; }\n");
+    html.push_str(
+        "  .msg-tool { background: #e8f5e9; font-family: monospace; font-size: 13px; }\n",
+    );
+    html.push_str("  .msg-thinking { background: #f3e5f5; font-style: italic; }\n");
+    html.push_str("  .msg-role { font-weight: 600; font-size: 13px; margin-bottom: 4px; text-transform: uppercase; }\n");
+    html.push_str("  .msg-content { white-space: pre-wrap; line-height: 1.5; }\n");
+    html.push_str("</style>\n</head>\n<body>\n");
+
+    if include_meta {
+        html.push_str("<div class=\"meta\">\n");
+        html.push_str(&format!(
+            "  <h2 style=\"margin:0 0 8px 0\">{}</h2>\n",
+            html_escape(&session.title)
+        ));
+        html.push_str(&format!(
+            "  <span><strong>Model:</strong> {}</span>\n",
+            html_escape(&session.model)
+        ));
+        html.push_str(&format!(
+            "  <span><strong>Provider:</strong> {}</span>\n",
+            html_escape(&session.provider)
+        ));
+        html.push_str(&format!(
+            "  <span><strong>Created:</strong> {}</span>\n",
+            html_escape(&session.created_at)
+        ));
+        html.push_str("</div>\n");
+    }
+
+    for msg in messages {
+        if !include_tools && msg.tool_calls.is_some() {
+            continue;
+        }
+        if !include_think && msg.role == "thinking" {
+            continue;
+        }
+
+        let css_class = match msg.role.as_str() {
+            "user" => "msg-user",
+            "assistant" => "msg-assistant",
+            "system" => "msg-system",
+            "tool" => "msg-tool",
+            "thinking" => "msg-thinking",
+            _ => "msg-assistant",
+        };
+
+        let role_label = match msg.role.as_str() {
+            "user" => "👤 User",
+            "assistant" => "🤖 Assistant",
+            "system" => "⚙️ System",
+            "tool" => "🔧 Tool",
+            "thinking" => "💭 Thinking",
+            other => other,
+        };
+
+        html.push_str(&format!(
+            "<div class=\"msg {}\">\n  <div class=\"msg-role\">{}</div>\n  <div class=\"msg-content\">{}</div>\n</div>\n",
+            css_class,
+            role_label,
+            html_escape(&msg.content),
+        ));
+    }
+
+    html.push_str("</body>\n</html>\n");
+    Ok(html)
 }

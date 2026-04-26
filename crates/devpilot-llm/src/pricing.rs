@@ -201,11 +201,13 @@ pub fn lookup_pricing(provider_type: &str, model_id: &str) -> Option<ModelPricin
     let mut best_match_len = 0;
 
     for ((provider, model), pricing) in CATALOG.iter() {
-        if provider == provider_type && model_id.starts_with(model.as_str())
-            && model.len() > best_match_len {
-                best_match_len = model.len();
-                best_match = Some((model, pricing));
-            }
+        if provider == provider_type
+            && model_id.starts_with(model.as_str())
+            && model.len() > best_match_len
+        {
+            best_match_len = model.len();
+            best_match = Some((model, pricing));
+        }
     }
 
     best_match.map(|(_, p)| p.clone())

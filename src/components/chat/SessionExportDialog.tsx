@@ -59,10 +59,12 @@ export function SessionExportDialog({ sessionId, onClose }: SessionExportDialogP
 
   // Generate export content
   const generateContent = useCallback(async (): Promise<string> => {
-    const result = await invoke<string>("export_session", {
+    const result = await invoke<string>("session_export", {
       sessionId,
       format,
-      ...options,
+      includeMetadata: options.includeMetadata,
+      includeToolCalls: options.includeToolCalls,
+      includeThinking: options.includeThinkingBlocks,
     });
     return result ?? "";
   }, [sessionId, format, options]);
@@ -98,7 +100,12 @@ export function SessionExportDialog({ sessionId, onClose }: SessionExportDialogP
       setLoading(true);
       const content = preview ?? (await generateContent());
       const fmt = FORMATS.find((f) => f.value === format)!;
-      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+      const mimeTypes: Record<ExportFormat, string> = {
+        markdown: "text/markdown;charset=utf-8",
+        json: "application/json;charset=utf-8",
+        html: "text/html;charset=utf-8",
+      };
+      const blob = new Blob([content], { type: mimeTypes[format] });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
