@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { screen, waitFor, act } from '@testing-library/react';
+import { screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../helpers/renderWithProviders';
 import { CopyButton } from '../../components/shared/CopyButton';
@@ -70,19 +70,22 @@ describe('CopyButton', () => {
     await user.click(screen.getByRole('button'));
     expect(screen.getByText('Copied')).toBeInTheDocument();
 
-    // React 18's useEffect is a passive effect that runs after commit.
-    // We need two act() calls: the first flushes the useEffect (which creates
-    // the setTimeout), and the second advances fake time past the timer.
-    act(() => {
-      vi.advanceTimersByTime(1500);
-    });
-    act(() => {
-      vi.advanceTimersByTime(1500);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText('Copy')).toBeInTheDocument();
-    });
+    // React 18's useEffect is a passive (async) effect. The setTimeout
+    // inside it may not be registered when we first advance timers.
+    // Flush repeatedly until the timer fires and state resets.
+    for (let i = 0; i < 20; i++) {
+      act(() => {
+        vi.advanceTimersByTime(100);
+      });
+      // Check synchronously — if "Copy" appeared we're done
+      try {
+        expect(screen.getByText('Copy')).toBeInTheDocument();
+        return; // success
+      } catch {
+        // useEffect hasn't created the timer yet, keep advancing
+      }
+    }
+    throw new Error('CopyButton did not reset after 2000ms');
   });
 
   it('applies className prop', () => {
