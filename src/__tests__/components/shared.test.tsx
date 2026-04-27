@@ -70,6 +70,12 @@ describe('CopyButton', () => {
     await user.click(screen.getByRole('button'));
     expect(screen.getByText('Copied')).toBeInTheDocument();
 
+    // React 18's useEffect is a passive effect that runs after commit.
+    // We need two act() calls: the first flushes the useEffect (which creates
+    // the setTimeout), and the second advances fake time past the timer.
+    act(() => {
+      vi.advanceTimersByTime(1500);
+    });
     act(() => {
       vi.advanceTimersByTime(1500);
     });
