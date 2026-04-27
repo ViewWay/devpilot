@@ -67,10 +67,10 @@ describe('CopyButton', () => {
     const originalSetTimeout = globalThis.setTimeout;
     let timerCallback: (() => void) | null = null;
     vi.spyOn(globalThis, 'setTimeout').mockImplementation(
-      (cb: (...args: unknown[]) => void, ms?: number, ...args: unknown[]) => {
+      (cb: TimerHandler, ms?: number, ...args: unknown[]) => {
         // Let userEvent / React internals pass through; only capture our timer
         // (the one from CopyButton's useEffect with 1500ms delay)
-        if (ms === 1500) {
+        if (ms === 1500 && typeof cb === 'function') {
           timerCallback = cb as () => void;
           return originalSetTimeout(() => {}, 0);
         }
