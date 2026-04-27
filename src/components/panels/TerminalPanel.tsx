@@ -382,7 +382,7 @@ export function TerminalPanel() {
         );
       } else {
         term.writeln(
-          "\x1b[1;34m  DevPilot Terminal\x1b[0m \x1b[90m(v0.4.0 — demo mode)\x1b[0m",
+          "\x1b[1;34m  DevPilot Terminal\x1b[0m \x1b[90m(v0.5.5)\x1b[0m",
         );
         term.writeln(
           "\x1b[90m  Type 'help' for available commands.\x1b[0m",

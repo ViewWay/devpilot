@@ -22,7 +22,7 @@ impl WebFetchTool {
     /// Create a new web fetch tool with default HTTP client.
     pub fn new() -> Self {
         let client = reqwest::Client::builder()
-            .user_agent("DevPilot/0.4.0 (AI Coding Agent)")
+            .user_agent("DevPilot/0.5.5 (AI Coding Agent)")
             .timeout(std::time::Duration::from_secs(30))
             .build()
             .unwrap_or_default();

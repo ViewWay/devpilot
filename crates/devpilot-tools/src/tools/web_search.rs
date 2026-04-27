@@ -17,7 +17,7 @@ impl WebSearchTool {
     /// Create a new web search tool with default HTTP client.
     pub fn new() -> Self {
         let client = reqwest::Client::builder()
-            .user_agent("Mozilla/5.0 (compatible; DevPilot/0.4.0)")
+            .user_agent("Mozilla/5.0 (compatible; DevPilot/0.5.5)")
             .timeout(std::time::Duration::from_secs(30))
             .build()
             .unwrap_or_default();

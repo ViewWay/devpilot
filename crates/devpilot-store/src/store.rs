@@ -2434,7 +2434,7 @@ mod tests {
         let import_data = ExportData {
             version: "1.0".to_string(),
             exported_at: chrono::Utc::now().to_rfc3339(),
-            app_version: "0.4.0".to_string(),
+            app_version: "0.5.5".to_string(),
             sessions: vec![SessionExport {
                 session: SessionInfo {
                     id: session.id.clone(),
@@ -2504,7 +2504,7 @@ mod tests {
         let import_data = ExportData {
             version: "1.0".to_string(),
             exported_at: chrono::Utc::now().to_rfc3339(),
-            app_version: "0.4.0".to_string(),
+            app_version: "0.5.5".to_string(),
             sessions: vec![
                 SessionExport {
                     session: SessionInfo {
