@@ -16,11 +16,10 @@ let writeTextSpy: ReturnType<typeof vi.spyOn>;
 describe('CopyButton', () => {
   beforeEach(() => {
     writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText');
-    vi.useFakeTimers({ shouldAdvanceTime: true });
   });
 
   afterEach(() => {
-    vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   it('renders with default label "Copy"', () => {
@@ -35,7 +34,7 @@ describe('CopyButton', () => {
   });
 
   it('copies text to clipboard on click and shows copied state', async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = userEvent.setup();
     renderWithProviders(<CopyButton text="hello world" />);
 
     await user.click(screen.getByRole('button'));
@@ -46,7 +45,7 @@ describe('CopyButton', () => {
   });
 
   it('shows displayCopiedLabel when provided after copy', async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = userEvent.setup();
     renderWithProviders(
       <CopyButton text="hello" displayCopiedLabel="✓ Copied!" copiedLabel="Copied" />,
     );
@@ -63,29 +62,36 @@ describe('CopyButton', () => {
     expect(screen.getByText('📋 Copy')).toBeInTheDocument();
   });
 
-  it('resets to default label after 1500ms timer', async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  it('resets to default label after timer fires', async () => {
+    // Capture the setTimeout callback without blocking userEvent internals
+    const originalSetTimeout = globalThis.setTimeout;
+    let timerCallback: (() => void) | null = null;
+    vi.spyOn(globalThis, 'setTimeout').mockImplementation(
+      (cb: (...args: unknown[]) => void, ms?: number, ...args: unknown[]) => {
+        // Let userEvent / React internals pass through; only capture our timer
+        // (the one from CopyButton's useEffect with 1500ms delay)
+        if (ms === 1500) {
+          timerCallback = cb as () => void;
+          return originalSetTimeout(() => {}, 0);
+        }
+        return originalSetTimeout(cb, ms, ...args);
+      },
+    );
+
+    const user = userEvent.setup();
     renderWithProviders(<CopyButton text="hello" />);
 
     await user.click(screen.getByRole('button'));
     expect(screen.getByText('Copied')).toBeInTheDocument();
 
-    // React 18's useEffect is a passive (async) effect. The setTimeout
-    // inside it may not be registered when we first advance timers.
-    // Flush repeatedly until the timer fires and state resets.
-    for (let i = 0; i < 20; i++) {
-      act(() => {
-        vi.advanceTimersByTime(100);
-      });
-      // Check synchronously — if "Copy" appeared we're done
-      try {
-        expect(screen.getByText('Copy')).toBeInTheDocument();
-        return; // success
-      } catch {
-        // useEffect hasn't created the timer yet, keep advancing
-      }
-    }
-    throw new Error('CopyButton did not reset after 2000ms');
+    // Fire the captured timer callback manually
+    expect(timerCallback).not.toBeNull();
+    act(() => {
+      timerCallback!();
+    });
+
+    expect(screen.getByText('Copy')).toBeInTheDocument();
+    expect(screen.getByRole('button')).toHaveAttribute('aria-label', 'Copy');
   });
 
   it('applies className prop', () => {
