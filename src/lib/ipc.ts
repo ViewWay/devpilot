@@ -224,7 +224,7 @@ function mockInvoke(cmd: string, args?: Record<string, unknown>): unknown {
       return null;
     case "export_sessions":
       return JSON.stringify({
-        version: "0.5.5",
+        version: "2026.4.28",
         exportedAt: new Date().toISOString(),
         sessions: [],
       });

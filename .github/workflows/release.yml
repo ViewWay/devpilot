@@ -6,8 +6,12 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to release (e.g. 0.4.0)"
-        required: false
+        description: "版本号 (e.g. 2026.4.28 or 2026.4.28-beta.1)"
+        required: true
+      build:
+        description: "构建全平台安装包"
+        type: boolean
+        default: false
 
 concurrency:
   group: release-${{ github.ref }}
@@ -17,65 +21,142 @@ permissions:
   contents: write
 
 jobs:
-  # ── Create GitHub Release ──────────────────────────────
-  create-release:
-    name: Create Release
+  # ── Parse & Validate ───────────────────────────────────
+  validate:
+    name: Validate
     runs-on: ubuntu-latest
     outputs:
-      release_id: ${{ steps.create.outputs.release_id }}
-      version: ${{ steps.version.outputs.version }}
+      version: ${{ steps.parse.outputs.version }}
+      is_prerelease: ${{ steps.parse.outputs.is_prerelease }}
+      suffix: ${{ steps.parse.outputs.suffix }}
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Determine version
-        id: version
+      - name: Parse version
+        id: parse
         run: |
           if [[ "${{ github.event_name }}" == "push" ]]; then
             VERSION="${GITHUB_REF#refs/tags/v}"
           else
-            VERSION="${{ github.event.inputs.version || '0.0.0-dev' }}"
+            VERSION="${{ github.event.inputs.version }}"
           fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          # YYYY.M.D (stable)
+          if [[ "$VERSION" =~ ^([0-9]{4})\.([0-9]{1,2})\.([0-9]{1,2})$ ]]; then
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "suffix=" >> "$GITHUB_OUTPUT"
+            echo "::notice::Stable: DevPilot_$VERSION"
+          # YYYY.M.D-{alpha|beta|rc}.N (pre-release)
+          elif [[ "$VERSION" =~ ^([0-9]{4})\.([0-9]{1,2})\.([0-9]{1,2})-([a-z]+)\.([0-9]+)$ ]]; then
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "suffix=${BASH_REMATCH[4]}.${BASH_REMATCH[5]}" >> "$GITHUB_OUTPUT"
+            echo "::notice::Pre-release: DevPilot_$VERSION"
+          else
+            echo "::error::Invalid version: $VERSION"
+            echo "::error::Expected: YYYY.M.D or YYYY.M.D-{alpha|beta|rc}.N"
+            exit 1
+          fi
+
+  # ── Create Release ─────────────────────────────────────
+  create-release:
+    name: Create Release
+    needs: validate
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.create.outputs.release_id }}
+      version: ${{ needs.validate.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          DATE_ONLY="${VERSION%%-*}"
+
+          # Find previous release tag
+          PREV_TAG=$(git tag --sort=-version:refname | grep -E '^v[0-9]{4}\.' | grep -v "^v${VERSION}" | head -1)
+          if [[ -n "$PREV_TAG" ]]; then
+            LOG=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s (%h)" --no-merges 2>/dev/null || echo "- No changes")
+          else
+            LOG=$(git log -20 --pretty=format:"- %s (%h)" --no-merges 2>/dev/null)
+          fi
+
+          # Limit to 50 entries
+          ENTRY_COUNT=$(echo "$LOG" | wc -l | tr -d ' ')
+          if [[ "$ENTRY_COUNT" -gt 50 ]]; then
+            LOG=$(echo "$LOG" | head -50)
+            LOG="${LOG}"$'\n'"- ... and $((ENTRY_COUNT - 50)) more commits"
+          fi
+
+          # Build body
+          IS_PRE="${{ needs.validate.outputs.is_prerelease }}"
+          if [[ "$IS_PRE" == "true" ]]; then
+            BODY="## DevPilot_${VERSION} (Pre-release)
+
+          > Automated pre-release build.
+
+          ### Changes
+          ${LOG}
+          "
+          else
+            BODY="## DevPilot_${VERSION}
+
+          ### Changes
+          ${LOG}
+          "
+          fi
+
+          # Write to file (multiline safe)
+          echo "$BODY" > /tmp/release-body.md
 
       - name: Create GitHub Release
         id: create
         uses: actions/github-script@v7
         with:
           script: |
-            const version = '${{ steps.version.outputs.version }}';
+            const fs = require('fs');
+            const version = '${{ needs.validate.outputs.version }}';
             const tag = `v${version}`;
+            const isPrerelease = ${{ needs.validate.outputs.is_prerelease }} === 'true';
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
-            // Try to find existing release first
+            // Check for existing release
             try {
               const { data: releases } = await github.rest.repos.listReleases({ owner, repo });
               const existing = releases.find(r => r.tag_name === tag);
               if (existing) {
                 core.setOutput('release_id', existing.id);
-                core.info(`Using existing release: ${existing.id}`);
+                core.info(`Reusing existing release: #${existing.id}`);
                 return;
               }
             } catch (e) {
-              core.info(`No existing release found: ${e.message}`);
+              core.info(`No existing releases: ${e.message}`);
             }
 
-            // Create new release
+            const body = fs.readFileSync('/tmp/release-body.md', 'utf8');
+
             const { data } = await github.rest.repos.createRelease({
               owner,
               repo,
               tag_name: tag,
-              name: `DevPilot v${version}`,
-              body: `## DevPilot v${version}\\n\\nSee [CHANGELOG.md](https://github.com/ViewWay/devpilot/blob/master/CHANGELOG.md) for details.`,
-              draft: true,
-              prerelease: false,
+              name: `DevPilot_${version}`,
+              body: body,
+              draft: !isPrerelease,
+              prerelease: isPrerelease,
+              make_latest: isPrerelease ? 'false' : 'true',
             });
             core.setOutput('release_id', data.id);
+            core.info(`Created release #${data.id}: DevPilot_${version}`);
 
   # ── Build (macOS Apple Silicon) ────────────────────────
   build-macos-aarch64:
     name: Build — macOS (Apple Silicon)
     needs: create-release
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build == 'true' }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -122,6 +203,7 @@ jobs:
   build-macos-x86_64:
     name: Build — macOS (Intel)
     needs: create-release
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build == 'true' }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -168,6 +250,7 @@ jobs:
   build-windows:
     name: Build — Windows
     needs: create-release
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build == 'true' }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -211,6 +294,7 @@ jobs:
   build-linux:
     name: Build — Linux
     needs: create-release
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build == 'true' }}
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -255,26 +339,34 @@ jobs:
           tagName: v${{ needs.create-release.outputs.version }}
           tauriScript: npx tauri
 
-  # ── Publish Release ────────────────────────────────────
+  # ── Publish ────────────────────────────────────────────
   publish-release:
-    name: Publish Release
+    name: Publish
+    needs: validate
     runs-on: ubuntu-latest
-    needs:
-      [
-        create-release,
-        build-macos-aarch64,
-        build-macos-x86_64,
-        build-windows,
-        build-linux,
-      ]
     steps:
       - name: Publish release
         uses: actions/github-script@v7
         with:
           script: |
+            const version = '${{ needs.validate.outputs.version }}';
+            const isPrerelease = ${{ needs.validate.outputs.is_prerelease }} === 'true';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            const { data: releases } = await github.rest.repos.listReleases({ owner, repo });
+            const release = releases.find(r => r.tag_name === `v${version}`);
+            if (!release) {
+              core.setFailed(`Release v${version} not found`);
+              return;
+            }
+
             await github.rest.repos.updateRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: ${{ needs.create-release.outputs.release_id }},
+              owner,
+              repo,
+              release_id: release.id,
               draft: false,
+              prerelease: isPrerelease,
+              make_latest: isPrerelease ? 'false' : 'true',
             });
+            core.info(`Published: DevPilot_${version} (prerelease=${isPrerelease})`);

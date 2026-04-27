@@ -1160,7 +1160,7 @@ mod tests {
         let skill = SkillInfo {
             name: "test-skill".into(),
             description: "A test skill".into(),
-            version: Some("0.5.5".into()),
+            version: Some("2026.4.28".into()),
             author: None,
             category: Some("testing".into()),
             tags: vec!["test".into()],
