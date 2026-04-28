@@ -248,12 +248,47 @@ pub async fn send_message_stream(
         });
         SkillLoader::load_skill_context(global_dir, project_dir).await
     };
-    let system_prompt = match (&request.chat_request.system, skill_context.is_empty()) {
+    let mut system_prompt = match (&request.chat_request.system, skill_context.is_empty()) {
         (Some(sp), false) => Some(format!("{sp}\n\n{skill_context}")),
         (None, false) => Some(skill_context),
         (Some(sp), true) => Some(sp.clone()),
         (None, true) => None,
     };
+
+    // P11-7: Inject relevant code symbols from the index into system prompt.
+    // This gives the LLM context about the project's code structure.
+    if request.working_dir.is_some() {
+        let index = state.symbol_index.lock().await;
+        let stats = index.stats().await;
+        if stats.symbols_count > 0 {
+            // Extract keywords from the user message for symbol search
+            let query = &request.user_message;
+            let results = index.search(query).await;
+            if !results.is_empty() {
+                let top_k: Vec<String> = results
+                    .iter()
+                    .take(10)
+                    .map(|r| {
+                        let sym = &r.symbol;
+                        let loc = format!("{}:{}", sym.file_path, sym.line);
+                        match &sym.doc_summary {
+                            Some(doc) => format!("  - {} {} ({}) — {}", sym.kind, sym.full_path, loc, doc),
+                            None => format!("  - {} {} ({})", sym.kind, sym.full_path, loc),
+                        }
+                    })
+                    .collect();
+                let ctx = format!(
+                    "\n\n[Project Code Index — {} symbols in {} files]\nRelevant symbols:\n{}",
+                    stats.symbols_count, stats.files_indexed, top_k.join("\n")
+                );
+                system_prompt = Some(match system_prompt {
+                    Some(sp) => format!("{sp}{ctx}"),
+                    None => ctx,
+                });
+            }
+        }
+    }
+
     let session_config = SessionConfig {
         id: Some(session_id.clone()),
         model: model_id.clone(),
