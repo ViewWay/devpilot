@@ -210,6 +210,10 @@ fn format_todos(items: &[TodoItem]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    /// Serialize all async tests that touch the global TODOS state.
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
 
     fn ctx() -> ToolContext {
         ToolContext {
@@ -228,6 +232,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_replace_action() {
+        let _lock = TEST_LOCK.lock().unwrap();
         reset_todos().await;
 
         let tool = TodoWriteTool::new();
@@ -253,6 +258,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_merge_action_adds_new() {
+        let _lock = TEST_LOCK.lock().unwrap();
         reset_todos().await;
 
         let tool = TodoWriteTool::new();
@@ -291,6 +297,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_merge_action_updates_existing() {
+        let _lock = TEST_LOCK.lock().unwrap();
         reset_todos().await;
 
         let tool = TodoWriteTool::new();
@@ -330,6 +337,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_replace_clears_previous() {
+        let _lock = TEST_LOCK.lock().unwrap();
         reset_todos().await;
 
         let tool = TodoWriteTool::new();
@@ -367,6 +375,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_empty_items() {
+        let _lock = TEST_LOCK.lock().unwrap();
         reset_todos().await;
 
         let tool = TodoWriteTool::new();
@@ -387,6 +396,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_invalid_status() {
+        let _lock = TEST_LOCK.lock().unwrap();
         let tool = TodoWriteTool::new();
 
         let result = tool
@@ -407,6 +417,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_invalid_action() {
+        let _lock = TEST_LOCK.lock().unwrap();
         let tool = TodoWriteTool::new();
 
         let result = tool
@@ -428,6 +439,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_cancelled_status() {
+        let _lock = TEST_LOCK.lock().unwrap();
         reset_todos().await;
 
         let tool = TodoWriteTool::new();
@@ -450,6 +462,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_missing_items_field() {
+        let _lock = TEST_LOCK.lock().unwrap();
         let tool = TodoWriteTool::new();
 
         let result = tool
