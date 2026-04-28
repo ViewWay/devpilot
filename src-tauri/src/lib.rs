@@ -215,6 +215,7 @@ pub fn run() {
             commands::agent::agent_task_list,
             commands::agent::agent_task_output,
             commands::agent::agent_task_stop,
+            commands::agent::agent_task_tree,
             // Agent Plan Mode
             commands::agent::agent_enter_plan_mode,
             commands::agent::agent_exit_plan_mode,

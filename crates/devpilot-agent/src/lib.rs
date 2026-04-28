@@ -148,6 +148,63 @@ impl TaskStore {
             .cloned()
             .collect()
     }
+
+    /// Get direct children of a task.
+    pub fn get_children(&self, parent_id: &str) -> Vec<AgentTask> {
+        self.list(None, Some(parent_id))
+    }
+
+    /// Get a task with its full subtree (children, grandchildren, etc.).
+    pub fn get_task_tree(&self, root_id: &str) -> Option<TaskTreeNode> {
+        let task = self.get(root_id)?;
+        let children: Vec<TaskTreeNode> = self
+            .get_children(root_id)
+            .iter()
+            .filter_map(|c| self.get_task_tree(&c.id))
+            .collect();
+        Some(TaskTreeNode {
+            task,
+            children,
+        })
+    }
+}
+
+/// A task with its children, forming a tree structure.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskTreeNode {
+    pub task: AgentTask,
+    pub children: Vec<TaskTreeNode>,
+}
+
+impl TaskTreeNode {
+    /// Count total tasks in the tree (including root).
+    pub fn total_count(&self) -> usize {
+        1 + self.children.iter().map(|c| c.total_count()).sum::<usize>()
+    }
+
+    /// Count completed tasks in the tree.
+    pub fn completed_count(&self) -> usize {
+        let self_done = if self.task.status == TaskStatus::Completed {
+            1
+        } else {
+            0
+        };
+        self_done
+            + self
+                .children
+                .iter()
+                .map(|c| c.completed_count())
+                .sum::<usize>()
+    }
+
+    /// Compute progress as a fraction (0.0 – 1.0).
+    pub fn progress(&self) -> f32 {
+        let total = self.total_count();
+        if total == 0 {
+            return 0.0;
+        }
+        self.completed_count() as f32 / total as f32
+    }
 }
 
 // ---------------------------------------------------------------------------
