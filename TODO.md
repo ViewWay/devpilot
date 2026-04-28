@@ -274,3 +274,166 @@
 - 2026-04-20 Session P: P7 开发 — interaction modes, skills system, data export/import, accessibility, auto-update
 - 2026-04-20 Session Q: P8 UI 改进 + Provider 增强 — 布局自适应, Terminal 主题跟随, CSS 润色, 健康诊断, Gemini/Kimi/MiniMax/VolcEngine
 - 2026-04-20 Session R: P9 UI 密度优化 — CodePilot 风格间距, 毛玻璃效果, 柔和边框, 磨砂输入框
+- 2026-04-28 Session S: P10 Claude Code Import + 测试修复 (todo_write Mutex)
+
+---
+
+## Phase 11: Agent 能力深化 — 0/N
+
+### P11-A: Agent 多步自主执行 (Critical)
+
+- [ ] **P11-1** AgentConfig 增加 `agentic_mode` (autonomous/interactive/plan-only)
+  - autonomous: 无需审批自动执行工具调用，遇到错误自动重试
+  - interactive: 当前模式，需要用户审批
+  - plan-only: 只输出计划不执行
+- [ ] **P11-2** Agent run() 增加 plan→execute→verify 循环
+  - plan: LLM 生成结构化 JSON 计划 (steps with tool calls)
+  - execute: 按步执行，每步结果反馈 LLM
+  - verify: 最后一步 LLM 验证整体结果
+  - 循环: 如果 verify 失败，重新 plan (最多 3 轮)
+- [ ] **P11-3** AgentTask 支持子任务树 (parent_id 已有，增加 progress/children 聚合)
+  - TaskStore 增加 get_children(), get_task_tree()
+  - agentStore 增加 taskTree computed
+  - AgentTaskPanel 显示树形结构
+- [ ] **P11-4** Agent 自主执行时的事件流增强
+  - 新增 CoreEvent::AgentPlanning / AgentExecuting / AgentVerifying
+  - 前端 ChatPanel 显示 plan/execute/verify 状态指示器
+  - 可折叠的执行日志面板
+
+### P11-B: RAG 代码索引 (High)
+
+- [ ] **P11-5** devpilot-index: 接入 Tauri IPC
+  - index_directory, search_symbols, get_index_stats 3 个 IPC 命令
+  - 前端 indexerStore + Settings 索引配置
+- [ ] **P11-6** devpilot-index: 增量索引 (watch 文件变更)
+  - notify crate 监听文件变更，增量更新 SymbolIndex
+  - debounce 500ms，避免频繁重索引
+- [ ] **P11-7** 上下文自动注入索引结果
+  - agent.run() 前，根据用户 query 搜索相关符号
+  - 将 top-K 结果作为 system prompt 的一部分注入
+  - 增加 /index 命令触发手动索引
+
+### P11-C: 多 Agent 协作 (High)
+
+- [ ] **P11-8** AgentTool 增强: 支持 sub-agent 配置
+  - AgentConfig 增加 agent_type: General / CodeReviewer / TestWriter / Architect
+  - 不同类型使用不同 system prompt 和工具集
+  - AgentTool.spawn() 传入 agent_type
+- [ ] **P11-9** 并行子 Agent 执行
+  - TaskStore 增加 parallel_spawn(ids, configs)
+  - 子 Agent 结果通过 EventBus 聚合
+  - 前端 AgentTaskPanel 显示并行执行状态
+- [ ] **P11-10** Agent 间通信协议
+  - SharedBlackboard: 全局 key-value store for agent coordination
+  - Agent 输出可写入 blackboard，其他 Agent 可读取
+  - IPC 命令: blackboard_get/set/list
+
+---
+
+## Phase 12: Git 深度集成 — 0/N
+
+### P12-A: Git 可视化 (Critical)
+
+- [ ] **P12-1** devpilot-git 增强: diff/blame/log API
+  - git_diff(sha?), git_blame(file, line?), git_log(count, path?)
+  - 返回结构化类型 (DiffHunk, BlameLine, CommitEntry)
+- [ ] **P12-2** GitPanel 组件
+  - 文件变更列表 (staged/unstaged/untracked)
+  - 内联 diff 视图 (Monaco diff editor)
+  - blame 注解 (gutter annotations)
+- [ ] **P12-3** Git 时间线视图
+  - 提交历史图 (类似 gitk)
+  - 按文件/作者过滤
+  - 点击提交查看 diff
+
+### P12-B: Git 工作流 (High)
+
+- [ ] **P12-4** PR 创建工作流
+  - git_commit + git_push + gh_pr_create 集成
+  - 前端 CommitDialog + PRDialog
+  - AI 生成 commit message / PR description
+- [ ] **P12-5** Branch 管理 UI
+  - 创建/切换/合并/删除分支
+  - 分支列表 + 当前分支指示
+  - conflict 检测和提示
+
+---
+
+## Phase 13: 编辑器深化 — 0/N
+
+- [ ] **P13-1** Monaco 多文件 Tab 编辑
+  - EditorStore: openFiles[], activeFile, isDirty[]
+  - Tab bar UI (文件名 + close button + dirty indicator)
+  - 切换文件保持 undo stack
+- [ ] **P13-2** 文件保存写回
+  - file_write IPC 命令 (已有 search/file ops)
+  - Monaco save → Tauri write → 刷新 FileTree
+  - dirty 状态追踪
+- [ ] **P13-3** LSP 桥接 (基础)
+  - LSPClient: 通用 LSP client (stdio transport)
+  - 支持 diagnostics + completions + go-to-definition
+  - 配置界面: LSP command + args
+  - Monaco 接入: completionProvider, diagnostics
+
+---
+
+## Phase 14: 协作 & 分享 — 0/N
+
+- [ ] **P14-1** Session 导出为可读 HTML/Markdown
+  - export_session_html IPC: 美化模板，代码高亮
+  - export_session_markdown IPC: 纯 Markdown 格式
+  - 前端导出按钮 (已有 JSON 导出)
+- [ ] **P14-2** 对话模板 (Presets)
+  - PresetStore: system_prompt + tools + model + temperature
+  - Settings > Presets tab: CRUD + import/export
+  - Sidebar 快速创建: 从模板新建会话
+- [ ] **P14-3** Community Prompt/Tool 市场
+  - 已有 MarketplacePanel (379 行)
+  - 对接远程 API (prompts.dev 或自建)
+  - 安装/评分/搜索
+
+---
+
+## Phase 15: 性能 & 稳定性 — 0/N
+
+- [ ] **P15-1** 大 Session 消息虚拟滚动
+  - react-window / react-virtuoso 集成
+  - 动态行高 (代码块 + tool call 展开/折叠)
+  - 自动滚动到底部保持
+- [ ] **P15-2** Streaming 性能优化
+  - backpressure: 消费者跟不上时暂停 SSE
+  - chunked JSON parsing (增量解析 tool calls)
+  - 减少 React re-render (useMemo, 事件节流)
+- [ ] **P15-3** 前端 Bundle Size 优化
+  - Monaco 动态 import (当前 Shiki 已做)
+  - Route-based code splitting (React.lazy)
+  - Tree-shaking 审计
+- [ ] **P15-4** 内存泄漏检测和修复
+  - DevTools Profiler 快照对比
+  - EventBus subscriber 清理 (会话关闭时)
+  - 长时间运行稳定性测试
+
+---
+
+## Phase 16: 发布就绪 — 0/N
+
+- [ ] **P16-1** macOS 签名 + 公证
+  - Apple Developer 证书配置
+  - tauri.conf.json signing 配置
+  - notarytool 公证流程
+- [ ] **P16-2** 自动更新密钥
+  - 生成签名密钥对
+  - tauri.conf.json updater pubkey
+  - GitHub Actions 自动签名
+- [ ] **P16-3** DMG + 安装包
+  - tauri build → .dmg (macOS)
+  - NSIS installer (Windows)
+  - AppImage (Linux)
+- [ ] **P16-4** GitHub Release 自动化
+  - GitHub Actions: tag → build → release
+  - CHANGELOG 自动生成
+  - 多平台矩阵构建
+- [ ] **P16-5** 首个正式 Release
+  - 版本号 1.0.0
+  - Release notes
+  - 截图和演示 GIF

@@ -15,7 +15,7 @@ pub mod permission;
 pub mod session;
 pub mod session_ops;
 
-pub use agent::{Agent, AgentConfig};
+pub use agent::{Agent, AgentConfig, AgenticMode};
 pub use approval::ApprovalGate;
 pub use compact::CompactStrategy;
 pub use error::CoreError;

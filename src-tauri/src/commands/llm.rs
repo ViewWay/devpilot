@@ -509,6 +509,10 @@ fn event_name(event: &CoreEvent) -> &'static str {
         CoreEvent::AgentDone { .. } => "stream-done",
         CoreEvent::Error { .. } => "stream-error",
         CoreEvent::Compacted { .. } => "stream-compacted",
+        CoreEvent::AgentPlanning { .. } => "stream-agent-planning",
+        CoreEvent::AgentExecuting { .. } => "stream-agent-executing",
+        CoreEvent::AgentVerifying { .. } => "stream-agent-verifying",
+        CoreEvent::PevCycleDone { .. } => "stream-pev-cycle-done",
     }
 }
 

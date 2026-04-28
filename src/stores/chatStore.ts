@@ -631,6 +631,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       let unlistenTurnDone = () => {};
       let unlistenError = () => {};
       let unlistenCompacted = () => {};
+      let unlistenPlanning = () => {};
+      let unlistenExecuting = () => {};
+      let unlistenVerifying = () => {};
+      let unlistenPevDone = () => {};
 
       // Streaming buffer declarations (moved outside try for catch access)
       let textBuffer = "";
@@ -680,6 +684,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         unlistenDone();
         unlistenError();
         unlistenCompacted();
+        unlistenPlanning();
+        unlistenExecuting();
+        unlistenVerifying();
+        unlistenPevDone();
       };
 
       try {
@@ -999,6 +1007,52 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 ),
               }));
             } catch { /* ignore reload failure */ }
+          },
+        );
+
+        // PEV (Plan→Execute→Verify) events — show agent phase indicators
+        unlistenPlanning = await listen<{
+          sessionId: string; cycle: number;
+        }>(
+          "stream-agent-planning",
+          (payload) => {
+            if (payload.sessionId !== sessionId) { return; }
+            textBuffer += `\n🔄 **Planning** (cycle ${payload.cycle})...\n`;
+            flushStreamBuffers();
+          },
+        );
+
+        unlistenExecuting = await listen<{
+          sessionId: string; cycle: number; step: number; totalSteps: number;
+        }>(
+          "stream-agent-executing",
+          (payload) => {
+            if (payload.sessionId !== sessionId) { return; }
+            textBuffer += `\n⚡ **Executing** step ${payload.step}/${payload.totalSteps} (cycle ${payload.cycle})...\n`;
+            flushStreamBuffers();
+          },
+        );
+
+        unlistenVerifying = await listen<{
+          sessionId: string; cycle: number;
+        }>(
+          "stream-agent-verifying",
+          (payload) => {
+            if (payload.sessionId !== sessionId) { return; }
+            textBuffer += `\n✅ **Verifying** (cycle ${payload.cycle})...\n`;
+            flushStreamBuffers();
+          },
+        );
+
+        unlistenPevDone = await listen<{
+          sessionId: string; cycle: number; success: boolean;
+        }>(
+          "stream-pev-cycle-done",
+          (payload) => {
+            if (payload.sessionId !== sessionId) { return; }
+            const icon = payload.success ? "✅" : "🔄";
+            textBuffer += `\n${icon} Cycle ${payload.cycle} ${payload.success ? "passed" : "retrying"}\n`;
+            flushStreamBuffers();
           },
         );
 

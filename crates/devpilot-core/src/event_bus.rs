@@ -73,6 +73,37 @@ pub enum CoreEvent {
         messages_removed: usize,
         summary_added: bool,
     },
+
+    /// Agent entered plan phase (PEV loop).
+    #[serde(rename = "agent_planning")]
+    AgentPlanning {
+        session_id: String,
+        cycle: u32,
+    },
+
+    /// Agent executing plan steps (PEV loop).
+    #[serde(rename = "agent_executing")]
+    AgentExecuting {
+        session_id: String,
+        cycle: u32,
+        step: u32,
+        total_steps: u32,
+    },
+
+    /// Agent verifying execution results (PEV loop).
+    #[serde(rename = "agent_verifying")]
+    AgentVerifying {
+        session_id: String,
+        cycle: u32,
+    },
+
+    /// PEV cycle result.
+    #[serde(rename = "pev_cycle_done")]
+    PevCycleDone {
+        session_id: String,
+        cycle: u32,
+        success: bool,
+    },
 }
 
 /// The broadcast sender side — clone-able, shared across the engine.

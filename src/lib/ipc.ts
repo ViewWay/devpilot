@@ -473,6 +473,14 @@ export const STREAM_EVENTS = {
   ERROR: "stream-error",
   /** Context compaction happened. Payload: { sessionId, messagesRemoved, summaryAdded } */
   COMPACTED: "stream-compacted",
+  /** Agent planning phase (PEV loop). Payload: { sessionId, cycle } */
+  AGENT_PLANNING: "stream-agent-planning",
+  /** Agent executing phase (PEV loop). Payload: { sessionId, cycle, step, totalSteps } */
+  AGENT_EXECUTING: "stream-agent-executing",
+  /** Agent verifying phase (PEV loop). Payload: { sessionId, cycle } */
+  AGENT_VERIFYING: "stream-agent-verifying",
+  /** PEV cycle done. Payload: { sessionId, cycle, success } */
+  PEV_CYCLE_DONE: "stream-pev-cycle-done",
 } as const;
 
 // ── IPC Command Types ────────────────────────────────────────

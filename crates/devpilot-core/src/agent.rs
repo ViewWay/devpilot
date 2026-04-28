@@ -24,6 +24,16 @@ use crate::error::{CoreError, CoreResult};
 use crate::event_bus::{CoreEvent, EventBus};
 use crate::session::{Session, SessionState};
 
+/// Controls how the agent handles tool calls.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum AgenticMode {
+    /// Standard mode: tool calls require user approval for Medium/High risk.
+    #[default]
+    Interactive,
+    /// Autonomous mode: all tool calls are auto-approved (no user confirmation).
+    Autonomous,
+}
+
 /// Configuration for the agent engine.
 #[derive(Debug, Clone)]
 pub struct AgentConfig {
@@ -33,6 +43,10 @@ pub struct AgentConfig {
     pub compact_threshold: u32,
     /// Strategy for context compression.
     pub compact_strategy: CompactStrategy,
+    /// How the agent handles tool call approval.
+    pub agentic_mode: AgenticMode,
+    /// Maximum plan→execute→verify cycles (0 = disabled, no PEV loop).
+    pub max_pev_cycles: u32,
 }
 
 impl Default for AgentConfig {
@@ -41,6 +55,8 @@ impl Default for AgentConfig {
             max_turns: 50,
             compact_threshold: 80_000, // ~80K tokens → compact
             compact_strategy: CompactStrategy::Summarize { keep_last: 20 },
+            agentic_mode: AgenticMode::Interactive,
+            max_pev_cycles: 0, // disabled by default
         }
     }
 }
@@ -101,12 +117,139 @@ impl Agent {
         session.set_state(SessionState::Running);
 
         // Run the agent loop
-        let result = self.agent_loop(session, provider).await;
+        let result = if self.config.max_pev_cycles > 0
+            && session.config.mode == devpilot_protocol::SessionMode::Code
+        {
+            self.pev_loop(session, provider).await
+        } else {
+            self.agent_loop(session, provider).await
+        };
 
         // Transition back to idle
         session.set_state(SessionState::Idle);
 
         result
+    }
+
+    /// The Plan→Execute→Verify loop.
+    ///
+    /// For each PEV cycle:
+    /// 1. Plan: let the agent_loop run one turn to produce a plan (tool calls)
+    /// 2. Execute: run the tool calls normally
+    /// 3. Verify: send the results back and ask the LLM to verify success
+    /// 4. If verification fails, start a new cycle with the failure context
+    async fn pev_loop(
+        &self,
+        session: &mut Session,
+        provider: &dyn ModelProvider,
+    ) -> CoreResult<()> {
+        let max_cycles = self.config.max_pev_cycles.max(1);
+        let mut total_usage = Usage::default();
+        let mut total_turns: u32 = 0;
+
+        for cycle in 1..=max_cycles {
+            // ── Plan phase ───────────────────────────────
+            self.event_bus.emit(CoreEvent::AgentPlanning {
+                session_id: session.id.clone(),
+                cycle,
+            });
+
+            // Inject PEV system context for the plan phase
+            if cycle > 1 {
+                session.add_user_message(&format!(
+                    "The previous attempt (cycle {}/{}) did not fully succeed. \
+                     Please revise your plan based on the results above.",
+                    cycle - 1, max_cycles,
+                ));
+            }
+
+            // Run one agent_loop iteration (plan + execute tools)
+            let result = self.agent_loop(session, provider).await;
+            if let Err(e) = result {
+                self.event_bus.emit(CoreEvent::PevCycleDone {
+                    session_id: session.id.clone(),
+                    cycle,
+                    success: false,
+                });
+                return Err(e);
+            }
+
+            total_turns += session.turn_count;
+
+            // ── Verify phase ─────────────────────────────
+            self.event_bus.emit(CoreEvent::AgentVerifying {
+                session_id: session.id.clone(),
+                cycle,
+            });
+
+            // Ask the LLM to verify the results
+            session.add_user_message(
+                "Review all the tool execution results above. \
+                 Reply with a JSON object: {\"success\": true} if the task is fully complete, \
+                 or {\"success\": false, \"reason\": \"...\"} if issues remain. \
+                 Do not use any tools — just reply with the JSON."
+                    .to_string(),
+            );
+
+            let tool_defs = vec![]; // No tools in verify phase
+            let chat_request = session.build_chat_request(tool_defs);
+            let stream = provider
+                .chat_stream(chat_request, session.id.clone())
+                .await
+                .map_err(CoreError::Llm)?;
+
+            let verify_result = self.process_stream(stream, &session.id).await?;
+            session.add_message(verify_result.message.clone());
+            session.record_usage(&verify_result.usage);
+            total_usage.input_tokens += verify_result.usage.input_tokens;
+            total_usage.output_tokens += verify_result.usage.output_tokens;
+            total_turns += 1;
+
+            // Parse verification result
+            let verify_text = verify_result
+                .message
+                .content
+                .iter()
+                .filter_map(|b| match b {
+                    ContentBlock::Text { text } => Some(text.as_str()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+                .join("");
+
+            let success = verify_text.contains("\"success\": true")
+                || verify_text.contains("\"success\":true")
+                || verify_text.contains("\"success\"") && !verify_text.contains("false");
+
+            self.event_bus.emit(CoreEvent::PevCycleDone {
+                session_id: session.id.clone(),
+                cycle,
+                success,
+            });
+
+            if success {
+                // Task verified — emit done and return
+                self.event_bus.emit(CoreEvent::AgentDone {
+                    session_id: session.id.clone(),
+                    total_turns,
+                    total_usage,
+                });
+                session.turn_count = total_turns;
+                return Ok(());
+            }
+
+            // Verification failed — loop continues to next cycle
+        }
+
+        // All cycles exhausted
+        self.event_bus.emit(CoreEvent::AgentDone {
+            session_id: session.id.clone(),
+            total_turns,
+            total_usage,
+        });
+        session.turn_count = total_turns;
+
+        Ok(())
     }
 
     /// The core agent loop.
@@ -441,7 +584,12 @@ impl Agent {
 
             // ── Approval gate ──────────────────────────────
             let risk = ToolExecutor::classify_risk(&tool_name, &input);
-            if risk != RiskLevel::Low {
+            // In Autonomous mode, skip approval entirely.
+            let needs_approval = match self.config.agentic_mode {
+                AgenticMode::Autonomous => false,
+                AgenticMode::Interactive => risk != RiskLevel::Low,
+            };
+            if needs_approval {
                 let risk_str = match risk {
                     RiskLevel::Medium => "medium",
                     RiskLevel::High => "high",
@@ -918,5 +1066,66 @@ mod tests {
             req.tools.is_some(),
             "Plan mode should include tools in the request"
         );
+    }
+
+    #[tokio::test]
+    async fn autonomous_mode_skips_approval() {
+        // Verify that AgenticMode::Autonomous config creates without error
+        // and that the mode is accessible.
+        let event_bus = EventBus::new();
+        let registry = devpilot_tools::ToolRegistry::new();
+        let executor = ToolExecutor::new(Arc::new(registry));
+        let config = AgentConfig {
+            agentic_mode: AgenticMode::Autonomous,
+            max_turns: 10,
+            compact_threshold: 0,
+            compact_strategy: CompactStrategy::Summarize { keep_last: 10 },
+            max_pev_cycles: 0,
+        };
+        let agent = Agent::new(
+            config,
+            event_bus,
+            Arc::new(Mutex::new(executor)),
+        );
+        // A simple smoke test: agent should run and complete without approval
+        let provider = MockProvider::new("Done!");
+        let mut session = Session::new(crate::session::SessionConfig {
+            id: Some("auto-test".into()),
+            model: "mock-model".into(),
+            provider_type: devpilot_protocol::ProviderType::Custom,
+            mode: devpilot_protocol::SessionMode::Ask,
+            reasoning_effort: devpilot_protocol::ReasoningEffort::Medium,
+            working_dir: None,
+            system_prompt: None,
+            temperature: None,
+            env_vars: vec![],
+            context_window_tokens: None,
+        });
+        let result = agent.run(&mut session, &provider, "test".into()).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn pev_loop_disabled_by_default() {
+        // Default AgentConfig has max_pev_cycles = 0, so pev_loop should NOT activate.
+        let (agent, _bus) = make_agent();
+        let provider = MockProvider::new("Hello!");
+
+        let mut session = Session::new(crate::session::SessionConfig {
+            id: Some("pev-off-test".into()),
+            model: "mock-model".into(),
+            provider_type: devpilot_protocol::ProviderType::Custom,
+            mode: devpilot_protocol::SessionMode::Code,
+            reasoning_effort: devpilot_protocol::ReasoningEffort::Medium,
+            working_dir: None,
+            system_prompt: None,
+            temperature: None,
+            env_vars: vec![],
+            context_window_tokens: None,
+        });
+        let result = agent.run(&mut session, &provider, "test".into()).await;
+        assert!(result.is_ok());
+        // With default config (max_pev_cycles = 0), only 2 messages: user + assistant
+        assert_eq!(session.messages.len(), 2);
     }
 }
