@@ -17,6 +17,7 @@ export interface AgentTask {
   status: AgentTaskStatus;
   parentId: string | null;
   result: string | null;
+  agentType: string;
 }
 
 // ── Store State ──────────────────────────────────────────

@@ -25,6 +25,7 @@ pub async fn agent_task_create(
         status: TaskStatus::Pending,
         parent_id,
         result: None,
+        agent_type: "general".to_string(),
         created_at: now,
         updated_at: now,
     };

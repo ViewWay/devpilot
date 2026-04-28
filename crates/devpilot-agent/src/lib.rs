@@ -62,8 +62,15 @@ pub struct AgentTask {
     pub status: TaskStatus,
     pub parent_id: Option<String>,
     pub result: Option<String>,
+    /// Type of agent assigned to this task (general, code_reviewer, test_writer, architect).
+    #[serde(default = "default_agent_type")]
+    pub agent_type: String,
     pub created_at: i64,
     pub updated_at: i64,
+}
+
+fn default_agent_type() -> String {
+    "general".to_string()
 }
 
 // ---------------------------------------------------------------------------
@@ -266,6 +273,11 @@ impl Tool for AgentTool {
                 "workdir": {
                     "type": "string",
                     "description": "Optional working directory for the sub-agent"
+                },
+                "agent_type": {
+                    "type": "string",
+                    "enum": ["general", "code_reviewer", "test_writer", "architect"],
+                    "description": "Type of sub-agent to spawn (default: general)"
                 }
             },
             "required": ["task"]
@@ -288,6 +300,7 @@ impl Tool for AgentTool {
 
         let id = uuid::Uuid::new_v4().to_string();
         let now = chrono::Utc::now().timestamp();
+        let agent_type = input["agent_type"].as_str().unwrap_or("general").to_string();
         let agent_task = AgentTask {
             id: id.clone(),
             title: task_desc.clone(),
@@ -295,6 +308,7 @@ impl Tool for AgentTool {
             status: TaskStatus::Pending,
             parent_id: None,
             result: None,
+            agent_type,
             created_at: now,
             updated_at: now,
         };
@@ -361,6 +375,7 @@ impl Tool for TaskCreateTool {
 
         let id = uuid::Uuid::new_v4().to_string();
         let now = chrono::Utc::now().timestamp();
+        let agent_type = input["agent_type"].as_str().unwrap_or("general").to_string();
         let task = AgentTask {
             id: id.clone(),
             title,
@@ -368,6 +383,7 @@ impl Tool for TaskCreateTool {
             status: TaskStatus::Pending,
             parent_id: input["parent_id"].as_str().map(|s| s.to_string()),
             result: None,
+            agent_type,
             created_at: now,
             updated_at: now,
         };
