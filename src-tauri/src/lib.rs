@@ -108,6 +108,8 @@ pub fn run() {
             commands::search::read_text_file,
             // External Editor
             commands::editor::open_in_editor,
+            commands::editor::read_file_content,
+            commands::editor::write_file_content,
             // Scheduler
             commands::scheduler::scheduler_create_task,
             commands::scheduler::scheduler_list_tasks,

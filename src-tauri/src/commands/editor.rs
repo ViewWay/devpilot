@@ -1,7 +1,7 @@
-//! Tauri command to open a file in the user's external editor.
-//!
-//! Detects $EDITOR/$VISUAL or tries common editors (code, vim, etc.).
+//! Tauri commands for editor integration — open in external editor, read/write file content.
 
+use std::fs;
+use std::path::Path;
 use std::process::Command as StdCommand;
 
 /// Open a file in the user's preferred editor.
@@ -103,4 +103,28 @@ fn launch_editor(editor: &str, path: &str, line: Option<u32>) -> Result<String, 
         Ok(_) => Ok(format!("Opened {} in {}", path, editor)),
         Err(e) => Err(format!("Failed to open editor '{}': {}", editor, e)),
     }
+}
+
+/// Read a file's content as UTF-8 string.
+#[tauri::command(rename_all = "camelCase")]
+pub fn read_file_content(path: String) -> Result<String, String> {
+    let p = Path::new(&path);
+    if !p.exists() {
+        return Err(format!("File not found: {}", path));
+    }
+    if !p.is_file() {
+        return Err(format!("Not a file: {}", path));
+    }
+    fs::read_to_string(p).map_err(|e| format!("Failed to read {}: {}", path, e))
+}
+
+/// Write content to a file (creates or overwrites).
+#[tauri::command(rename_all = "camelCase")]
+pub fn write_file_content(path: String, content: String) -> Result<(), String> {
+    let p = Path::new(&path);
+    if let Some(parent) = p.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create parent dir: {}", e))?;
+    }
+    fs::write(p, &content).map_err(|e| format!("Failed to write {}: {}", path, e))
 }
