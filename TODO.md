@@ -278,59 +278,63 @@
 
 ---
 
-## Phase 11: Agent 能力深化 — 0/N
+## Phase 11: Agent 能力深化 — 10/10 完成 ✅
 
 ### P11-A: Agent 多步自主执行 (Critical)
 
-- [ ] **P11-1** AgentConfig 增加 `agentic_mode` (autonomous/interactive/plan-only)
+- [x] **P11-1** AgentConfig 增加 `agentic_mode` (autonomous/interactive/plan-only)
   - autonomous: 无需审批自动执行工具调用，遇到错误自动重试
   - interactive: 当前模式，需要用户审批
   - plan-only: 只输出计划不执行
-- [ ] **P11-2** Agent run() 增加 plan→execute→verify 循环
+- [x] **P11-2** Agent run() 增加 plan→execute→verify 循环
   - plan: LLM 生成结构化 JSON 计划 (steps with tool calls)
   - execute: 按步执行，每步结果反馈 LLM
   - verify: 最后一步 LLM 验证整体结果
   - 循环: 如果 verify 失败，重新 plan (最多 3 轮)
-- [ ] **P11-3** AgentTask 支持子任务树 (parent_id 已有，增加 progress/children 聚合)
+- [x] **P11-3** AgentTask 支持子任务树 (parent_id 已有，增加 progress/children 聚合)
   - TaskStore 增加 get_children(), get_task_tree()
   - agentStore 增加 taskTree computed
   - AgentTaskPanel 显示树形结构
-- [ ] **P11-4** Agent 自主执行时的事件流增强
+- [x] **P11-4** Agent 自主执行时的事件流增强
   - 新增 CoreEvent::AgentPlanning / AgentExecuting / AgentVerifying
   - 前端 ChatPanel 显示 plan/execute/verify 状态指示器
   - 可折叠的执行日志面板
 
 ### P11-B: RAG 代码索引 (High)
 
-- [ ] **P11-5** devpilot-index: 接入 Tauri IPC
+- [x] **P11-5** devpilot-index: 接入 Tauri IPC
   - index_directory, search_symbols, get_index_stats 3 个 IPC 命令
   - 前端 indexerStore + Settings 索引配置
-- [ ] **P11-6** devpilot-index: 增量索引 (watch 文件变更)
+- [x] **P11-6** devpilot-index: 增量索引 (watch 文件变更)
   - notify crate 监听文件变更，增量更新 SymbolIndex
   - debounce 500ms，避免频繁重索引
-- [ ] **P11-7** 上下文自动注入索引结果
+- [x] **P11-7** 上下文自动注入索引结果
   - agent.run() 前，根据用户 query 搜索相关符号
   - 将 top-K 结果作为 system prompt 的一部分注入
   - 增加 /index 命令触发手动索引
 
 ### P11-C: 多 Agent 协作 (High)
 
-- [ ] **P11-8** AgentTool 增强: 支持 sub-agent 配置
+- [x] **P11-8** AgentTool 增强: 支持 sub-agent 配置
   - AgentConfig 增加 agent_type: General / CodeReviewer / TestWriter / Architect
   - 不同类型使用不同 system prompt 和工具集
   - AgentTool.spawn() 传入 agent_type
-- [ ] **P11-9** 并行子 Agent 执行
+- [x] **P11-9** 并行子 Agent 执行
   - TaskStore 增加 parallel_spawn(ids, configs)
   - 子 Agent 结果通过 EventBus 聚合
   - 前端 AgentTaskPanel 显示并行执行状态
-- [ ] **P11-10** Agent 间通信协议
+- [x] **P11-10** Agent 间通信协议
   - SharedBlackboard: 全局 key-value store for agent coordination
   - Agent 输出可写入 blackboard，其他 Agent 可读取
   - IPC 命令: blackboard_get/set/list
 
 ---
 
-## Phase 12: Git 深度集成 — 0/N
+## Phase 12: Git 深度集成 — 基础已实现 ✅
+
+> devpilot-git (1156行) + GitPanel (701行) + gitStore (431行) + 15 IPC commands 已接入
+> 包含: status, diff (staged/unstaged/commits), log, blame, commit, branch管理, stash, worktree, push/pull
+> 前端: GitPanel (文件变更列表, diff视图, 提交历史), RightPanelTabs 已有 git tab
 
 ### P12-A: Git 可视化 (Critical)
 
