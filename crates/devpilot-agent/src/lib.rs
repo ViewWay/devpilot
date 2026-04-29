@@ -169,10 +169,7 @@ impl TaskStore {
             .iter()
             .filter_map(|c| self.get_task_tree(&c.id))
             .collect();
-        Some(TaskTreeNode {
-            task,
-            children,
-        })
+        Some(TaskTreeNode { task, children })
     }
 }
 
@@ -300,7 +297,10 @@ impl Tool for AgentTool {
 
         let id = uuid::Uuid::new_v4().to_string();
         let now = chrono::Utc::now().timestamp();
-        let agent_type = input["agent_type"].as_str().unwrap_or("general").to_string();
+        let agent_type = input["agent_type"]
+            .as_str()
+            .unwrap_or("general")
+            .to_string();
         let agent_task = AgentTask {
             id: id.clone(),
             title: task_desc.clone(),
@@ -375,7 +375,10 @@ impl Tool for TaskCreateTool {
 
         let id = uuid::Uuid::new_v4().to_string();
         let now = chrono::Utc::now().timestamp();
-        let agent_type = input["agent_type"].as_str().unwrap_or("general").to_string();
+        let agent_type = input["agent_type"]
+            .as_str()
+            .unwrap_or("general")
+            .to_string();
         let task = AgentTask {
             id: id.clone(),
             title,

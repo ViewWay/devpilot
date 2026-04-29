@@ -123,8 +123,7 @@ pub fn read_file_content(path: String) -> Result<String, String> {
 pub fn write_file_content(path: String, content: String) -> Result<(), String> {
     let p = Path::new(&path);
     if let Some(parent) = p.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create parent dir: {}", e))?;
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create parent dir: {}", e))?;
     }
     fs::write(p, &content).map_err(|e| format!("Failed to write {}: {}", path, e))
 }

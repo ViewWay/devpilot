@@ -272,14 +272,18 @@ pub async fn send_message_stream(
                         let sym = &r.symbol;
                         let loc = format!("{}:{}", sym.file_path, sym.line);
                         match &sym.doc_summary {
-                            Some(doc) => format!("  - {} {} ({}) — {}", sym.kind, sym.full_path, loc, doc),
+                            Some(doc) => {
+                                format!("  - {} {} ({}) — {}", sym.kind, sym.full_path, loc, doc)
+                            }
                             None => format!("  - {} {} ({})", sym.kind, sym.full_path, loc),
                         }
                     })
                     .collect();
                 let ctx = format!(
                     "\n\n[Project Code Index — {} symbols in {} files]\nRelevant symbols:\n{}",
-                    stats.symbols_count, stats.files_indexed, top_k.join("\n")
+                    stats.symbols_count,
+                    stats.files_indexed,
+                    top_k.join("\n")
                 );
                 system_prompt = Some(match system_prompt {
                     Some(sp) => format!("{sp}{ctx}"),

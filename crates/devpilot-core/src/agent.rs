@@ -156,10 +156,11 @@ impl Agent {
 
             // Inject PEV system context for the plan phase
             if cycle > 1 {
-                session.add_user_message(&format!(
+                session.add_user_message(format!(
                     "The previous attempt (cycle {}/{}) did not fully succeed. \
                      Please revise your plan based on the results above.",
-                    cycle - 1, max_cycles,
+                    cycle - 1,
+                    max_cycles,
                 ));
             }
 
@@ -1082,11 +1083,7 @@ mod tests {
             compact_strategy: CompactStrategy::Summarize { keep_last: 10 },
             max_pev_cycles: 0,
         };
-        let agent = Agent::new(
-            config,
-            event_bus,
-            Arc::new(Mutex::new(executor)),
-        );
+        let agent = Agent::new(config, event_bus, Arc::new(Mutex::new(executor)));
         // A simple smoke test: agent should run and complete without approval
         let provider = MockProvider::new("Done!");
         let mut session = Session::new(crate::session::SessionConfig {
