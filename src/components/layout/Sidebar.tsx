@@ -4,9 +4,10 @@ import { useChatStore } from "../../stores/chatStore";
 import { useUIStore } from "../../stores/uiStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useTabStore, SETTINGS_TAB_ID, SCHEDULED_TAB_ID, SKILLS_TAB_ID, GALLERY_TAB_ID, BRIDGE_TAB_ID, REMOTE_TAB_ID } from "../../stores/tabStore";
-import { Package, ImageIcon, Radio, Smartphone, ChevronDown, Upload } from "lucide-react";
+import { Package, ImageIcon, Radio, Smartphone, ChevronDown, Upload, FolderOpen } from "lucide-react";
 import { SESSION_TEMPLATES } from "../../lib/sessionTemplates";
 import type { SessionTemplate } from "../../lib/sessionTemplates";
+import { isTauriRuntime } from "../../lib/ipc";
 
 type TimeGroup = "today" | "yesterday" | "last7days" | "last30days" | "older";
 
@@ -18,7 +19,11 @@ export function Sidebar() {
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const createSession = useChatStore((s) => s.createSession);
   const importSessions = useChatStore((s) => s.importSessions);
+  const activeSessionId = useChatStore((s) => s.activeSessionId);
+  const setSessionWorkingDir = useChatStore((s) => s.setSessionWorkingDir);
   const selectedModel = useSettingsStore((s) => s.selectedModel);
+  const workingDir = useUIStore((s) => s.workingDir);
+  const setWorkingDir = useUIStore((s) => s.setWorkingDir);
   const openTab = useTabStore((s) => s.openTab);
   const activeTabId = useTabStore((s) => s.activeTabId);
   const [searchQuery, setSearchQuery] = useState("");
@@ -207,6 +212,40 @@ export function Sidebar() {
             )}
           </button>
         )}
+        {/* Open Project Folder */}
+        <NavItem
+          active={false}
+          collapsed={!sidebarOpen}
+          label={t("openProject")}
+          onClick={async () => {
+            try {
+              if (isTauriRuntime()) {
+                const { open } = await import("@tauri-apps/plugin-dialog");
+                const selected = await open({ directory: true, multiple: false, title: "Open Project Folder" });
+                if (selected && typeof selected === "string") {
+                  setWorkingDir(selected);
+                  if (activeSessionId) {
+                    setSessionWorkingDir(activeSessionId, selected);
+                  }
+                  // Open files panel to show project contents
+                  useUIStore.getState().setRightPanel("files");
+                }
+              } else {
+                const path = window.prompt("Enter project directory path:", workingDir || "~"); // eslint-disable-line no-alert
+                if (path) {
+                  setWorkingDir(path.trim());
+                  if (activeSessionId) {
+                    setSessionWorkingDir(activeSessionId, path.trim());
+                  }
+                  useUIStore.getState().setRightPanel("files");
+                }
+              }
+            } catch { /* user cancelled */ }
+          }}
+          icon={<FolderOpen size={18} />}
+        >
+          {workingDir ? workingDir.split("/").slice(-2).join("/") : t("openProject")}
+        </NavItem>
         <NavItem
           active={activeTabId === SCHEDULED_TAB_ID}
           collapsed={!sidebarOpen}

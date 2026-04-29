@@ -32,6 +32,8 @@ const en = {
   reasoningDeep: "Deep — thorough analysis",
   custom: "Custom",
   noDirSelected: "No directory",
+  openProject: "Open Project",
+  commandPaletteOpenProjectDesc: "Select a project folder to work with",
   workingDir: "Working Directory",
   systemPrompt: "System Prompt",
   systemPromptPlaceholder: "Enter a custom system prompt to prepend to all messages...",

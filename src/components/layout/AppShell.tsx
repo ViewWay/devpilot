@@ -45,6 +45,10 @@ export function AppShell() {
         // Check if onboarding has been completed
         await checkOnboardingStatus();
 
+        // Hydrate providers, sessions, and workingDir from backend (SQLite)
+        // This replaces per-session lazy hydration so configs survive restart
+        await useChatStore.getState().hydrateFromBackend();
+
         // Restore tabs from localStorage
         await useTabStore.getState().restoreTabs();
         const activeId = useTabStore.getState().activeTabId;

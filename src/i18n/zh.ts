@@ -32,6 +32,8 @@ const zh = {
   reasoningDeep: "深度 — 深入分析",
   custom: "自定义",
   noDirSelected: "未选择目录",
+  openProject: "打开项目",
+  commandPaletteOpenProjectDesc: "选择一个项目文件夹进行开发",
   workingDir: "工作目录",
   systemPrompt: "系统提示词",
   systemPromptPlaceholder: "输入自定义系统提示词，将附加到所有消息开头...",

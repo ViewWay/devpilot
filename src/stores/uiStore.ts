@@ -74,6 +74,17 @@ export function registerChatStoreSetActiveSession(setter: (id: string) => void) 
   _setActiveSession = setter;
 }
 
+// ── workingDir persistence ─────────────────────────────────────────
+const WORKING_DIR_KEY = "devpilot-working-dir";
+
+function loadWorkingDir(): string {
+  try {
+    return localStorage.getItem(WORKING_DIR_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
 export const useUIStore = create<UIState>((set, get) => ({
   sidebarOpen: true,
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
@@ -94,8 +105,17 @@ export const useUIStore = create<UIState>((set, get) => ({
   setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
   toggleCommandPalette: () => set((s) => ({ commandPaletteOpen: !s.commandPaletteOpen })),
 
-  workingDir: "",
-  setWorkingDir: (dir) => set({ workingDir: dir }),
+  workingDir: loadWorkingDir(),
+  setWorkingDir: (dir) => {
+    set({ workingDir: dir });
+    try {
+      if (dir) {
+        localStorage.setItem(WORKING_DIR_KEY, dir);
+      } else {
+        localStorage.removeItem(WORKING_DIR_KEY);
+      }
+    } catch { /* noop */ }
+  },
 
   previewFile: "",
   setPreviewFile: (path: string) => set({ previewFile: path }),

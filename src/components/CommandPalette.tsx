@@ -9,6 +9,7 @@ import {
   ArrowRight, Hash, Command, Search,
 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { isTauriRuntime } from "../lib/ipc";
 
 interface PaletteItem {
   id: string;
@@ -34,6 +35,9 @@ export function CommandPalette() {
   const sessions = useChatStore((s) => s.sessions);
   const activeSessionId = useChatStore((s) => s.activeSessionId);
   const setActiveSession = useChatStore((s) => s.setActiveSession);
+  const setSessionWorkingDir = useChatStore((s) => s.setSessionWorkingDir);
+  const workingDir = useUIStore((s) => s.workingDir);
+  const setWorkingDir = useUIStore((s) => s.setWorkingDir);
   const { t } = useI18n();
 
   const [query, setQuery] = useState("");
@@ -102,6 +106,38 @@ export function CommandPalette() {
       action: () => { toggleRightPanel("preview"); setOpen(false); },
     },
     {
+      id: "open-project",
+      label: t("openProject"),
+      description: t("commandPaletteOpenProjectDesc"),
+      icon: <FolderOpen size={16} />,
+      category: "command",
+      action: async () => {
+        setOpen(false);
+        try {
+          if (isTauriRuntime()) {
+            const { open } = await import("@tauri-apps/plugin-dialog");
+            const selected = await open({ directory: true, multiple: false, title: "Open Project Folder" });
+            if (selected && typeof selected === "string") {
+              setWorkingDir(selected);
+              if (activeSessionId) {
+                setSessionWorkingDir(activeSessionId, selected);
+              }
+              useUIStore.getState().setRightPanel("files");
+            }
+          } else {
+            const path = window.prompt("Enter project directory path:", workingDir || "~"); // eslint-disable-line no-alert
+            if (path) {
+              setWorkingDir(path.trim());
+              if (activeSessionId) {
+                setSessionWorkingDir(activeSessionId, path.trim());
+              }
+              useUIStore.getState().setRightPanel("files");
+            }
+          }
+        } catch { /* user cancelled */ }
+      },
+    },
+    {
       id: "switch-theme",
       label: t("commandPaletteSwitchTheme"),
       description: `${themeLabel} → ${themeNext === "system" ? t("themeSystem") : themeNext === "dark" ? t("themeDark") : t("themeLight")}`,
@@ -128,7 +164,7 @@ export function CommandPalette() {
     },
   ], [t, selectedModel, themeLabel, themeNext, themeIcon, mod,
     createSession, toggleSidebar, toggleRightPanel, setTheme, setActiveView, setOpen,
-    toggleMessageSearch]);
+    toggleMessageSearch, setWorkingDir, setSessionWorkingDir, activeSessionId, workingDir]);
 
   const sessionItems: PaletteItem[] = useMemo(() =>
     sessions
