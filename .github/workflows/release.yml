@@ -255,6 +255,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # WiX (MSI bundler) requires major version <= 255.
+      # Convert YYYY.M.D → 0.YY.MM.DD to stay within limits.
+      - name: Patch version for WiX compatibility
+        shell: pwsh
+        run: |
+          $version = "${{ needs.create-release.outputs.version }}"
+          if ($version -match '^(\d{4})\.(\d{1,2})\.(\d{1,2})') {
+            $y = [int]$Matches[1] % 100   # last 2 digits of year
+            $m = [int]$Matches[2]
+            $d = [int]$Matches[3]
+            $wixVer = "0.${y}.${m}.${d}"
+            Write-Host "Patching tauri.conf.json: $version → $wixVer"
+            $cfg = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
+            $cfg.version = $wixVer
+            $cfg | ConvertTo-Json -Depth 100 | Set-Content src-tauri/tauri.conf.json
+          }
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -342,7 +359,15 @@ jobs:
   # ── Publish ────────────────────────────────────────────
   publish-release:
     name: Publish
-    needs: validate
+    needs:
+      [
+        validate,
+        build-macos-aarch64,
+        build-macos-x86_64,
+        build-windows,
+        build-linux,
+      ]
+    if: always() && needs.validate.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Publish release
