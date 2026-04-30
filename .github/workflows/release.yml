@@ -257,19 +257,21 @@ jobs:
 
       # WiX (MSI bundler) requires major version <= 255.
       # Convert YYYY.M.D → 0.YY.MM.DD to stay within limits.
+      # Must remain valid semver (3 segments): 0.YYYYMMDD
       - name: Patch version for WiX compatibility
         shell: pwsh
         run: |
           $version = "${{ needs.create-release.outputs.version }}"
           if ($version -match '^(\d{4})\.(\d{1,2})\.(\d{1,2})') {
-            $y = [int]$Matches[1] % 100   # last 2 digits of year
+            $y = [int]$Matches[1] % 100
             $m = [int]$Matches[2]
             $d = [int]$Matches[3]
-            $wixVer = "0.${y}.${m}.${d}"
+            $wixVer = "0.$($y * 100 + $m).$d"
             Write-Host "Patching tauri.conf.json: $version → $wixVer"
-            $cfg = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
-            $cfg.version = $wixVer
-            $cfg | ConvertTo-Json -Depth 100 | Set-Content src-tauri/tauri.conf.json
+            $path = "src-tauri/tauri.conf.json"
+            $content = Get-Content $path -Raw
+            $content = $content -replace '"version":\s*"[^"]*"', "`"version`": `"$wixVer`""
+            Set-Content $path $content
           }
 
       - name: Setup Node.js
