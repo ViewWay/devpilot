@@ -1,0 +1,61 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  conventional-commit:
+    name: Conventional Commit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check PR title follows Conventional Commits
+        run: |
+          TITLE="${{ github.event.pull_request.title }}"
+          if echo "$TITLE" | grep -qE '^(feat|fix|chore|docs|style|refactor|perf|test|build|ci)(\(.+\))?: .+'; then
+            echo "✅ PR title follows Conventional Commits: $TITLE"
+          else
+            echo "❌ PR title must follow Conventional Commits: type(scope): description"
+            echo "   Valid types: feat, fix, chore, docs, style, refactor, perf, test, build, ci"
+            echo "   Example: feat(ui): add dark mode toggle"
+            exit 1
+          fi
+
+  size-label:
+    name: Size Label
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add size label based on diff
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUM="${{ github.event.pull_request.number }}"
+          # Get diff stats
+          git fetch origin ${{ github.base_ref }}
+          LINES=$(git diff --stat origin/${{ github.base_ref }}...HEAD | tail -1 | awk '{print $4+$6}')
+          LINES=${LINES:-0}
+
+          # Remove old size labels
+          gh pr edit $PR_NUM --remove-label "size/XS" --remove-label "size/S" --remove-label "size/M" --remove-label "size/L" --remove-label "size/XL" 2>/dev/null || true
+
+          if [ "$LINES" -lt 50 ]; then LABEL="size/XS"
+          elif [ "$LINES" -lt 150 ]; then LABEL="size/S"
+          elif [ "$LINES" -lt 400 ]; then LABEL="size/M"
+          elif [ "$LINES" -lt 1000 ]; then LABEL="size/L"
+          else LABEL="size/XL"
+          fi
+
+          echo "Changed ~${LINES} lines → ${LABEL}"
+          gh pr edit $PR_NUM --add-label "$LABEL" 2>/dev/null || true

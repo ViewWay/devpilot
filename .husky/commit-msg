@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# commit-msg: Validate commit message follows Conventional Commits
+
+MSG_FILE="$1"
+MSG=$(cat "$MSG_FILE" | head -1)
+
+# Skip merge commits
+if echo "$MSG" | grep -qE '^Merge (branch|remote-tracking|tag)'; then
+  exit 0
+fi
+
+# Skip revert commits
+if echo "$MSG" | grep -qE '^Revert "'; then
+  exit 0
+fi
+
+# Valid conventional commit pattern
+# type(scope)!: description
+if echo "$MSG" | grep -qE '^(feat|fix|chore|docs|style|refactor|perf|test|build|ci)(\(.+\))?!?: .{1,100}'; then
+  exit 0
+fi
+
+echo ""
+echo "❌ Invalid commit message format:"
+echo "   $MSG"
+echo ""
+echo "Expected: type(scope)!: description"
+echo ""
+echo "Types: feat, fix, chore, docs, style, refactor, perf, test, build, ci"
+echo "Scope: optional (ui, llm, tools, agent, store, mcp, terminal, i18n, ci)"
+echo "!: optional breaking change marker"
+echo ""
+echo "Examples:"
+echo "  feat(ui): add dark mode toggle"
+echo "  fix(llm): handle streaming timeout"
+echo "  chore(deps): update dependencies"
+echo "  feat!: redesign session model"
+echo ""
+exit 1

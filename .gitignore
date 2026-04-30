@@ -32,3 +32,9 @@ src-tauri/Cargo.lock
 *.tsbuildinfo
 .claude/
 Claude.reg
+
+# Cargo deny advisory cache
+~/.cargo/advisory-db/
+
+# Local devpilot config (user-specific)
+.devpilot/agents/*.local.md

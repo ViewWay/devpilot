@@ -1,0 +1,44 @@
+name: Feature Request
+description: Suggest a feature for DevPilot
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / Motivation
+      description: What problem does this feature solve?
+      placeholder: "I'm always frustrated when..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe your proposed solution
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What alternatives have you considered?
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - UI / Frontend
+        - Rust Backend
+        - AI / LLM Integration
+        - Tools (shell, file ops, etc.)
+        - Terminal Emulator
+        - MCP Integration
+        - Performance
+        - Documentation
+        - CI/CD
+        - Other
+    validations:
+      required: true

@@ -1,0 +1,42 @@
+name: Security Audit
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - "Cargo.lock"
+      - "package-lock.json"
+  schedule:
+    - cron: "0 6 * * 1" # Every Monday 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  cargo-audit:
+    name: Cargo Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rustsec/audit-action@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  npm-audit:
+    name: NPM Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - name: Run npm audit
+        run: |
+          npm audit --omit=dev --audit-level=high 2>&1 | tee audit-results.txt || true
+          if grep -qE '(high|critical)' audit-results.txt; then
+            echo "::warning::High or critical vulnerabilities found"
+          fi
