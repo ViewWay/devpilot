@@ -3,7 +3,7 @@
 //! These commands expose the devpilot-agent crate's task store and plan mode
 //! state to the Tauri frontend via IPC.
 
-use devpilot_agent::{AgentTask, TaskStatus, TaskStore, TaskTreeNode};
+use devpilot_agent::{AgentDefinition, AgentTask, TaskStatus, TaskStore, TaskTreeNode};
 
 // ── Task Management Commands ──────────────────────────
 
@@ -108,4 +108,15 @@ pub async fn agent_task_tree(id: String) -> Result<TaskTreeNode, String> {
     TaskStore::global()
         .get_task_tree(&id)
         .ok_or_else(|| format!("Task not found: {}", id))
+}
+
+// ── Agent Config Commands ────────────────────────────
+
+/// Load custom agent definitions from `.devpilot/agents/` in the given workdir.
+#[tauri::command]
+pub async fn agent_list_definitions(
+    workdir: String,
+) -> Result<Vec<AgentDefinition>, String> {
+    let path = std::path::Path::new(&workdir);
+    Ok(devpilot_agent::load_agents_from_dir(path))
 }

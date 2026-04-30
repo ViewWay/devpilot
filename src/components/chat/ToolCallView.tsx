@@ -13,6 +13,7 @@ import {
   Search,
   Globe,
   FolderOpen,
+  ListTodo,
 } from "lucide-react";
 import type { ToolCall } from "../../types";
 import { cn } from "../../lib/utils";
@@ -594,6 +595,89 @@ function RunningPlaceholder() {
 }
 
 /* -------------------------------------------------------------------------- */
+/*  TodoWriteRenderer  — todo_write                                           */
+/* -------------------------------------------------------------------------- */
+
+interface TodoItem {
+  id: string;
+  content: string;
+  status: "pending" | "in_progress" | "completed" | "cancelled";
+}
+
+const STATUS_STYLES: Record<TodoItem["status"], string> = {
+  pending: "text-[var(--color-text-tertiary)]",
+  in_progress: "text-[var(--color-brand)] font-medium",
+  completed: "text-[var(--color-success)] line-through opacity-60",
+  cancelled: "text-[var(--color-text-tertiary)] line-through opacity-40",
+};
+
+const STATUS_ICONS: Record<TodoItem["status"], React.ReactNode> = {
+  pending: <span className="h-3.5 w-3.5 rounded-full border border-[var(--color-border)] inline-block shrink-0" />,
+  in_progress: <Loader2 size={14} className="text-[var(--color-brand)] animate-spin shrink-0" />,
+  completed: <CheckCircle2 size={14} className="text-[var(--color-success)] shrink-0" />,
+  cancelled: <AlertCircle size={14} className="text-[var(--color-text-tertiary)] opacity-40 shrink-0" />,
+};
+
+function TodoWriteRenderer({ toolCall }: ToolCallViewProps) {
+  const { t } = useI18n();
+  const [expanded, setExpanded] = useState(true);
+  const parsed = tryParseInput(toolCall.input);
+  const items: TodoItem[] = (parsed?.["items"] as TodoItem[]) ?? [];
+
+  return (
+    <RendererShell
+      toolCall={toolCall}
+      icon={<ListTodo size={12} />}
+      iconColor="text-[var(--color-brand)]"
+      label={t("todoWrite")}
+    >
+      <button
+        type="button"
+        onClick={() => setExpanded((e) => !e)}
+        className="flex items-center gap-1 text-[11px] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+      >
+        {expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+        <span>{items.length} items</span>
+      </button>
+      {expanded && items.length > 0 && (
+        <div className="mt-1 space-y-1">
+          {items.map((item) => (
+            <div key={item.id} className={`flex items-start gap-2 text-xs ${STATUS_STYLES[item.status]}`}>
+              {STATUS_ICONS[item.status]}
+              <span className="leading-relaxed">{item.content}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </RendererShell>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  PlanModeRenderer  — enter_plan_mode / exit_plan_mode                      */
+/* -------------------------------------------------------------------------- */
+
+function PlanModeRenderer({ toolCall }: ToolCallViewProps) {
+  const { t } = useI18n();
+  const isEnter = toolCall.name === "enter_plan_mode";
+  const parsed = tryParseInput(toolCall.input);
+  const reason = (parsed?.["reason"] as string) ?? (parsed?.["summary"] as string) ?? "";
+
+  return (
+    <RendererShell
+      toolCall={toolCall}
+      icon={isEnter ? <Search size={12} /> : <CheckCircle2 size={12} />}
+      iconColor={isEnter ? "text-[var(--color-warning)]" : "text-[var(--color-success)]"}
+      label={isEnter ? t("enterPlanMode") : t("exitPlanMode")}
+    >
+      {reason && (
+        <p className="text-xs text-[var(--color-text-secondary)] italic">{reason}</p>
+      )}
+    </RendererShell>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Renderer selector                                                         */
 /* -------------------------------------------------------------------------- */
 
@@ -618,6 +702,12 @@ function selectRenderer(name: string): React.ComponentType<ToolCallViewProps> {
   }
   if (name === "list_directory") {
     return DirToolRenderer;
+  }
+  if (name === "todo_write") {
+    return TodoWriteRenderer;
+  }
+  if (name === "enter_plan_mode" || name === "exit_plan_mode") {
+    return PlanModeRenderer;
   }
   return GenericRenderer;
 }

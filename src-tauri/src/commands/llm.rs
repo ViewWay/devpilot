@@ -63,6 +63,11 @@ pub struct StreamMessageRequest {
     /// Interaction mode: "code", "plan", or "ask".
     #[serde(default)]
     pub mode: Option<String>,
+    /// Agent type override (e.g. "general", "architect", "code_reviewer", "test_writer").
+    /// If set, the system prompt is augmented with the agent's custom prompt from
+    /// `.devpilot/agents/<agent_type>.md`.
+    #[serde(default)]
+    pub agent_type: Option<String>,
     /// Reasoning effort (0-100).
     #[serde(default)]
     pub reasoning_effort: Option<u8>,
@@ -254,6 +259,21 @@ pub async fn send_message_stream(
         (Some(sp), true) => Some(sp.clone()),
         (None, true) => None,
     };
+
+    // Inject custom agent prompt from `.devpilot/agents/<agent_type>.md` if specified.
+    if let Some(ref agent_type) = request.agent_type {
+        if let Some(ref wd) = request.working_dir {
+            let agents = devpilot_agent::load_agents_from_dir(std::path::Path::new(wd));
+            if let Some(agent_def) = agents.iter().find(|a| &a.agent_type == agent_type) {
+                if !agent_def.prompt.is_empty() {
+                    system_prompt = Some(match system_prompt {
+                        Some(sp) => format!("{sp}\n\n---\n# Agent: {}\n\n{}", agent_def.agent_type, agent_def.prompt),
+                        None => format!("# Agent: {}\n\n{}", agent_def.agent_type, agent_def.prompt),
+                    });
+                }
+            }
+        }
+    }
 
     // P11-7: Inject relevant code symbols from the index into system prompt.
     // This gives the LLM context about the project's code structure.

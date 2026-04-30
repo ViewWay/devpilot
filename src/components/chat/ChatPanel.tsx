@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { ApprovalQueue } from "./ApprovalOverlay";
@@ -16,8 +16,9 @@ import { GitPanel } from "../panels/GitPanel";
 import { AgentTaskPanel } from "../panels/AgentTaskPanel";
 import { MarketplacePanel } from "../panels/MarketplacePanel";
 import { RightPanelTabs } from "../panels/RightPanelTabs";
-import { Loader2, AlertCircle, History, ChevronDown, ChevronRight } from "lucide-react";
+import { Loader2, AlertCircle, History, ChevronDown, ChevronRight, Map } from "lucide-react";
 import { useI18n } from "../../i18n";
+import { invoke } from "../../lib/ipc";
 
 function ChatContent() {
   const isLoading = useChatStore((s) => s.isLoading);
@@ -28,8 +29,30 @@ function ChatContent() {
   const approveAll = useChatStore((s) => s.approveAll);
   const { t } = useI18n();
 
+  // Plan mode indicator — poll backend state
+  const [planMode, setPlanMode] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const isPlan = await invoke<boolean>("agent_is_plan_mode");
+        if (!cancelled) { setPlanMode(isPlan); }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (_e) { /* ignore in browser mode */ }
+    };
+    poll();
+    const iv = setInterval(poll, 3000);
+    return () => { cancelled = true; clearInterval(iv); };
+  }, []);
+
   return (
     <div className="flex h-full flex-col">
+      {planMode && (
+        <div className="flex items-center gap-2 border-b border-[var(--color-warning)]/30 bg-[var(--color-warning)]/10 px-4 py-2">
+          <Map size={14} className="text-[var(--color-warning)]" />
+          <span className="text-xs text-[var(--color-warning)]">{t("planModeActive")}</span>
+        </div>
+      )}
       {isLoading && !streamingMessageId && (
         <div className="flex items-center gap-2 border-b border-[var(--color-border)]/40 bg-[var(--color-surface-container)]/30 px-4 py-2">
           <Loader2 size={14} className="animate-spin text-[var(--color-brand)]" />

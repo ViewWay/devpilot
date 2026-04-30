@@ -222,6 +222,8 @@ pub fn run() {
             commands::agent::agent_enter_plan_mode,
             commands::agent::agent_exit_plan_mode,
             commands::agent::agent_is_plan_mode,
+            // Agent Config
+            commands::agent::agent_list_definitions,
             // Marketplace
             commands::marketplace::marketplace_fetch_catalog,
             commands::marketplace::marketplace_search_skills,

@@ -391,6 +391,10 @@ interface ChatState {
   setSessionEnvVars: (sessionId: string, envVars: Array<{ key: string; value: string }>) => void;
   /** Reorder sessions (e.g. from drag-and-drop in sidebar). */
   reorderSessions: (sessionId: string, targetIndex: number) => void;
+  /** Current agent type override for the next message. */
+  agentType: string;
+  /** Set the agent type for the next message. */
+  setAgentType: (agentType: string) => void;
 
   // Internal
   _streamCleanup: (() => void) | null;
@@ -451,6 +455,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   error: null,
   streamingMessageId: null,
   pendingApprovals: [],
+  agentType: "general",
   _streamCleanup: null,
 
   activeSession: () => {
@@ -1062,6 +1067,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // NOW start streaming — listeners are already registered
         const workingDir = useUIStore.getState().workingDir || undefined;
         const { activeMode, reasoningEffort } = useSettingsStore.getState();
+        const { agentType } = get();
         await invoke("send_message_stream", {
           provider: providerConfig,
           chatRequest: { model, messages, stream: true },
@@ -1070,6 +1076,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           workingDir,
           mode: activeMode,
           reasoningEffort,
+          agentType: agentType !== "general" ? agentType : undefined,
           allProviders,
         });
 
@@ -1141,6 +1148,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       sessions.splice(targetIndex, 0, removed[0]!);
       return { sessions };
     });
+  },
+
+  setAgentType: (agentType) => {
+    set({ agentType });
   },
 
   resolveApproval: (requestId, approved) => {

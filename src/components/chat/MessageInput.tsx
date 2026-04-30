@@ -6,6 +6,7 @@ import { ModelSelector } from "./ModelSelector";
 import { version as appVersion } from "../../../package.json";
 import { ModeTabs } from "./ModeTabs";
 import { ReasoningEffort } from "./ReasoningEffort";
+import { AgentSelector } from "./AgentSelector";
 import { Send, Paperclip, Sparkles, StopCircle, X, Image, FileText } from "lucide-react";
 import { VoiceInput } from "./VoiceInput";
 import { cn } from "../../lib/utils";
@@ -349,13 +350,18 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
           </div>
         )}
 
-        {/* Action bar — Model, Mode, Reasoning Effort */}
+        {/* Action bar — Model, Mode, Reasoning Effort, Agent */}
         <div className="mb-1.5 flex items-center gap-2">
           <ModelSelector />
           <div className="h-4 w-px bg-[var(--color-border)]/40" />
           <ModeTabs />
           <div className="h-4 w-px bg-[var(--color-border)]/40" />
           <ReasoningEffort />
+          <div className="h-4 w-px bg-[var(--color-border)]/40" />
+          <AgentSelector
+            value={useChatStore((s) => s.agentType)}
+            onChange={useChatStore((s) => s.setAgentType)}
+          />
         </div>
 
         {/* Input container with drag overlay */}

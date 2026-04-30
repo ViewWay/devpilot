@@ -712,3 +712,129 @@ impl Tool for ExitPlanModeTool {
         Ok(ToolOutput::ok(format!("Exited plan mode. Plan:\n{}", plan)))
     }
 }
+
+// ---------------------------------------------------------------------------
+// Agent configuration file loader
+// ---------------------------------------------------------------------------
+
+/// A custom agent definition loaded from `.devpilot/agents/*.md`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentDefinition {
+    /// Unique agent type identifier (derived from filename).
+    pub agent_type: String,
+    /// Human-readable description shown in agent selection.
+    pub description: String,
+    /// Optional model override for this agent.
+    pub model: Option<String>,
+    /// Optional allowlist of tools this agent can use.
+    pub tools: Option<Vec<String>>,
+    /// Optional denylist of tools this agent cannot use.
+    pub disallowed_tools: Option<Vec<String>>,
+    /// The system prompt for this agent.
+    pub prompt: String,
+}
+
+/// Load all agent definitions from `.devpilot/agents/` in the working directory.
+///
+/// Each `.md` file defines one agent with YAML frontmatter:
+/// ```markdown
+/// ---
+/// description: Code review specialist
+/// model: claude-sonnet-4
+/// tools: [file_read, glob, file_search]
+/// ---
+/// You are a code reviewer...
+/// ```
+pub fn load_agents_from_dir(workdir: &std::path::Path) -> Vec<AgentDefinition> {
+    let agents_dir = workdir.join(".devpilot").join("agents");
+    if !agents_dir.is_dir() {
+        return Vec::new();
+    }
+
+    let mut agents = Vec::new();
+    let Ok(entries) = std::fs::read_dir(&agents_dir) else {
+        return agents;
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("md") {
+            continue;
+        }
+
+        let agent_type = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("unknown")
+            .to_string();
+
+        let Ok(content) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+
+        let (frontmatter, prompt) = parse_frontmatter(&content);
+
+        let description = frontmatter
+            .get("description")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+
+        let model = frontmatter
+            .get("model")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+
+        let tools = frontmatter.get("tools").and_then(|v| {
+            v.as_sequence().map(|arr| {
+                arr.iter()
+                    .filter_map(|i| i.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
+        });
+
+        let disallowed_tools = frontmatter.get("disallowed_tools").and_then(|v| {
+            v.as_sequence().map(|arr| {
+                arr.iter()
+                    .filter_map(|i| i.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
+        });
+
+        if description.is_empty() && prompt.trim().is_empty() {
+            continue;
+        }
+
+        agents.push(AgentDefinition {
+            agent_type,
+            description,
+            model,
+            tools,
+            disallowed_tools,
+            prompt: prompt.trim().to_string(),
+        });
+    }
+
+    agents
+}
+
+/// Parse simple YAML frontmatter (--- delimited) from markdown content.
+/// Returns (frontmatter map, body).
+fn parse_frontmatter(content: &str) -> (HashMap<String, serde_yaml::Value>, String) {
+    let trimmed = content.trim_start();
+    if !trimmed.starts_with("---") {
+        return (HashMap::new(), content.to_string());
+    }
+
+    let after_delim = &trimmed[3..];
+    if let Some(end) = after_delim.find("---") {
+        let yaml_str = &after_delim[..end];
+        let body = after_delim[end + 3..].to_string();
+        match serde_yaml::from_str(yaml_str) {
+            Ok(map) => (map, body),
+            Err(_) => (HashMap::new(), content.to_string()),
+        }
+    } else {
+        (HashMap::new(), content.to_string())
+    }
+}

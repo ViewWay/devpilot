@@ -899,7 +899,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot"
-version = "2026.4.28"
+version = "2026.4.30"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -942,7 +942,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-agent"
-version = "2026.4.28"
+version = "2026.4.30"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -951,6 +951,7 @@ dependencies = [
  "devpilot-tools",
  "serde",
  "serde_json",
+ "serde_yaml",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -959,7 +960,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-bridge"
-version = "2026.4.28"
+version = "2026.4.30"
 dependencies = [
  "async-trait",
  "chrono",
@@ -974,7 +975,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-core"
-version = "2026.4.28"
+version = "2026.4.30"
 dependencies = [
  "async-trait",
  "chrono",
@@ -992,7 +993,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-git"
-version = "2026.4.28"
+version = "2026.4.30"
 dependencies = [
  "chrono",
  "git2",
@@ -1004,7 +1005,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-index"
-version = "2026.4.28"
+version = "2026.4.30"
 dependencies = [
  "dashmap",
  "ignore",
@@ -1025,7 +1026,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-llm"
-version = "2026.4.28"
+version = "2026.4.30"
 dependencies = [
  "async-trait",
  "devpilot-protocol",
@@ -1042,7 +1043,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-mcp"
-version = "2026.4.28"
+version = "2026.4.30"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1061,7 +1062,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-media"
-version = "2026.4.28"
+version = "2026.4.30"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -1077,7 +1078,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-memory"
-version = "2026.4.28"
+version = "2026.4.30"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1090,7 +1091,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-protocol"
-version = "2026.4.28"
+version = "2026.4.30"
 dependencies = [
  "serde",
  "serde_json",
@@ -1098,7 +1099,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-remote"
-version = "2026.4.28"
+version = "2026.4.30"
 dependencies = [
  "chrono",
  "futures-util",
@@ -1114,7 +1115,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-sandbox"
-version = "2026.4.28"
+version = "2026.4.30"
 dependencies = [
  "libc",
  "serde",
@@ -1126,7 +1127,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-scheduler"
-version = "2026.4.28"
+version = "2026.4.30"
 dependencies = [
  "chrono",
  "cron",
@@ -1140,7 +1141,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-search"
-version = "2026.4.28"
+version = "2026.4.30"
 dependencies = [
  "regex",
  "serde",
@@ -1154,7 +1155,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-store"
-version = "2026.4.28"
+version = "2026.4.30"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -1174,7 +1175,7 @@ dependencies = [
 
 [[package]]
 name = "devpilot-tools"
-version = "2026.4.28"
+version = "2026.4.30"
 dependencies = [
  "anyhow",
  "async-trait",
