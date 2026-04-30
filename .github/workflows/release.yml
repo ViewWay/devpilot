@@ -255,18 +255,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # WiX (MSI bundler) requires major version <= 255.
-      # Convert YYYY.M.D → 0.YY.MM.DD to stay within limits.
-      # Must remain valid semver (3 segments): 0.YYYYMMDD
+      # WiX (MSI bundler) requires each version segment <= 255.
+      # Convert YYYY.M.D → YY.M.D (drop century from year).
       - name: Patch version for WiX compatibility
         shell: pwsh
         run: |
           $version = "${{ needs.create-release.outputs.version }}"
-          if ($version -match '^(\d{4})\.(\d{1,2})\.(\d{1,2})') {
-            $y = [int]$Matches[1] % 100
-            $m = [int]$Matches[2]
-            $d = [int]$Matches[3]
-            $wixVer = "0.$($y * 100 + $m).$d"
+          if ($version -match '^(\d{2})(\d{2})\.(\d{1,2})\.(\d{1,2})') {
+            $yy = [int]$Matches[2]
+            $m = [int]$Matches[3]
+            $d = [int]$Matches[4]
+            $wixVer = "$yy.$m.$d"
             Write-Host "Patching tauri.conf.json: $version → $wixVer"
             $path = "src-tauri/tauri.conf.json"
             $content = Get-Content $path -Raw
