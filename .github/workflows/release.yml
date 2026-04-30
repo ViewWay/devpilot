@@ -66,7 +66,7 @@ jobs:
       release_id: ${{ steps.create.outputs.release_id }}
       version: ${{ needs.validate.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -159,7 +159,7 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build == 'true' }}
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -206,7 +206,7 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build == 'true' }}
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -253,7 +253,7 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build == 'true' }}
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # WiX (MSI bundler) requires each version segment <= 255.
       # Convert YYYY.M.D → YY.M.D (drop century from year).
@@ -315,7 +315,7 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build == 'true' }}
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
