@@ -2,7 +2,7 @@
  * SessionExportDialog — Modal dialog for exporting chat sessions.
  *
  * Features:
- *  - Format selection: Markdown, JSON, HTML
+ *  - Format selection: Markdown, JSON, HTML, Plain Text
  *  - Toggle options: include metadata, tool calls, thinking blocks
  *  - Preview button
  *  - Copy to clipboard / Download as file
@@ -16,7 +16,7 @@ import { useI18n } from "../../i18n";
 
 // ── Types ──────────────────────────────────────────────────
 
-type ExportFormat = "markdown" | "json" | "html";
+type ExportFormat = "markdown" | "json" | "html" | "txt";
 
 interface ExportOptions {
   includeMetadata: boolean;
@@ -31,17 +31,17 @@ interface SessionExportDialogProps {
 
 // ── Format config ──────────────────────────────────────────
 
-const FORMATS: Array<{ value: ExportFormat; label: string; ext: string }> = [
-  { value: "markdown", label: "Markdown", ext: ".md" },
-  { value: "json", label: "JSON", ext: ".json" },
-  { value: "html", label: "HTML", ext: ".html" },
+const FORMATS: Array<{ value: ExportFormat; labelKey: string; ext: string }> = [
+  { value: "markdown", labelKey: "exportMarkdown", ext: ".md" },
+  { value: "json", labelKey: "exportJson", ext: ".json" },
+  { value: "html", labelKey: "exportHtml", ext: ".html" },
+  { value: "txt", labelKey: "exportTxt", ext: ".txt" },
 ];
 
 // ── Component ──────────────────────────────────────────────
 
 export function SessionExportDialog({ sessionId, onClose }: SessionExportDialogProps) {
-  const { t: _t } = useI18n();
-  void _t;
+  const { t } = useI18n();
   const [format, setFormat] = useState<ExportFormat>("markdown");
   const [options, setOptions] = useState<ExportOptions>({
     includeMetadata: true,
@@ -57,7 +57,7 @@ export function SessionExportDialog({ sessionId, onClose }: SessionExportDialogP
     setOptions((prev) => ({ ...prev, [key]: !prev[key] }));
   }, []);
 
-  // Generate export content
+  // Generate export content via backend IPC
   const generateContent = useCallback(async (): Promise<string> => {
     const result = await invoke<string>("session_export", {
       sessionId,
@@ -104,6 +104,7 @@ export function SessionExportDialog({ sessionId, onClose }: SessionExportDialogP
         markdown: "text/markdown;charset=utf-8",
         json: "application/json;charset=utf-8",
         html: "text/html;charset=utf-8",
+        txt: "text/plain;charset=utf-8",
       };
       const blob = new Blob([content], { type: mimeTypes[format] });
       const url = URL.createObjectURL(blob);
@@ -141,7 +142,7 @@ export function SessionExportDialog({ sessionId, onClose }: SessionExportDialogP
           className="flex items-center justify-between px-4 py-3 border-b"
           style={{ borderColor: "var(--color-border)" }}
         >
-          <span className="text-sm font-semibold">Export Session</span>
+          <span className="text-sm font-semibold">{t("exportSession")}</span>
           <button
             onClick={onClose}
             className="p-1 rounded-md hover:bg-accent/50 transition-colors"
@@ -154,7 +155,7 @@ export function SessionExportDialog({ sessionId, onClose }: SessionExportDialogP
         <div className="px-4 py-3 space-y-4">
           {/* Format selection */}
           <div>
-            <label className="text-xs font-medium mb-1.5 block">Format</label>
+            <label className="text-xs font-medium mb-1.5 block">{t("exportFormat")}</label>
             <div className="flex gap-1.5">
               {FORMATS.map((fmt) => (
                 <button
@@ -174,7 +175,7 @@ export function SessionExportDialog({ sessionId, onClose }: SessionExportDialogP
                     borderColor: "var(--color-border)",
                   }}
                 >
-                  {fmt.label}
+                  {t(fmt.labelKey)}
                 </button>
               ))}
             </div>
@@ -182,13 +183,13 @@ export function SessionExportDialog({ sessionId, onClose }: SessionExportDialogP
 
           {/* Options */}
           <div>
-            <label className="text-xs font-medium mb-1.5 block">Options</label>
+            <label className="text-xs font-medium mb-1.5 block">{t("exportOptions")}</label>
             <div className="space-y-1.5">
               {([
-                { key: "includeMetadata" as const, label: "Include metadata" },
-                { key: "includeToolCalls" as const, label: "Include tool calls" },
-                { key: "includeThinkingBlocks" as const, label: "Include thinking blocks" },
-              ]).map(({ key, label }) => (
+                { key: "includeMetadata" as const, labelKey: "exportIncludeMeta" },
+                { key: "includeToolCalls" as const, labelKey: "exportIncludeTools" },
+                { key: "includeThinkingBlocks" as const, labelKey: "exportIncludeThinking" },
+              ]).map(({ key, labelKey }) => (
                 <label
                   key={key}
                   className="flex items-center gap-2 cursor-pointer text-xs"
@@ -199,7 +200,7 @@ export function SessionExportDialog({ sessionId, onClose }: SessionExportDialogP
                     onChange={() => toggleOption(key)}
                     className="rounded"
                   />
-                  {label}
+                  {t(labelKey)}
                 </label>
               ))}
             </div>
@@ -208,7 +209,7 @@ export function SessionExportDialog({ sessionId, onClose }: SessionExportDialogP
           {/* Preview */}
           {preview !== null && (
             <div>
-              <label className="text-xs font-medium mb-1.5 block">Preview</label>
+              <label className="text-xs font-medium mb-1.5 block">{t("exportPreview")}</label>
               <div
                 className="rounded-md border p-2 max-h-48 overflow-y-auto text-xs font-mono whitespace-pre-wrap"
                 style={{
@@ -237,7 +238,7 @@ export function SessionExportDialog({ sessionId, onClose }: SessionExportDialogP
             style={{ borderColor: "var(--color-border)" }}
           >
             <Eye size={12} />
-            Preview
+            {t("exportPreviewBtn")}
           </button>
 
           <div className="flex-1" />
@@ -249,7 +250,7 @@ export function SessionExportDialog({ sessionId, onClose }: SessionExportDialogP
             style={{ borderColor: "var(--color-border)" }}
           >
             <Copy size={12} />
-            {copied ? "Copied!" : "Copy"}
+            {copied ? t("exportCopied") : t("exportCopy")}
           </button>
 
           <button
@@ -259,7 +260,7 @@ export function SessionExportDialog({ sessionId, onClose }: SessionExportDialogP
             style={{ background: "var(--color-brand)" }}
           >
             <Download size={12} />
-            Download
+            {t("exportDownload")}
           </button>
         </div>
       </div>

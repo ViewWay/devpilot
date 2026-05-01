@@ -379,7 +379,7 @@ interface ChatState {
   /** Approve all pending approvals at once. */
   approveAll: () => void;
   /** Export a session as JSON or Markdown file (browser download). */
-  exportSession: (sessionId: string, format: "json" | "markdown") => void;
+  exportSession: (sessionId: string, format: "json" | "markdown" | "html" | "txt") => void;
   /** Import sessions from a DevPilot JSON export file (file picker → IPC). */
   importSessions: () => Promise<{ sessionsImported: number; messagesImported: number } | null>;
   /** Regenerate the last assistant response by removing it and re-sending the last user message. */
@@ -1240,7 +1240,34 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ pendingApprovals: [] });
   },
 
-  exportSession: (sessionId, format) => {
+  exportSession: async (sessionId, format) => {
+    // For html/txt, use the backend IPC which supports all formats
+    if (format === "html" || format === "txt") {
+      try {
+        const content = await invoke<string>("session_export", {
+          sessionId,
+          format,
+          includeMetadata: true,
+          includeToolCalls: true,
+          includeThinking: false,
+        });
+        if (!content) { return; }
+        const mimeTypes = { html: "text/html;charset=utf-8", txt: "text/plain;charset=utf-8" };
+        const extensions = { html: "html", txt: "txt" };
+        const blob = new Blob([content], { type: mimeTypes[format] });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `session-${sessionId.slice(0, 8)}.${extensions[format]}`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error("Failed to export session:", err);
+      }
+      return;
+    }
+
+    // json / markdown: client-side generation (no IPC round-trip)
     const session = get().sessions.find((s) => s.id === sessionId);
     if (!session) { return; }
 

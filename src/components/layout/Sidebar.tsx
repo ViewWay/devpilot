@@ -712,6 +712,24 @@ function SidebarContextMenu({
       >
         {t("exportJson")}
       </button>
+      <button
+        onClick={() => {
+          exportSession(sessionId, "html");
+          onClose();
+        }}
+        className="w-full px-3 py-1.5 text-left text-xs text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-hover)]"
+      >
+        {t("exportHtml")}
+      </button>
+      <button
+        onClick={() => {
+          exportSession(sessionId, "txt");
+          onClose();
+        }}
+        className="w-full px-3 py-1.5 text-left text-xs text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-hover)]"
+      >
+        {t("exportTxt")}
+      </button>
       <div className="my-1 border-t border-[var(--color-border)]" />
 
       <button
