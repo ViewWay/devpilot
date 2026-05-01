@@ -33,6 +33,23 @@ const zh = {
   exportCopy: "复制",
   exportCopied: "已复制!",
   exportDownload: "下载",
+
+  // --- 预设 ---
+  presetNone: "无预设",
+  presetCustom: "自定义",
+  presetBuiltIn: "内置",
+  presetManage: "管理预设",
+  presetManager: "预设管理",
+  presetCreate: "新建预设",
+  presetEdit: "编辑预设",
+  presetName: "名称",
+  presetNamePlaceholder: "我的预设",
+  presetSystemPrompt: "系统提示词",
+  presetSystemPromptPlaceholder: "你是一个...",
+  presetMode: "模式",
+  presetTemp: "温度",
+  presetNoCustom: "暂无自定义预设。",
+  presetCreateFirst: "创建第一个预设",
   importSessions: "导入会话",
   sessionsImportedBadge: "已导入!",
 

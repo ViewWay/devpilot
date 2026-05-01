@@ -5,6 +5,7 @@ import { useSettingsStore } from "../../stores/settingsStore";
 import { ModelSelector } from "./ModelSelector";
 import { version as appVersion } from "../../../package.json";
 import { ModeTabs } from "./ModeTabs";
+import { PresetSelector } from "./PresetSelector";
 import { ReasoningEffort } from "./ReasoningEffort";
 import { AgentSelector } from "./AgentSelector";
 import { Send, Paperclip, Sparkles, StopCircle, X, Image, FileText } from "lucide-react";
@@ -355,6 +356,8 @@ export function MessageInput({ sessionId }: { sessionId?: string } = {}) {
           <ModelSelector />
           <div className="h-4 w-px bg-[var(--color-border)]/40" />
           <ModeTabs />
+          <div className="h-4 w-px bg-[var(--color-border)]/40" />
+          <PresetSelector />
           <div className="h-4 w-px bg-[var(--color-border)]/40" />
           <ReasoningEffort />
           <div className="h-4 w-px bg-[var(--color-border)]/40" />

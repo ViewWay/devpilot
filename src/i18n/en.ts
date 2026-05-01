@@ -33,6 +33,23 @@ const en = {
   exportCopy: "Copy",
   exportCopied: "Copied!",
   exportDownload: "Download",
+
+  // --- Presets ---
+  presetNone: "No Preset",
+  presetCustom: "Custom",
+  presetBuiltIn: "Built-in",
+  presetManage: "Manage Presets",
+  presetManager: "Preset Manager",
+  presetCreate: "New Preset",
+  presetEdit: "Edit Preset",
+  presetName: "Name",
+  presetNamePlaceholder: "My Preset",
+  presetSystemPrompt: "System Prompt",
+  presetSystemPromptPlaceholder: "You are a...",
+  presetMode: "Mode",
+  presetTemp: "Temp",
+  presetNoCustom: "No custom presets yet.",
+  presetCreateFirst: "Create your first preset",
   importSessions: "Import Sessions",
   sessionsImportedBadge: "Imported!",
 

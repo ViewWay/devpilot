@@ -66,6 +66,10 @@ function persist(partial: Partial<PersistedSettings>) {
 
 type SettingsState = PersistedSettings & {
   models: ModelInfo[];
+  /** Currently active preset ID (memory-only, not persisted). */
+  activePresetId: string | null;
+  /** Set active preset ID. */
+  setActivePresetId: (id: string | null) => void;
 
   setSelectedModel: (model: ModelInfo) => void;
   setActiveMode: (mode: AgentMode) => void;
@@ -93,6 +97,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   permissionMode: hydrated.permissionMode ?? DEFAULTS.permissionMode,
   systemPrompt: hydrated.systemPrompt ?? DEFAULTS.systemPrompt,
   models: DEFAULT_MODELS,
+  activePresetId: null,
+
+  setActivePresetId: (id) => set({ activePresetId: id }),
 
   setSelectedModel: (model) => {
     set({ selectedModel: model });
