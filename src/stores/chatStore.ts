@@ -1373,9 +1373,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   abortStreaming: () => {
-    const cleanup = get()._streamCleanup;
+    const state = get();
+    const cleanup = state._streamCleanup;
     if (cleanup) {
       cleanup();
+    }
+    // Cancel any pending streaming rAF
+    if (state._streamRafId !== null) {
+      cancelAnimationFrame(state._streamRafId);
     }
     // Notify backend to abort the agent task
     const { activeSessionId } = get();
@@ -1393,7 +1398,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         get().updateMessageContent(activeSessionId, streamingMessageId, msg.content + "\n\n*[Generation stopped]*", false);
       }
     }
-    set({ isLoading: false, streamingMessageId: null, _streamCleanup: null });
+    set({ isLoading: false, streamingMessageId: null, _streamCleanup: null, _streamRafId: null, _pendingStreamUpdate: null });
   },
 
   hydrateFromBackend: async () => {
