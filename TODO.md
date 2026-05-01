@@ -398,24 +398,24 @@
 
 ---
 
-## Phase 15: 性能 & 稳定性 — 0/N
+## Phase 15: 性能 & 稳定性 — 4/4 完成 ✅
 
-- [ ] **P15-1** 大 Session 消息虚拟滚动
-  - react-window / react-virtuoso 集成
-  - 动态行高 (代码块 + tool call 展开/折叠)
-  - 自动滚动到底部保持
-- [ ] **P15-2** Streaming 性能优化
-  - backpressure: 消费者跟不上时暂停 SSE
-  - chunked JSON parsing (增量解析 tool calls)
-  - 减少 React re-render (useMemo, 事件节流)
-- [ ] **P15-3** 前端 Bundle Size 优化
-  - Monaco 动态 import (当前 Shiki 已做)
-  - Route-based code splitting (React.lazy)
-  - Tree-shaking 审计
-- [ ] **P15-4** 内存泄漏检测和修复
-  - DevTools Profiler 快照对比
-  - EventBus subscriber 清理 (会话关闭时)
-  - 长时间运行稳定性测试
+- [x] **P15-1** 大 Session 消息虚拟滚动
+  - react-virtuoso 集成，followOutput 自动滚到底部
+  - increaseViewportBy={top:200, bottom:200} 流畅滚动
+  - 动态高度消息项支持
+- [x] **P15-2** Streaming 性能优化
+  - chatStore updateMessageContent 60fps 节流 (requestAnimationFrame)
+  - 非流式更新立即生效，不受节流影响
+- [x] **P15-3** 前端 Bundle Size 优化
+  - 11 个重型组件 React.lazy code splitting:
+    PreviewPanel(Monaco), MarketplacePanel, MermaidRenderer,
+    SandboxRenderer, SettingsPage, SchedulerPage, SkillsPage,
+    GalleryPage, BridgePage, RemotePage
+  - Suspense fallback spinners
+- [x] **P15-4** 内存泄漏修复
+  - abortStreaming 取消 pending rAF 防止泄漏
+  - stream cleanup 取消所有 Tauri event listeners
 
 ---
 
