@@ -4,9 +4,29 @@ import rehypeRaw from "rehype-raw";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
+import { lazy, Suspense } from "react";
+import { Loader2 } from "lucide-react";
 import { CodeBlock } from "./CodeBlock";
-import { SandboxBlock } from "./SandboxBlock";
-import { MermaidRenderer } from "./MermaidRenderer";
+
+/**
+ * Lazy-load MermaidRenderer and SandboxBlock to keep mermaid / iframe code
+ * out of the main bundle. These are only needed for specialised code fences.
+ */
+const MermaidRenderer = lazy(() =>
+  import("./MermaidRenderer").then((m) => ({ default: m.MermaidRenderer })),
+);
+const SandboxBlock = lazy(() =>
+  import("./SandboxBlock").then((m) => ({ default: m.SandboxBlock })),
+);
+
+/** Shared inline spinner fallback for lazy-loaded markdown components. */
+function LazyFallback() {
+  return (
+    <div className="flex items-center justify-center py-4 text-xs text-muted-foreground">
+      <Loader2 size={14} className="animate-spin" />
+    </div>
+  );
+}
 
 /**
  * Preprocess markdown so that edge-case $$ blocks that aren't properly
@@ -57,11 +77,19 @@ export function MarkdownRenderer({ content, fontSize, className = "" }: Markdown
             const lang = match?.[1];
             // Render Mermaid diagrams as SVG
             if (lang === "mermaid") {
-              return <MermaidRenderer chart={codeStr} className="my-3" />;
+              return (
+                <Suspense fallback={<LazyFallback />}>
+                  <MermaidRenderer chart={codeStr} className="my-3" />
+                </Suspense>
+              );
             }
             // Render HTML code blocks as interactive sandbox previews
             if (lang === "html") {
-              return <SandboxBlock code={codeStr} />;
+              return (
+                <Suspense fallback={<LazyFallback />}>
+                  <SandboxBlock code={codeStr} />
+                </Suspense>
+              );
             }
             return <CodeBlock code={codeStr} lang={lang} />;
           },

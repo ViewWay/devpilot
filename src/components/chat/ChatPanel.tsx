@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { ApprovalQueue } from "./ApprovalOverlay";
@@ -11,14 +11,33 @@ import { SplitView } from "../layout/SplitView";
 import { DualSessionSplitView } from "../layout/DualSessionSplitView";
 import { FilesPanel } from "../panels/FilesPanel";
 import { TerminalPanel } from "../panels/TerminalPanel";
-import { PreviewPanel } from "../panels/PreviewPanel";
 import { GitPanel } from "../panels/GitPanel";
 import { AgentTaskPanel } from "../panels/AgentTaskPanel";
-import { MarketplacePanel } from "../panels/MarketplacePanel";
 import { RightPanelTabs } from "../panels/RightPanelTabs";
 import { Loader2, AlertCircle, History, ChevronDown, ChevronRight, Map } from "lucide-react";
 import { useI18n } from "../../i18n";
 import { invoke } from "../../lib/ipc";
+
+/**
+ * Heavy panels that are only shown when the user selects the corresponding
+ * right-panel tab. Lazy-loaded to keep Monaco editor / marketplace data out
+ * of the main chunk.
+ */
+const PreviewPanel = lazy(() =>
+  import("../panels/PreviewPanel").then((m) => ({ default: m.PreviewPanel })),
+);
+const MarketplacePanel = lazy(() =>
+  import("../panels/MarketplacePanel").then((m) => ({ default: m.MarketplacePanel })),
+);
+
+/** Small centered spinner for Suspense fallbacks. */
+function PanelLoader() {
+  return (
+    <div className="flex h-full items-center justify-center">
+      <Loader2 size={18} className="animate-spin text-muted-foreground" />
+    </div>
+  );
+}
 
 function ChatContent() {
   const isLoading = useChatStore((s) => s.isLoading);
@@ -126,10 +145,18 @@ function RightContent() {
       <div className="flex-1 overflow-hidden">
         {rightPanel === "files" && <FilesPanel />}
         {rightPanel === "terminal" && <TerminalPanel />}
-        {rightPanel === "preview" && <PreviewPanel />}
+        {rightPanel === "preview" && (
+          <Suspense fallback={<PanelLoader />}>
+            <PreviewPanel />
+          </Suspense>
+        )}
         {rightPanel === "git" && <GitPanel />}
         {rightPanel === "agent" && <AgentTaskPanel />}
-        {rightPanel === "marketplace" && <MarketplacePanel />}
+        {rightPanel === "marketplace" && (
+          <Suspense fallback={<PanelLoader />}>
+            <MarketplacePanel />
+          </Suspense>
+        )}
       </div>
     </div>
   );

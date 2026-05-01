@@ -1,13 +1,41 @@
+import { lazy, Suspense } from "react";
 import { useTabStore } from "../../stores/tabStore";
 import { ChatPanel } from "../chat/ChatPanel";
-import { SettingsPage } from "../../app/SettingsPage";
-import { SchedulerPage } from "../../app/SchedulerPage";
-import { SkillsPage } from "../../app/SkillsPage";
-import { GalleryPage } from "../../app/GalleryPage";
-import { BridgePage } from "../../app/BridgePage";
-import { RemotePage } from "../../app/RemotePage";
+import { Loader2 } from "lucide-react";
 import { useI18n } from "../../i18n";
 import { MessageSquare } from "lucide-react";
+
+/**
+ * Lazy-loaded page components. These pages are rarely visited (user must
+ * explicitly open them via a tab) so they should not be in the main chunk.
+ */
+const SettingsPage = lazy(() =>
+  import("../../app/SettingsPage").then((m) => ({ default: m.SettingsPage })),
+);
+const SchedulerPage = lazy(() =>
+  import("../../app/SchedulerPage").then((m) => ({ default: m.SchedulerPage })),
+);
+const SkillsPage = lazy(() =>
+  import("../../app/SkillsPage").then((m) => ({ default: m.SkillsPage })),
+);
+const GalleryPage = lazy(() =>
+  import("../../app/GalleryPage").then((m) => ({ default: m.GalleryPage })),
+);
+const BridgePage = lazy(() =>
+  import("../../app/BridgePage").then((m) => ({ default: m.BridgePage })),
+);
+const RemotePage = lazy(() =>
+  import("../../app/RemotePage").then((m) => ({ default: m.RemotePage })),
+);
+
+/** Centered spinner fallback for lazy-loaded pages. */
+function PageLoader() {
+  return (
+    <div className="flex h-full items-center justify-center">
+      <Loader2 size={18} className="animate-spin text-muted-foreground" />
+    </div>
+  );
+}
 
 function EmptySession() {
   const { t } = useI18n();
@@ -31,27 +59,27 @@ export function ContentRouter() {
 
   // Special tabs
   if (activeTabType === "settings") {
-    return <SettingsPage />;
+    return <Suspense fallback={<PageLoader />}><SettingsPage /></Suspense>;
   }
 
   if (activeTabType === "scheduled") {
-    return <SchedulerPage />;
+    return <Suspense fallback={<PageLoader />}><SchedulerPage /></Suspense>;
   }
 
   if (activeTabType === "skills") {
-    return <SkillsPage />;
+    return <Suspense fallback={<PageLoader />}><SkillsPage /></Suspense>;
   }
 
   if (activeTabType === "gallery") {
-    return <GalleryPage />;
+    return <Suspense fallback={<PageLoader />}><GalleryPage /></Suspense>;
   }
 
   if (activeTabType === "bridge") {
-    return <BridgePage />;
+    return <Suspense fallback={<PageLoader />}><BridgePage /></Suspense>;
   }
 
   if (activeTabType === "remote") {
-    return <RemotePage />;
+    return <Suspense fallback={<PageLoader />}><RemotePage /></Suspense>;
   }
 
   // Session tab — ChatPanel handles the active session display

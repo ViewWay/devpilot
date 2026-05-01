@@ -397,6 +397,9 @@ interface ChatState {
   setAgentType: (agentType: string) => void;
 
   // Internal
+  _lastStreamUpdate: number;
+  _pendingStreamUpdate: (() => void) | null;
+  _streamRafId: number | null;
   _streamCleanup: (() => void) | null;
 }
 
@@ -520,20 +523,67 @@ export const useChatStore = create<ChatState>((set, get) => ({
     return message.id;
   },
 
+  // P15-2: Streaming throttle — batch updates to ~60fps during streaming
+  _lastStreamUpdate: 0 as number,
+  _pendingStreamUpdate: null as (() => void) | null,
+  _streamRafId: null as number | null,
+
   updateMessageContent: (sessionId, messageId, content, streaming) => {
-    set((s) => ({
-      sessions: s.sessions.map((sess) =>
-        sess.id === sessionId
-          ? {
-              ...sess,
-              messages: sess.messages.map((m) =>
-                m.id === messageId ? { ...m, content, streaming } : m,
-              ),
-            }
-          : sess,
-      ),
-      streamingMessageId: streaming ? messageId : null,
-    }));
+    // Non-streaming updates apply immediately
+    if (!streaming) {
+      set((s) => ({
+        sessions: s.sessions.map((sess) =>
+          sess.id === sessionId
+            ? {
+                ...sess,
+                messages: sess.messages.map((m) =>
+                  m.id === messageId ? { ...m, content, streaming } : m,
+                ),
+              }
+            : sess,
+        ),
+        streamingMessageId: null,
+      }));
+      return;
+    }
+
+    // Streaming: throttle to 60fps using rAF
+    const state = get();
+    const now = performance.now();
+    const elapsed = now - state._lastStreamUpdate;
+
+    // Cancel any pending rAF
+    if (state._streamRafId !== null) {
+      cancelAnimationFrame(state._streamRafId);
+    }
+
+    const applyUpdate = () => {
+      set((s) => ({
+        sessions: s.sessions.map((sess) =>
+          sess.id === sessionId
+            ? {
+                ...sess,
+                messages: sess.messages.map((m) =>
+                  m.id === messageId ? { ...m, content, streaming } : m,
+                ),
+              }
+            : sess,
+        ),
+        streamingMessageId: messageId,
+        _lastStreamUpdate: performance.now(),
+        _pendingStreamUpdate: null,
+        _streamRafId: null,
+      }));
+    };
+
+    if (elapsed >= 16) {
+      // Enough time passed — apply immediately
+      applyUpdate();
+    } else {
+      // Schedule for next frame
+      const rafId = requestAnimationFrame(applyUpdate);
+      set({ _pendingStreamUpdate: applyUpdate, _streamRafId: rafId });
+    }
   },
 
   updateMessageThinking: (sessionId, messageId, thinkingContent) => {

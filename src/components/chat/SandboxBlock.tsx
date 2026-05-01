@@ -1,9 +1,15 @@
-import { useState, useCallback } from "react";
-import { Copy, Check, RefreshCw, Layout } from "lucide-react";
+import { useState, useCallback, lazy, Suspense } from "react";
+import { Copy, Check, RefreshCw, Layout, Loader2 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useI18n } from "../../i18n";
 import { toast } from "../../stores/toastStore";
-import { SandboxRenderer } from "./SandboxRenderer";
+
+/**
+ * Lazy-load SandboxRenderer (iframe sandbox) to keep it out of the main chunk.
+ */
+const SandboxRenderer = lazy(() =>
+  import("./SandboxRenderer").then((m) => ({ default: m.SandboxRenderer })),
+);
 
 interface SandboxBlockProps {
   /** HTML content to render inside the sandbox. */
@@ -61,11 +67,19 @@ export function SandboxBlock({ code, title, className }: SandboxBlockProps) {
       </div>
 
       {/* Sandbox iframe renderer — keyed by refreshKey to force re-render */}
-      <SandboxRenderer
-        key={refreshKey}
-        code={code}
-        defaultHeight={300}
-      />
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center py-8 text-xs text-muted-foreground">
+            <Loader2 size={14} className="animate-spin" />
+          </div>
+        }
+      >
+        <SandboxRenderer
+          key={refreshKey}
+          code={code}
+          defaultHeight={300}
+        />
+      </Suspense>
     </div>
   );
 }

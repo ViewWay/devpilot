@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useRef, useCallback } from "react";
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { Sparkles, Code, MessageSquare, Zap } from "lucide-react";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useChatStore } from "../../stores/chatStore";
@@ -14,54 +15,74 @@ export function MessageList({ sessionId }: { sessionId?: string } = {}) {
       ? s.sessions.find((sess) => sess.id === sessionId)
       : s.activeSession(),
   );
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const virtuosoRef = useRef<VirtuosoHandle>(null);
 
-  // Auto-scroll to bottom on new messages
-  const messageCount = session?.messages.length ?? 0;
-  const lastMessageContent = session?.messages[messageCount - 1]?.content;
-
-  useEffect(() => {
-    if (bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: "smooth" });
+  // Determine the id of the last assistant message in the session
+  let lastAssistantId: string | undefined;
+  if (session) {
+    for (let i = session.messages.length - 1; i >= 0; i--) {
+      const msg = session.messages[i]!;
+      if (msg.role === "assistant") {
+        lastAssistantId = msg.id;
+        break;
+      }
     }
-  }, [messageCount, lastMessageContent]);
+  }
+
+  const itemContent = useCallback(
+    (index: number) => {
+      if (!session) { return null; }
+      const msg = session.messages[index];
+      if (!msg) { return null; }
+      if (msg.role === "user") {
+        return (
+          <div className="py-4">
+            <UserMessage message={msg} />
+          </div>
+        );
+      }
+      if (msg.role === "tool") {
+        return (
+          <div className="py-4">
+            <ToolMessage message={msg} />
+          </div>
+        );
+      }
+      return (
+        <div className="py-4">
+          <AssistantMessage
+            message={msg}
+            isLast={msg.id === lastAssistantId}
+          />
+        </div>
+      );
+    },
+    [session, lastAssistantId],
+  );
 
   if (!session || session.messages.length === 0) {
     return <EmptyState />;
   }
 
-  // Determine the id of the last assistant message in the session
-  let lastAssistantId: string | undefined;
-  for (let i = session.messages.length - 1; i >= 0; i--) {
-    const msg = session.messages[i]!;
-    if (msg.role === "assistant") {
-      lastAssistantId = msg.id;
-      break;
-    }
-  }
-
   return (
-    <div className="flex-1 overflow-y-auto" role="log" aria-live="polite" aria-label={t("a11y.messageLog")}>
-      <div className="mx-auto w-full max-w-3xl px-6 py-8 2xl:max-w-4xl">
-        <div className="space-y-8">
-          {session.messages.map((msg) => {
-            if (msg.role === "user") {
-              return <UserMessage key={msg.id} message={msg} />;
-            }
-            if (msg.role === "tool") {
-              return <ToolMessage key={msg.id} message={msg} />;
-            }
-            return (
-              <AssistantMessage
-                key={msg.id}
-                message={msg}
-                isLast={msg.id === lastAssistantId}
-              />
-            );
-          })}
-          <div ref={bottomRef} />
-        </div>
-      </div>
+    <div className="flex-1" role="log" aria-live="polite" aria-label={t("a11y.messageLog")}>
+      <Virtuoso
+        ref={virtuosoRef}
+        data={session.messages}
+        itemContent={itemContent}
+        followOutput={"smooth"}
+        initialTopMostItemIndex={
+          session.messages.length > 0
+            ? { index: session.messages.length - 1, align: "end" }
+            : 0
+        }
+        increaseViewportBy={{ top: 200, bottom: 200 }}
+        components={{
+          Footer: () => <div className="h-4" />,
+        }}
+        className="h-full"
+        style={{ overflowY: "auto" }}
+      />
     </div>
   );
 }
