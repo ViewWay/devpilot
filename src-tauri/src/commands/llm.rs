@@ -261,17 +261,20 @@ pub async fn send_message_stream(
     };
 
     // Inject custom agent prompt from `.devpilot/agents/<agent_type>.md` if specified.
-    if let Some(ref agent_type) = request.agent_type {
-        if let Some(ref wd) = request.working_dir {
-            let agents = devpilot_agent::load_agents_from_dir(std::path::Path::new(wd));
-            if let Some(agent_def) = agents.iter().find(|a| &a.agent_type == agent_type) {
-                if !agent_def.prompt.is_empty() {
-                    system_prompt = Some(match system_prompt {
-                        Some(sp) => format!("{sp}\n\n---\n# Agent: {}\n\n{}", agent_def.agent_type, agent_def.prompt),
-                        None => format!("# Agent: {}\n\n{}", agent_def.agent_type, agent_def.prompt),
-                    });
-                }
-            }
+    if let Some(ref agent_type) = request.agent_type
+        && let Some(ref wd) = request.working_dir
+    {
+        let agents = devpilot_agent::load_agents_from_dir(std::path::Path::new(wd));
+        if let Some(agent_def) = agents.iter().find(|a| &a.agent_type == agent_type)
+            && !agent_def.prompt.is_empty()
+        {
+            system_prompt = Some(match system_prompt {
+                Some(sp) => format!(
+                    "{sp}\n\n---\n# Agent: {}\n\n{}",
+                    agent_def.agent_type, agent_def.prompt
+                ),
+                None => format!("# Agent: {}\n\n{}", agent_def.agent_type, agent_def.prompt),
+            });
         }
     }
 

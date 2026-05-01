@@ -114,9 +114,7 @@ pub async fn agent_task_tree(id: String) -> Result<TaskTreeNode, String> {
 
 /// Load custom agent definitions from `.devpilot/agents/` in the given workdir.
 #[tauri::command]
-pub async fn agent_list_definitions(
-    workdir: String,
-) -> Result<Vec<AgentDefinition>, String> {
+pub async fn agent_list_definitions(workdir: String) -> Result<Vec<AgentDefinition>, String> {
     let path = std::path::Path::new(&workdir);
     Ok(devpilot_agent::load_agents_from_dir(path))
 }

@@ -19,6 +19,7 @@ import {
 import { invoke, listen, isTauriRuntime } from "../lib/ipc";
 import { buildSystemPromptWithPersona } from "../lib/systemPrompt";
 import { mapProviderType } from "../lib/utils";
+import { StreamController } from "../lib/streamController";
 
 /**
  * Generate a unique ID using crypto.randomUUID() to avoid collision
@@ -691,46 +692,63 @@ export const useChatStore = create<ChatState>((set, get) => ({
       let unlistenVerifying = () => {};
       let unlistenPevDone = () => {};
 
-      // Streaming buffer declarations (moved outside try for catch access)
-      let textBuffer = "";
+      // StreamController — newline-gated collection + adaptive emission
+      const streamController = new StreamController();
       let thinkingBuffer = "";
-      let flushTimer: ReturnType<typeof setTimeout> | null = null;
+      let streamRafId: number | null = null;
+      let lastRenderedRevision = 0;
 
-      const flushStreamBuffers = () => {
-        const text = textBuffer;
-        const think = thinkingBuffer;
-        textBuffer = "";
-        thinkingBuffer = "";
-        flushTimer = null;
+      /** Flush the StreamController's committed content to the message store. */
+      const flushStreamToStore = () => {
+        // Process any queued lines via adaptive chunking tick
+        const { snapshot } = streamController.tick();
+        if (snapshot.revision === lastRenderedRevision) { return; }
+        lastRenderedRevision = snapshot.revision;
 
-        if (!text && !think) { return; }
+        // Use full source (including pending tail) for live rendering
+        const content = snapshot.isStreaming
+          ? streamController.fullSource
+          : streamController.committedContent;
 
-        const msg = get().sessions.find((s) => s.id === sessionId)
-          ?.messages.find((m) => m.id === assistantMsgId);
-
-        if (think) {
-          updateMessageThinking(
-            sessionId,
-            assistantMsgId,
-            (msg?.thinkingContent ?? "") + think,
-          );
-        }
-        if (text) {
-          updateMessageContent(
-            sessionId,
-            assistantMsgId,
-            (msg?.content as string ?? "") + text,
-            true,
-          );
+        if (content) {
+          updateMessageContent(sessionId, assistantMsgId, content, true);
         }
       };
 
-      const cleanup = () => {
-        if (flushTimer) {
-          clearTimeout(flushTimer);
-          flushTimer = null;
+      /** rAF-driven tick loop for smooth emission. */
+      const streamTick = () => {
+        flushStreamToStore();
+        const snap = streamController.getSnapshot();
+        if (snap.isStreaming || snap.queuedDepth > 0) {
+          streamRafId = requestAnimationFrame(streamTick);
+        } else {
+          streamRafId = null;
         }
-        flushStreamBuffers();
+      };
+
+      /** Flush thinking buffer immediately. */
+      const flushThinkingBuffer = () => {
+        if (!thinkingBuffer) { return; }
+        const think = thinkingBuffer;
+        thinkingBuffer = "";
+        const msg = get().sessions.find((s) => s.id === sessionId)
+          ?.messages.find((m) => m.id === assistantMsgId);
+        updateMessageThinking(
+          sessionId,
+          assistantMsgId,
+          (msg?.thinkingContent ?? "") + think,
+        );
+      };
+
+      const cleanup = () => {
+        if (streamRafId !== null) {
+          cancelAnimationFrame(streamRafId);
+          streamRafId = null;
+        }
+        // Final flush
+        streamController.forceCatchUp();
+        flushStreamToStore();
+        flushThinkingBuffer();
         unlistenChunk();
         unlistenToolStart();
         unlistenToolResult();
@@ -835,24 +853,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // Track active tool calls for this session
         const activeToolCalls: Record<string, { msgId: string; startTime: number; toolName?: string; input?: unknown }> = {};
 
-        const scheduleFlush = () => {
-          if (!flushTimer) {
-            flushTimer = setTimeout(flushStreamBuffers, 16);
-          }
-        };
-
         unlistenChunk = await listen<{
           type: string; sessionId: string; delta?: string;
         }>(
           "stream-chunk",
           (payload) => {
             if (payload.sessionId !== sessionId) {return;}
-            // Accumulate deltas in buffer — flush happens on timer
+            // Feed delta into StreamController (newline-gated commit)
             const delta = payload.delta ?? "";
             if (delta) {
-              textBuffer += delta;
+              streamController.pushDelta(delta);
+              // Start rAF tick loop if not running
+              if (streamRafId === null) {
+                streamRafId = requestAnimationFrame(streamTick);
+              }
             }
-            scheduleFlush();
           },
         );
         // Tool call started — create a tool message
@@ -1002,10 +1017,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 });
               } catch { /* ignore */ }
             }
-            // Finalize the streaming message and persist content to backend
-            const finalContent =
-              get().sessions.find((s) => s.id === sessionId)
-                ?.messages.find((m) => m.id === assistantMsgId)?.content as string ?? "";
+            // Finalize the StreamController and get the complete source
+            const finalContent = streamController.finalize();
             updateMessageContent(sessionId, assistantMsgId, finalContent, false);
             // Persist final content to SQLite so it survives app restart
             persistUpdateMessageContent(sessionId, assistantMsgId, finalContent);
@@ -1074,8 +1087,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           "stream-agent-planning",
           (payload) => {
             if (payload.sessionId !== sessionId) { return; }
-            textBuffer += `\n🔄 **Planning** (cycle ${payload.cycle})...\n`;
-            flushStreamBuffers();
+            streamController.pushDelta(`\n🔄 **Planning** (cycle ${payload.cycle})...\n`);
+            flushStreamToStore();
           },
         );
 
@@ -1085,8 +1098,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           "stream-agent-executing",
           (payload) => {
             if (payload.sessionId !== sessionId) { return; }
-            textBuffer += `\n⚡ **Executing** step ${payload.step}/${payload.totalSteps} (cycle ${payload.cycle})...\n`;
-            flushStreamBuffers();
+            streamController.pushDelta(`\n⚡ **Executing** step ${payload.step}/${payload.totalSteps} (cycle ${payload.cycle})...\n`);
+            flushStreamToStore();
           },
         );
 
@@ -1096,8 +1109,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           "stream-agent-verifying",
           (payload) => {
             if (payload.sessionId !== sessionId) { return; }
-            textBuffer += `\n✅ **Verifying** (cycle ${payload.cycle})...\n`;
-            flushStreamBuffers();
+            streamController.pushDelta(`\n✅ **Verifying** (cycle ${payload.cycle})...\n`);
+            flushStreamToStore();
           },
         );
 
@@ -1108,8 +1121,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           (payload) => {
             if (payload.sessionId !== sessionId) { return; }
             const icon = payload.success ? "✅" : "🔄";
-            textBuffer += `\n${icon} Cycle ${payload.cycle} ${payload.success ? "passed" : "retrying"}\n`;
-            flushStreamBuffers();
+            streamController.pushDelta(`\n${icon} Cycle ${payload.cycle} ${payload.success ? "passed" : "retrying"}\n`);
+            flushStreamToStore();
           },
         );
 

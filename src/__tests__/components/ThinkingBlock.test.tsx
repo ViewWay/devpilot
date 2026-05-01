@@ -55,7 +55,9 @@ describe("ThinkingBlock", () => {
     renderWithProviders(
       <ThinkingBlock content="My deep thoughts" streaming={true} />,
     );
-    expect(screen.getByText("My deep thoughts")).toBeInTheDocument();
+    // Content is always in DOM (CSS-animated collapse), check it exists
+    const allTexts = screen.getAllByText("My deep thoughts");
+    expect(allTexts.length).toBeGreaterThanOrEqual(1);
   });
 
   it("toggles expanded state on click", async () => {
@@ -63,15 +65,13 @@ describe("ThinkingBlock", () => {
     const { ThinkingBlock } = await import(
       "../../components/chat/ThinkingBlock"
     );
-    renderWithProviders(<ThinkingBlock content="Hidden thoughts" />);
+    renderWithProviders(<ThinkingBlock content="UniqueThoughtContent123" />);
 
     const btn = screen.getByRole("button");
     expect(btn).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByText("Hidden thoughts")).not.toBeInTheDocument();
 
     await user.click(btn);
     expect(btn).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText("Hidden thoughts")).toBeInTheDocument();
 
     await user.click(btn);
     expect(btn).toHaveAttribute("aria-expanded", "false");
@@ -87,5 +87,17 @@ describe("ThinkingBlock", () => {
     // The streaming state should show "thinking" text
     const btn = screen.getByRole("button");
     expect(btn).toBeInTheDocument();
+  });
+
+  it("shows preview text when collapsed and not streaming", async () => {
+    const { ThinkingBlock } = await import(
+      "../../components/chat/ThinkingBlock"
+    );
+    renderWithProviders(<ThinkingBlock content="Some thinking content here" />);
+    const btn = screen.getByRole("button");
+    expect(btn).toHaveAttribute("aria-expanded", "false");
+    // Collapsed state shows truncated preview (content also in DOM via CSS grid)
+    const matches = screen.getAllByText(/Some thinking content/);
+    expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 });
