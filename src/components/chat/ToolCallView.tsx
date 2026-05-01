@@ -721,16 +721,173 @@ export function ToolCallView({ toolCall }: ToolCallViewProps) {
   return <Renderer toolCall={toolCall} />;
 }
 
+/* -------------------------------------------------------------------------- */
+/*  ToolCallGroup — collapses consecutive tool calls into a group             */
+/* -------------------------------------------------------------------------- */
+
+interface ToolCallGroupProps {
+  toolCalls: ToolCall[];
+}
+
+/**
+ * ToolCallGroup renders a collapsible group of tool calls.
+ * When collapsed it shows a one-line summary like:
+ *   "Ran 3 tools: shell_exec, file_read, file_search"
+ * When expanded it shows each tool call with its dedicated renderer.
+ */
+function ToolCallGroup({ toolCalls }: ToolCallGroupProps) {
+  const { t } = useI18n();
+  const [expanded, setExpanded] = useState(false);
+
+  // Derive unique tool names for the summary
+  const uniqueNames = useMemo(() => {
+    const seen = new Set<string>();
+    const names: string[] = [];
+    for (const tc of toolCalls) {
+      if (!seen.has(tc.name)) {
+        seen.add(tc.name);
+        names.push(tc.name);
+      }
+    }
+    return names;
+  }, [toolCalls]);
+
+  // Compute aggregate status
+  const groupStatus = useMemo((): ToolCall["status"] => {
+    if (toolCalls.some((tc) => tc.status === "running")) {return "running";}
+    if (toolCalls.some((tc) => tc.status === "error")) {return "error";}
+    return "done";
+  }, [toolCalls]);
+
+  // Compute total duration
+  const totalDuration = useMemo(() => {
+    let total = 0;
+    for (const tc of toolCalls) {
+      if (tc.duration !== null && tc.duration !== undefined) {
+        total += tc.duration;
+      }
+    }
+    // Return undefined if no tool has duration
+    return total > 0 ? total : undefined;
+  }, [toolCalls]);
+
+  const summaryLabel =
+    toolCalls.length === 1
+      ? t("ranTool").replace("{tool}", uniqueNames[0] ?? "")
+      : t("ranTools")
+          .replace("{count}", String(toolCalls.length))
+          .replace("{tools}", uniqueNames.join(", "));
+
+  return (
+    <div
+      className="overflow-hidden rounded-lg border border-border bg-muted/30"
+      role="region"
+      aria-label={t("a11y.toolCallGroup")}
+    >
+      {/* Group header */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-muted/50"
+        aria-expanded={expanded}
+      >
+        {expanded ? (
+          <ChevronDown size={12} className="shrink-0 text-muted-foreground" />
+        ) : (
+          <ChevronRight size={12} className="shrink-0 text-muted-foreground" />
+        )}
+        <span className="shrink-0 text-muted-foreground">
+          <Wrench size={12} />
+        </span>
+        <span className="font-medium text-foreground">{summaryLabel}</span>
+        <div className="ml-auto flex items-center gap-1.5 shrink-0">
+          <StatusBadge status={groupStatus} />
+          {totalDuration !== null && totalDuration !== undefined && <Duration ms={totalDuration} />}
+          <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+            {toolCalls.length}
+          </span>
+        </div>
+      </button>
+
+      {/* Expanded body: individual tool renderers */}
+      {expanded && (
+        <div className="border-t border-border space-y-1.5 p-2">
+          {toolCalls.map((tc) => (
+            <ToolCallView key={tc.id} toolCall={tc} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Grouping helper — cluster consecutive tool calls of the same "batch"      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Groups tool calls for compact display. If there are multiple calls,
+ * they are grouped into a single ToolCallGroup. Single calls are rendered
+ * inline with ToolCallView as before.
+ */
+function groupToolCalls(toolCalls: ToolCall[]): ToolCall[][] {
+  if (toolCalls.length <= 1) {
+    return toolCalls.map((tc) => [tc]);
+  }
+
+  // Strategy: group consecutive tool calls into batches.
+  // A new group starts when:
+  //   - There's a single isolated tool (different type from neighbours)
+  //   - Or when we have accumulated a batch of same-type calls
+  // For simplicity and best UX, we group ALL consecutive calls into one
+  // group when there are >= 2, and leave single calls alone.
+
+  const groups: ToolCall[][] = [];
+  let currentGroup: ToolCall[] = [];
+
+  for (const tc of toolCalls) {
+    if (currentGroup.length === 0) {
+      currentGroup.push(tc);
+    } else {
+      // If the previous and current are the same tool type, group them
+      // Otherwise, flush the current group and start a new one
+      const prevName = currentGroup[currentGroup.length - 1]!.name;
+      if (prevName === tc.name) {
+        currentGroup.push(tc);
+      } else {
+        // Flush previous group
+        groups.push(currentGroup);
+        currentGroup = [tc];
+      }
+    }
+  }
+
+  if (currentGroup.length > 0) {
+    groups.push(currentGroup);
+  }
+
+  return groups;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Public list with grouping                                                 */
+/* -------------------------------------------------------------------------- */
+
 interface ToolCallListProps {
   toolCalls: ToolCall[];
 }
 
 export function ToolCallList({ toolCalls }: ToolCallListProps) {
+  const groups = useMemo(() => groupToolCalls(toolCalls), [toolCalls]);
+
   return (
     <div className="space-y-1.5 mt-2">
-      {toolCalls.map((tc) => (
-        <ToolCallView key={tc.id} toolCall={tc} />
-      ))}
+      {groups.map((group) =>
+        group.length === 1 ? (
+          <ToolCallView key={group[0]!.id} toolCall={group[0]!} />
+        ) : (
+          <ToolCallGroup key={group.map((tc) => tc.id).join("-")} toolCalls={group} />
+        ),
+      )}
     </div>
   );
 }

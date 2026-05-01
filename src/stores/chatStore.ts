@@ -955,6 +955,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
               description: `Tool: ${payload.toolName}`,
               riskLevel: (payload.riskLevel as "low" | "medium" | "high") ?? "medium",
               createdAt: new Date().toISOString(),
+              toolInput: typeof payload.input === "string" ? payload.input : JSON.stringify(payload.input),
+              toolName: payload.toolName,
             };
             set((s) => ({
               pendingApprovals: [...s.pendingApprovals, req],

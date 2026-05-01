@@ -83,6 +83,10 @@ export interface ApprovalRequest {
   riskLevel: RiskLevel;
   workingDir?: string;
   createdAt: string;
+  /** Raw tool input (JSON string) — available for file_edit / apply_patch tools. */
+  toolInput?: string;
+  /** Tool name extracted from the approval event. */
+  toolName?: string;
 }
 
 export interface Attachment {
