@@ -64,6 +64,30 @@ pub struct PtyCreateRequest {
     pub rows: Option<u16>,
 }
 
+/// Allowed shells for PTY sessions — prevents arbitrary command execution.
+const ALLOWED_SHELLS: &[&str] = &[
+    "/bin/sh",
+    "/bin/bash",
+    "/bin/zsh",
+    "/usr/bin/bash",
+    "/usr/bin/zsh",
+    "/usr/bin/fish",
+];
+
+/// Validate that the requested shell is in the allowed list.
+/// Returns the validated shell path, or defaults to `/bin/sh`.
+fn validate_shell(shell: &str) -> String {
+    if ALLOWED_SHELLS.contains(&shell) {
+        shell.to_string()
+    } else {
+        tracing::warn!(
+            "Rejected shell '{}' — not in allowed list. Falling back to /bin/sh.",
+            shell
+        );
+        "/bin/sh".to_string()
+    }
+}
+
 /// Create a new interactive PTY session.
 ///
 /// Spawns a shell process (bash/zsh/sh) and begins forwarding its output
@@ -81,14 +105,15 @@ pub async fn pty_create(
 
     let session_id = uuid::Uuid::new_v4().to_string();
 
-    // Build the shell command
-    let mut cmd = if let Some(shell) = &req.shell {
-        CommandBuilder::new(shell)
-    } else {
-        // Use the user's default shell, falling back to /bin/sh
-        let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
-        CommandBuilder::new(shell)
+    // Build the shell command — [C-03] validate shell against allowlist
+    let shell_name = match &req.shell {
+        Some(s) => validate_shell(s),
+        None => {
+            let default = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
+            validate_shell(&default)
+        }
     };
+    let mut cmd = CommandBuilder::new(&shell_name);
 
     // Set working directory
     if let Some(wd) = &req.working_dir {
@@ -105,7 +130,7 @@ pub async fn pty_create(
         })
         .map_err(|e| format!("Failed to open PTY: {e}"))?;
 
-    let shell_name = req.shell.clone().unwrap_or_else(|| "shell".to_string());
+    let shell_display = shell_name.clone();
 
     // Get the writer for sending input (from master) — must call before moving master
     let writer = pair
@@ -191,12 +216,12 @@ pub async fn pty_create(
 
     info!(
         "Created PTY session {} (shell: {}, size: {}x{})",
-        session_id, shell_name, cols, rows
+        session_id, shell_display, cols, rows
     );
 
     Ok(PtyCreateResult {
         session_id,
-        shell: shell_name,
+        shell: shell_display,
     })
 }
 

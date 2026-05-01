@@ -6,6 +6,7 @@ mod file_write;
 mod glob;
 mod list_directory;
 mod notebook_edit;
+mod path_security;
 mod send_message;
 mod shell;
 mod sleep;

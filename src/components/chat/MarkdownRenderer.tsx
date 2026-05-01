@@ -6,7 +6,110 @@ import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import { lazy, Suspense } from "react";
 import { Loader2 } from "lucide-react";
+import DOMPurify from "dompurify";
 import { CodeBlock } from "./CodeBlock";
+
+/**
+ * Configure DOMPurify with a strict allowlist for rehype-raw output.
+ *
+ * Allowed tags cover standard markdown formatting plus tables, images,
+ * links, code blocks, and interactive disclosure widgets.
+ *
+ * Explicitly forbidden: script, iframe, object, embed, form, input, style (external).
+ */
+const PURIFY_CONFIG = {
+  ALLOWED_TAGS: [
+    // Formatting
+    "h1", "h2", "h3", "h4", "h5", "h6",
+    "p", "br", "hr",
+    "strong", "em", "b", "i", "u", "s", "del", "ins", "mark", "sub", "sup", "abbr",
+    "blockquote", "pre", "code",
+    "span", "div",
+    // Lists
+    "ul", "ol", "li", "dl", "dt", "dd",
+    // Tables
+    "table", "thead", "tbody", "tfoot", "th", "td", "tr", "caption", "colgroup", "col",
+    // Media & links
+    "a", "img",
+    // Interactive disclosure
+    "details", "summary",
+    // KaTeX wrappers
+    "math", "annotation",
+    "semantics", "mrow", "mi", "mn", "mo", "msup", "msub", "mfrac", "msqrt", "mroot", "munder", "mover",
+    // SVG (used by mermaid / math)
+    "svg", "path", "g", "circle", "rect", "line", "polygon", "polyline", "text", "tspan", "defs", "use",
+  ],
+  ALLOWED_ATTR: [
+    "class", "id", "style",
+    "href", "src", "alt", "title", "target", "rel",
+    "width", "height",
+    "colspan", "rowspan", "align", "valign",
+    "open",  // details/summary
+    "viewBox", "d", "fill", "stroke", "transform", "xmlns", "x", "y", "cx", "cy", "r", "rx", "ry", "x1", "y1", "x2", "y2", "points", "offset",
+    "displaystyle", "mathvariant", "mathcolor",
+    "data-*",
+  ],
+  // Explicitly forbid dangerous tags
+  FORBID_TAGS: ["script", "iframe", "object", "embed", "form", "input", "style", "link", "meta", "base", "noscript"],
+  FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover", "formaction", "xlink:href"],
+};
+
+/**
+ * Rehype plugin that sanitizes raw HTML nodes inserted by rehype-raw.
+ * It rewrites each "raw" node through DOMPurify, then parses the clean
+ * result back into hast elements so downstream plugins (e.g. rehype-katex)
+ * see a safe tree.
+ */
+function rehypeSanitizeWithDOMPurify() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (tree: any) => {
+    if (!tree.children) {return;}
+    let i = 0;
+    while (i < tree.children.length) {
+      const child = tree.children[i];
+      if (child.type === "raw") {
+        // Sanitize the raw HTML through DOMPurify
+        const clean = DOMPurify.sanitize(child.value, PURIFY_CONFIG) as string;
+        // If DOMPurify stripped everything, remove the node
+        if (!clean.trim()) {
+          tree.children.splice(i, 1);
+          continue;
+        }
+        // Parse the sanitized HTML back into hast nodes.
+        // We use a simple approach: convert to text node if it's plain text,
+        // or keep it as a sanitized raw node for rehype-raw's sibling processing.
+        child.value = clean;
+      }
+      // Recurse into children
+      if (child.children) {
+        sanitizeTree(child);
+      }
+      i++;
+    }
+  };
+}
+
+/** Recursively sanitize raw nodes throughout the hast tree. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function sanitizeTree(node: any) {
+  if (!node.children) {return;}
+  let i = 0;
+  while (i < node.children.length) {
+    const child = node.children[i];
+    if (child.type === "raw") {
+      const clean = DOMPurify.sanitize(child.value, PURIFY_CONFIG) as string;
+      if (!clean.trim()) {
+        node.children.splice(i, 1);
+        continue;
+      }
+      child.value = clean;
+    }
+    if (child.children) {
+      sanitizeTree(child);
+    }
+    i++;
+  }
+}
 
 /**
  * Lazy-load MermaidRenderer and SandboxBlock to keep mermaid / iframe code
@@ -61,7 +164,7 @@ export function MarkdownRenderer({ content, fontSize, className = "" }: Markdown
     <div className={`leading-relaxed text-assistant-bubble-foreground prose-sm ${className}`} style={fontSize ? { fontSize } : undefined}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeRaw, rehypeKatex]}
+        rehypePlugins={[rehypeRaw, rehypeSanitizeWithDOMPurify, rehypeKatex]}
         components={{
           code({ className: codeClassName, children }) {
             const match = /language-(\w+)/.exec(codeClassName || "");

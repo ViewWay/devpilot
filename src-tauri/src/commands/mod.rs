@@ -205,15 +205,61 @@ pub fn set_session_working_dir(
 /// Update the environment variables for a session.
 ///
 /// `env_vars` should be a JSON-serialized `Vec<{ key: string, value: string }>`.
+///
+/// Sensitive/dangerous environment variable names are silently filtered out.
 #[tauri::command(rename_all = "camelCase")]
 pub fn set_session_env_vars(
     state: State<'_, AppState>,
     id: String,
     env_vars: String,
 ) -> Result<(), String> {
+    // Filter out dangerous environment variable names from the input JSON
+    let filtered = filter_dangerous_env_vars(&env_vars)?;
+
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.set_session_env_vars(&id, &env_vars)
+    db.set_session_env_vars(&id, &filtered)
         .map_err(|e| e.to_string())
+}
+
+/// Environment variable names that are too dangerous to allow user-overrides for.
+const DENIED_ENV_VARS: &[&str] = &[
+    "LD_PRELOAD",
+    "LD_LIBRARY_PATH",
+    "DYLD_INSERT_LIBRARIES",
+    "DYLD_LIBRARY_PATH",
+    "PATH",
+    "HOME",
+    "USER",
+    "SHELL",
+    "IFS",
+    "PS1",
+    "BASH_ENV",
+];
+
+/// Parse env_vars JSON and filter out blacklisted variable names.
+fn filter_dangerous_env_vars(env_vars_json: &str) -> Result<String, String> {
+    let parsed: serde_json::Value =
+        serde_json::from_str(env_vars_json).map_err(|e| format!("Invalid JSON for env_vars: {e}"))?;
+
+    let arr = parsed
+        .as_array()
+        .ok_or("env_vars must be a JSON array of {key, value} objects")?;
+
+    let filtered: Vec<serde_json::Value> = arr
+        .iter()
+        .filter(|entry| {
+            if let Some(key) = entry.get("key").and_then(|k| k.as_str()) {
+                let key_upper = key.to_uppercase();
+                !DENIED_ENV_VARS.iter().any(|denied| *denied == key_upper)
+            } else {
+                // Keep entries without a valid key (will fail at store level anyway)
+                true
+            }
+        })
+        .cloned()
+        .collect();
+
+    serde_json::to_string(&filtered).map_err(|e| format!("Failed to serialize filtered env vars: {e}"))
 }
 
 // ── Providers ─────────────────────────────────────────
@@ -331,11 +377,23 @@ pub fn export_sessions(state: State<'_, AppState>) -> Result<String, String> {
 ///
 /// - Sessions with existing IDs are skipped (no overwrite).
 /// - Returns the number of sessions and messages imported.
+///
+/// The input JSON is limited to 50 MB.
 #[tauri::command(rename_all = "camelCase")]
 pub fn import_sessions(
     state: State<'_, AppState>,
     json_data: String,
 ) -> Result<ImportResult, String> {
+    // Size limit: 50 MB
+    const MAX_IMPORT_SIZE: usize = 50 * 1024 * 1024;
+    if json_data.len() > MAX_IMPORT_SIZE {
+        return Err(format!(
+            "Import data too large: {} bytes (limit: {} bytes / 50 MB)",
+            json_data.len(),
+            MAX_IMPORT_SIZE
+        ));
+    }
+
     let data: serde_json::Value =
         serde_json::from_str(&json_data).map_err(|e| format!("Invalid JSON: {e}"))?;
 

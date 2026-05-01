@@ -150,6 +150,10 @@ export interface StreamSnapshot {
  * 2. Line queueing with revision tracking
  * 3. Adaptive emission via AdaptiveChunkingPolicy
  * 4. Source retention for re-render
+ *
+ * Supports two modes:
+ * - "typewriter": newline-gated commit + rAF tick at 60fps (default)
+ * - "instant": each delta directly committed, skipping queue & throttling
  */
 export class StreamController {
   private collector = new MarkdownStreamCollector();
@@ -159,10 +163,31 @@ export class StreamController {
   private _isStreaming = false;
   private _committedContent = "";
   private _previousLineCount = 0;
+  private _mode: "typewriter" | "instant" = "typewriter";
+
+  /** Set the streaming mode. */
+  setMode(mode: "typewriter" | "instant"): void {
+    this._mode = mode;
+  }
+
+  /** Get the current streaming mode. */
+  getMode(): "typewriter" | "instant" {
+    return this._mode;
+  }
 
   /** Push a streaming delta from the LLM. */
   pushDelta(delta: string): void {
     this._isStreaming = true;
+
+    if (this._mode === "instant") {
+      // Instant mode: bypass queue, commit directly
+      this._revision++;
+      this._committedContent += delta;
+      this.collector.pushDelta(delta);
+      this.collector.finalize();
+      return;
+    }
+
     const hadCommit = this.collector.pushDelta(delta);
     if (hadCommit) {
       this._onCommit();

@@ -3,6 +3,7 @@ import type { ModelInfo, AgentMode } from "../types";
 import type { Locale } from "../i18n";
 
 export type Theme = "dark" | "light" | "system";
+export type StreamingMode = "typewriter" | "instant";
 
 // ── localStorage helpers ──────────────────────────────────────────────
 
@@ -11,6 +12,7 @@ const STORAGE_KEY = "devpilot-settings";
 interface PersistedSettings {
   locale: Locale;
   theme: Theme;
+  streamingMode: StreamingMode;
   selectedModel: ModelInfo;
   activeMode: AgentMode;
   reasoningEffort: number;
@@ -33,6 +35,7 @@ const DEFAULT_MODELS: ModelInfo[] = [
 const DEFAULTS: PersistedSettings = {
   locale: "en",
   theme: "system",
+  streamingMode: "typewriter",
   selectedModel: DEFAULT_MODELS[0]!,
   activeMode: "code",
   reasoningEffort: 50,
@@ -73,6 +76,7 @@ type SettingsState = PersistedSettings & {
   setSandboxPolicy: (policy: "default" | "permissive" | "strict") => void;
   setPermissionMode: (mode: "plan" | "auto" | "manual") => void;
   setSystemPrompt: (prompt: string) => void;
+  setStreamingMode: (mode: StreamingMode) => void;
 };
 
 const hydrated = loadPersisted();
@@ -80,6 +84,7 @@ const hydrated = loadPersisted();
 export const useSettingsStore = create<SettingsState>((set) => ({
   locale: hydrated.locale ?? DEFAULTS.locale,
   theme: hydrated.theme ?? DEFAULTS.theme,
+  streamingMode: hydrated.streamingMode ?? DEFAULTS.streamingMode,
   selectedModel: hydrated.selectedModel ?? DEFAULTS.selectedModel,
   activeMode: hydrated.activeMode ?? DEFAULTS.activeMode,
   reasoningEffort: hydrated.reasoningEffort ?? DEFAULTS.reasoningEffort,
@@ -126,5 +131,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setSystemPrompt: (prompt) => {
     set({ systemPrompt: prompt });
     persist({ systemPrompt: prompt });
+  },
+  setStreamingMode: (mode) => {
+    set({ streamingMode: mode });
+    persist({ streamingMode: mode });
   },
 }));

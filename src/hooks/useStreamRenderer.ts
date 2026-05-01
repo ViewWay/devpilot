@@ -14,6 +14,7 @@ import {
   StreamController,
   type ChunkingMode,
 } from "../lib/streamController";
+import { useSettingsStore } from "../stores/settingsStore";
 
 export interface StreamRenderState {
   /** Markdown content to render (committed + tail for live preview). */
@@ -54,8 +55,14 @@ export function useStreamRenderer() {
   const controllerRef = useRef<StreamController>(new StreamController());
   const rafIdRef = useRef<number | null>(null);
   const [renderState, setRenderState] = useState<StreamRenderState>(INITIAL_STATE);
+  const streamingMode = useSettingsStore((s) => s.streamingMode);
 
-  // Tick loop — runs at ~60fps while streaming
+  // Sync streaming mode to controller when setting changes
+  useEffect(() => {
+    controllerRef.current.setMode(streamingMode);
+  }, [streamingMode]);
+
+  // Tick loop — runs at ~60fps while streaming (typewriter mode)
   const tick = useCallback(() => {
     const controller = controllerRef.current;
     const { emitted, snapshot } = controller.tick();
@@ -81,7 +88,22 @@ export function useStreamRenderer() {
   /** Push a streaming delta. */
   const pushDelta = useCallback(
     (delta: string) => {
-      controllerRef.current.pushDelta(delta);
+      const controller = controllerRef.current;
+      controller.pushDelta(delta);
+
+      if (controller.getMode() === "instant") {
+        // Instant mode: directly update state, skip rAF queue
+        const snapshot = controller.getSnapshot();
+        setRenderState({
+          content: snapshot.content,
+          isStreaming: snapshot.isStreaming,
+          revision: snapshot.revision,
+          mode: snapshot.mode,
+          queuedDepth: snapshot.queuedDepth,
+        });
+        return;
+      }
+
       // Start tick loop if not already running
       if (rafIdRef.current === null) {
         rafIdRef.current = requestAnimationFrame(tick);

@@ -110,6 +110,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
       try {
         const content = await invoke<string>("read_file_content", {
           path: filePath,
+          sessionId: undefined, // will be wired to active session in a future update
         });
         const file: OpenFile = {
           path: filePath,
@@ -175,6 +176,7 @@ export const useEditorStore = create<EditorState & EditorActions>()(
         await invoke("write_file_content", {
           path: filePath,
           content: file.content,
+          sessionId: undefined, // will be wired to active session in a future update
         });
         // Mark as clean
         set((s) => ({

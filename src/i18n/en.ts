@@ -977,6 +977,21 @@ const en = {
   fileTreeGitAdded: "A",
   fileTreeGitDeleted: "D",
   fileTreeGitUntracked: "U",
+
+  // --- Streaming Mode ---
+  streamingMode: "Streaming Mode",
+  streamingModeDesc: "Control how streamed responses are rendered.",
+  streamingTypewriter: "Typewriter",
+  streamingTypewriterDesc: "Smooth line-by-line rendering at 60fps with newline gating.",
+  streamingInstant: "Instant",
+  streamingInstantDesc: "Render each token immediately as it arrives.",
+
+  // --- Mermaid Fullscreen ---
+  mermaidFullscreen: "Fullscreen",
+  mermaidDownloadSvg: "Download SVG",
+  mermaidZoomIn: "Zoom In",
+  mermaidZoomOut: "Zoom Out",
+  mermaidResetView: "Reset View",
 } as const;
 
 export type TranslationKey = keyof typeof en;

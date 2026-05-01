@@ -3,7 +3,6 @@
 use crate::{Tool, ToolContext, ToolError, ToolOutput, ToolResult};
 use async_trait::async_trait;
 use serde::Deserialize;
-use std::path::Path;
 
 /// File read tool.
 ///
@@ -93,14 +92,14 @@ impl Tool for FileReadTool {
                 message: e.to_string(),
             })?;
 
-        // Resolve path relative to working directory if not absolute
-        let path = if Path::new(&params.path).is_absolute() {
-            params.path.clone()
-        } else {
-            format!("{}/{}", ctx.working_dir.trim_end_matches('/'), params.path)
-        };
-
-        let file_path = Path::new(&path);
+        // [C-02] Validate path to prevent directory traversal
+        let validated = super::path_security::validate_path(&params.path, &ctx.working_dir)
+            .map_err(|msg| ToolError::ExecutionFailed {
+                tool: self.name().to_string(),
+                message: msg,
+            })?;
+        let path = validated.to_string_lossy().to_string();
+        let file_path = validated.as_path();
 
         if !file_path.exists() {
             return Ok(ToolOutput::err(format!("File not found: {path}")));

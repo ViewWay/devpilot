@@ -977,6 +977,21 @@ const zh = {
   fileTreeGitAdded: "增",
   fileTreeGitDeleted: "删",
   fileTreeGitUntracked: "未",
+
+  // --- Streaming Mode ---
+  streamingMode: "流式渲染模式",
+  streamingModeDesc: "控制流式响应的渲染方式。",
+  streamingTypewriter: "打字机模式",
+  streamingTypewriterDesc: "60fps 平滑逐行渲染，使用换行符门控。",
+  streamingInstant: "即时模式",
+  streamingInstantDesc: "每个 token 到达时立即渲染。",
+
+  // --- Mermaid 全屏预览 ---
+  mermaidFullscreen: "全屏预览",
+  mermaidDownloadSvg: "下载 SVG",
+  mermaidZoomIn: "放大",
+  mermaidZoomOut: "缩小",
+  mermaidResetView: "重置视图",
 } as const;
 
 export default zh;

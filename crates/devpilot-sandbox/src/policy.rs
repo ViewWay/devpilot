@@ -157,6 +157,61 @@ impl Default for SandboxPolicy {
     }
 }
 
+// ── Command injection helpers ──────────────────────────────────
+
+/// [M-02] Detect dangerous shell metacharacters that enable command injection.
+///
+/// Blocked patterns:
+/// - `;` — command separator
+/// - `&&` — AND conditional execution
+/// - `||` — OR conditional execution
+/// - `$(...)` — command substitution
+/// - `` ` `` — backtick command substitution
+///
+/// Pipe `|` is allowed only when there is at most one pipe and the right-hand
+/// side is a simple command (no further metacharacters).
+fn contains_dangerous_metacharacters(command: &str) -> bool {
+    // Block semicolons (command separator)
+    if command.contains(';') {
+        return true;
+    }
+
+    // Block && and || (conditional execution)
+    if command.contains("&&") || command.contains("||") {
+        return true;
+    }
+
+    // Block command substitution: $(...) and backticks
+    if command.contains("$(") || command.contains('`') {
+        return true;
+    }
+
+    // Block nested or multiple pipes — allow at most one simple pipe
+    let pipe_count = command.matches('|').count();
+    if pipe_count > 1 {
+        return true;
+    }
+    if pipe_count == 1 {
+        // Verify the pipe is just "cmd args | cmd args" with nothing dangerous
+        // after the pipe. Split on | and check the RHS is a simple command.
+        if let Some(rhs) = command.split('|').nth(1) {
+            let rhs = rhs.trim();
+            // RHS must start with an alphanumeric character or / (simple command)
+            let first_char = rhs.chars().next();
+            if first_char.is_none() {
+                return true; // trailing pipe is suspicious
+            }
+            if let Some(c) = first_char {
+                if !c.is_alphanumeric() && c != '/' && c != '.' && c != '-' {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
+
 impl SandboxPolicy {
     /// Create a permissive policy that allows everything.
     pub fn permissive() -> Self {
@@ -211,8 +266,18 @@ impl SandboxPolicy {
     }
 
     /// Check if a command is allowed by the policy.
+    ///
+    /// [M-02] Also rejects commands containing dangerous shell metacharacters
+    /// that could be used for command injection when an allowlist is active.
     pub fn is_command_allowed(&self, command: &str) -> bool {
         if let Some(ref allowlist) = self.command_allowlist {
+            // [M-02] Check for shell metacharacters used in injection attacks.
+            // We block: ; && || $() and backticks.
+            // We allow | (pipe) only for simple single-pipe cases.
+            if contains_dangerous_metacharacters(command) {
+                return false;
+            }
+
             // Extract the base command (first word)
             let base = command.split_whitespace().next().unwrap_or(command);
             // Strip path prefix if present
@@ -227,16 +292,49 @@ impl SandboxPolicy {
     ///
     /// Rules are evaluated in order; first match wins. If no rule matches,
     /// access is denied when rules are present.
+    ///
+    /// [M-03] Uses canonicalized paths to prevent symlink-based bypass.
     pub fn is_workdir_allowed(&self, path: &str) -> bool {
         if self.fs_rules.is_empty() {
             return true;
         }
+
+        // [M-03] Canonicalize the input path to resolve symlinks and `..`.
+        // If the path doesn't exist, fall back to lexical normalisation.
+        let input_path = std::path::Path::new(path);
+        let canonical_input = match input_path.canonicalize() {
+            Ok(p) => p,
+            Err(_) => {
+                // Path doesn't exist yet — normalise lexically
+                let mut normalised = std::path::PathBuf::new();
+                for comp in input_path.components() {
+                    match comp {
+                        std::path::Component::CurDir => {}
+                        std::path::Component::ParentDir => {
+                            normalised.pop();
+                        }
+                        _ => normalised.push(comp),
+                    }
+                }
+                normalised
+            }
+        };
+
         for rule in &self.fs_rules {
             let prefix = match rule {
                 FsRule::Read(p) | FsRule::Write(p) => p,
                 FsRule::Deny(p) => p,
             };
-            if path.starts_with(prefix.to_string_lossy().as_ref()) {
+            // [M-03] Try canonicalized prefix first, then fall back to raw
+            // prefix. This handles both real paths (where /tmp → /private/tmp)
+            // and non-existent or virtual paths.
+            let canonical_prefix = match prefix.canonicalize() {
+                Ok(p) => p,
+                Err(_) => prefix.clone(),
+            };
+            if canonical_input.starts_with(&canonical_prefix)
+                || canonical_input.starts_with(prefix)
+            {
                 return !matches!(rule, FsRule::Deny(_));
             }
         }
@@ -320,5 +418,52 @@ mod tests {
         assert_eq!(SizeLimit::bytes(100).bytes, 100);
         assert_eq!(SizeLimit::kb(1).bytes, 1024);
         assert_eq!(SizeLimit::mb(1).bytes, 1024 * 1024);
+    }
+
+    // ── [M-02] Command injection tests ──
+
+    #[test]
+    fn strict_rejects_semicolon_injection() {
+        let policy = SandboxPolicy::strict();
+        assert!(!policy.is_command_allowed("ls ; rm -rf /"));
+    }
+
+    #[test]
+    fn strict_rejects_and_injection() {
+        let policy = SandboxPolicy::strict();
+        assert!(!policy.is_command_allowed("ls && rm -rf /"));
+    }
+
+    #[test]
+    fn strict_rejects_or_injection() {
+        let policy = SandboxPolicy::strict();
+        assert!(!policy.is_command_allowed("ls || rm -rf /"));
+    }
+
+    #[test]
+    fn strict_rejects_command_substitution() {
+        let policy = SandboxPolicy::strict();
+        assert!(!policy.is_command_allowed("echo $(whoami)"));
+        assert!(!policy.is_command_allowed("echo `whoami`"));
+    }
+
+    #[test]
+    fn strict_allows_simple_pipe() {
+        let policy = SandboxPolicy::strict();
+        assert!(policy.is_command_allowed("ls | grep foo"));
+        assert!(policy.is_command_allowed("cat file | sort"));
+    }
+
+    #[test]
+    fn strict_rejects_multiple_pipes() {
+        let policy = SandboxPolicy::strict();
+        assert!(!policy.is_command_allowed("ls | grep foo | xargs rm"));
+    }
+
+    #[test]
+    fn permissive_ignores_metachar_checks() {
+        let policy = SandboxPolicy::permissive();
+        // Permissive has no allowlist, so metachar checks are skipped
+        assert!(policy.is_command_allowed("ls ; rm -rf /"));
     }
 }

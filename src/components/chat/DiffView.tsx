@@ -3,25 +3,24 @@
  *
  * Renders a unified diff view showing old vs new content,
  * with color-coded additions (green) and deletions (red).
+ * Uses Myers diff algorithm (from lib/diff.ts) and Shiki syntax highlighting.
  */
 
 import { useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, FileEdit } from "lucide-react";
 import { cn } from "../../lib/utils";
+import {
+  computeUnifiedDiff,
+  countChanges,
+  type DiffLine,
+} from "../../lib/diff";
+import { type HighlightedToken } from "../../lib/shiki";
+import { useDiffHighlight } from "../../hooks/useDiffHighlight";
 
-/** A single diff line */
-interface DiffLine {
-  type: "context" | "add" | "remove";
-  oldLineNo?: number;
-  newLineNo?: number;
-  content: string;
-}
-
-/** A hunk of changes */
-interface DiffHunk {
-  header: string;
-  lines: DiffLine[];
-}
+/** Font style flags matching Shiki's FontStyle */
+const FONT_STYLE_ITALIC = 1;
+const FONT_STYLE_BOLD = 2;
+const FONT_STYLE_UNDERLINE = 4;
 
 /** Props for the DiffView component */
 export interface DiffViewProps {
@@ -35,170 +34,85 @@ export interface DiffViewProps {
   defaultExpanded?: boolean;
 }
 
-interface DiffEntry {
-  type: "context" | "add" | "remove";
-  oldIdx: number;
-  newIdx: number;
-  line: string;
+/**
+ * Render a single Shiki token as a <span> with dual-theme CSS variable colors.
+ * The actual color applied depends on the active theme (dark/light) via CSS.
+ */
+function TokenSpan({ token }: { token: HighlightedToken }) {
+  // Build inline style with CSS variables for both themes
+  const style: React.CSSProperties = {};
+
+  if (token.colorDark || token.colorLight) {
+    // Use CSS variables that CodeBlockInner's global styles resolve
+    style.color = "var(--shiki-dark, inherit)";
+  }
+
+  // Font style
+  if (token.fontStyle) {
+    if (token.fontStyle & FONT_STYLE_ITALIC) {style.fontStyle = "italic";}
+    if (token.fontStyle & FONT_STYLE_BOLD) {style.fontWeight = "bold";}
+    if (token.fontStyle & FONT_STYLE_UNDERLINE) {style.textDecoration = "underline";}
+  }
+
+  const hasStyle =
+    token.colorDark || token.colorLight || (token.fontStyle && token.fontStyle !== 0);
+
+  if (!hasStyle) {
+    return <>{token.content}</>;
+  }
+
+  // We set dark/light colors as CSS custom properties on the span
+  // and use global theme selectors to pick the right one
+  const customVars: Record<string, string> = {};
+  if (token.colorDark) {customVars["--shiki-dark"] = token.colorDark;}
+  if (token.colorLight) {customVars["--shiki-light"] = token.colorLight;}
+
+  return (
+    <span
+      style={{
+        ...customVars,
+        color: "var(--shiki-dark)",
+        ...style,
+      }}
+      className="[.light_&]:!text-[var(--shiki-light)]"
+    >
+      {token.content}
+    </span>
+  );
 }
 
 /**
- * Compute unified diff hunks from old and new content.
- *
- * Uses a simple longest-common-subsequence approach for diffing.
+ * Render tokenized line content.
+ * Falls back to plain string if no tokens are provided.
  */
-function computeUnifiedDiff(oldText: string, newText: string): DiffHunk[] {
-  const oldLines = oldText.split("\n");
-  const newLines = newText.split("\n");
-
-  // Build LCS table
-  const m = oldLines.length;
-  const n = newLines.length;
-  // Initialize DP table with explicit zeros
-  const dp: number[][] = [];
-  for (let i = 0; i <= m; i++) {
-    const row: number[] = [];
-    for (let j = 0; j <= n; j++) {
-      row.push(0);
-    }
-    dp.push(row);
+function renderLineContent(
+  content: string,
+  tokens: HighlightedToken[] | undefined,
+): React.ReactNode {
+  if (!tokens || tokens.length === 0) {
+    return content;
   }
 
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      if (oldLines[i - 1] === newLines[j - 1]) {
-        dp[i]![j] = dp[i - 1]![j - 1]! + 1;
-      } else {
-        dp[i]![j] = Math.max(dp[i - 1]![j]!, dp[i]![j - 1]!);
-      }
-    }
-  }
-
-  // Backtrack to find diff
-  const diff: DiffEntry[] = [];
-  let i = m;
-  let j = n;
-
-  while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && oldLines[i - 1] === newLines[j - 1]) {
-      diff.unshift({ type: "context", oldIdx: i, newIdx: j, line: oldLines[i - 1]! });
-      i--;
-      j--;
-    } else if (j > 0 && (i === 0 || (dp[i]![j - 1]!) >= (dp[i - 1]![j]!))) {
-      diff.unshift({ type: "add", oldIdx: -1, newIdx: j, line: newLines[j - 1]! });
-      j--;
-    } else if (i > 0) {
-      diff.unshift({ type: "remove", oldIdx: i, newIdx: -1, line: oldLines[i - 1]! });
-      i--;
-    }
-  }
-
-  // Group into hunks with context
-  const hunks: DiffHunk[] = [];
-  let currentHunk: DiffHunk | null = null;
-  const contextLines = 3;
-  let hunkStart = 0;
-
-  for (let idx = 0; idx < diff.length; idx++) {
-    const entry = diff[idx]!;
-    if (entry.type !== "context") {
-      // Found a change — look back for context
-      const start = Math.max(0, idx - contextLines);
-      if (!currentHunk || start > hunkStart + contextLines * 2 + 2) {
-        // Start a new hunk
-        if (currentHunk) {
-          hunks.push(currentHunk);
-        }
-        currentHunk = {
-          header: `@@ changes @@`,
-          lines: [],
-        };
-        hunkStart = start;
-      }
-
-      // Add context before this change if at hunk start
-      if (currentHunk && currentHunk.lines.length === 0) {
-        for (let ci = start; ci < idx; ci++) {
-          const d = diff[ci]!;
-          currentHunk.lines.push({
-            type: "context",
-            oldLineNo: d.oldIdx > 0 ? d.oldIdx : undefined,
-            newLineNo: d.newIdx > 0 ? d.newIdx : undefined,
-            content: d.line,
-          });
-        }
-      }
-
-      // Add the change
-      if (currentHunk) {
-        currentHunk.lines.push({
-          type: entry.type,
-          oldLineNo: entry.oldIdx > 0 ? entry.oldIdx : undefined,
-          newLineNo: entry.newIdx > 0 ? entry.newIdx : undefined,
-          content: entry.line,
-        });
-
-        // Add trailing context
-        let endIdx = idx + 1;
-        while (endIdx < diff.length && diff[endIdx]!.type === "context" && endIdx - idx <= contextLines) {
-          const cd = diff[endIdx]!;
-          currentHunk.lines.push({
-            type: "context",
-            oldLineNo: cd.oldIdx > 0 ? cd.oldIdx : undefined,
-            newLineNo: cd.newIdx > 0 ? cd.newIdx : undefined,
-            content: cd.line,
-          });
-          endIdx++;
-        }
-      }
-    }
-  }
-
-  if (currentHunk) {
-    hunks.push(currentHunk);
-  }
-
-  // If no hunks but content differs, fallback
-  if (hunks.length === 0 && oldText !== newText) {
-    hunks.push({
-      header: "@@ full replacement @@",
-      lines: [
-        ...oldLines.map((line, idx) => ({
-          type: "remove" as const,
-          oldLineNo: idx + 1,
-          content: line,
-        })),
-        ...newLines.map((line, idx) => ({
-          type: "add" as const,
-          newLineNo: idx + 1,
-          content: line,
-        })),
-      ],
-    });
-  }
-
-  return hunks;
+  // Reconstruct from tokens to ensure accurate highlighting
+  return (
+    <>
+      {tokens.map((token, i) => (
+        <TokenSpan key={i} token={token} />
+      ))}
+    </>
+  );
 }
 
-/** Count additions and removals */
-function countChanges(hunks: DiffHunk[]): { added: number; removed: number } {
-  let added = 0;
-  let removed = 0;
-  for (const hunk of hunks) {
-    for (const line of hunk.lines) {
-      if (line.type === "add") {
-        added++;
-      }
-      if (line.type === "remove") {
-        removed++;
-      }
-    }
-  }
-  return { added, removed };
-}
-
-/** Single diff line component */
-function DiffLineView({ line }: { line: DiffLine }) {
+/** Single diff line component with syntax highlighting */
+function DiffLineView({
+  line,
+  oldTokens,
+  newTokens,
+}: {
+  line: DiffLine;
+  oldTokens: HighlightedToken[][];
+  newTokens: HighlightedToken[][];
+}) {
   const bgColor =
     line.type === "add"
       ? "bg-success/10"
@@ -206,15 +120,20 @@ function DiffLineView({ line }: { line: DiffLine }) {
         ? "bg-error/10"
         : "";
 
-  const textColor =
-    line.type === "add"
-      ? "text-success"
-      : line.type === "remove"
-        ? "text-error"
-        : "text-foreground/70";
-
   const prefix =
     line.type === "add" ? "+" : line.type === "remove" ? "-" : " ";
+
+  // Pick the right token array based on line type
+  let lineTokens: HighlightedToken[] | undefined;
+  if (line.type === "remove" && line.oldLineNo !== undefined) {
+    lineTokens = oldTokens[line.oldLineNo - 1];
+  } else if (line.type === "add" && line.newLineNo !== undefined) {
+    lineTokens = newTokens[line.newLineNo - 1];
+  } else if (line.type === "context") {
+    // Context lines appear in both; prefer new (or old, they're identical)
+    const idx = line.newLineNo !== undefined ? line.newLineNo - 1 : line.oldLineNo !== undefined ? line.oldLineNo - 1 : -1;
+    lineTokens = idx >= 0 ? (newTokens[idx] ?? oldTokens[idx]) : undefined;
+  }
 
   return (
     <div className={cn("flex font-mono text-[11px] leading-[18px]", bgColor)}>
@@ -224,18 +143,32 @@ function DiffLineView({ line }: { line: DiffLine }) {
       <span className="w-10 shrink-0 select-none text-right text-muted-foreground/50 pr-2 border-r border-border">
         {line.newLineNo ?? ""}
       </span>
-      <span className={cn("w-4 shrink-0 select-none text-center", textColor)}>
+      <span
+        className={cn(
+          "w-4 shrink-0 select-none text-center",
+          line.type === "add"
+            ? "text-success"
+            : line.type === "remove"
+              ? "text-error"
+              : "",
+        )}
+      >
         {prefix}
       </span>
-      <span className={cn("flex-1 whitespace-pre-wrap break-all pl-1", textColor)}>
-        {line.content}
+      <span
+        className={cn(
+          "flex-1 whitespace-pre-wrap break-all pl-1",
+          line.type === "context" && "text-foreground/70",
+        )}
+      >
+        {renderLineContent(line.content, lineTokens)}
       </span>
     </div>
   );
 }
 
 /**
- * DiffView — displays a visual diff of file changes.
+ * DiffView — displays a visual diff of file changes with syntax highlighting.
  *
  * @example
  * ```tsx
@@ -254,12 +187,20 @@ export function DiffView({
 }: DiffViewProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
+  // Compute diff hunks using Myers algorithm from lib/diff.ts
   const hunks = useMemo(
     () => computeUnifiedDiff(oldContent, newContent),
     [oldContent, newContent],
   );
 
   const { added, removed } = useMemo(() => countChanges(hunks), [hunks]);
+
+  // Syntax highlighting via Shiki
+  const { oldTokens, newTokens, loading } = useDiffHighlight(
+    oldContent,
+    newContent,
+    filePath,
+  );
 
   const fileName = filePath.split("/").pop() ?? filePath;
 
@@ -295,7 +236,12 @@ export function DiffView({
 
       {/* Diff content */}
       {expanded && (
-        <div className="border-t border-border overflow-x-auto">
+        <div
+          className={cn(
+            "border-t border-border overflow-x-auto",
+            loading && "opacity-60",
+          )}
+        >
           {/* File path label */}
           <div className="sticky top-0 z-10 border-b border-border bg-muted/30 px-3 py-1">
             <span className="text-[10px] text-muted-foreground">
@@ -303,19 +249,36 @@ export function DiffView({
             </span>
           </div>
 
+          {/* Shiki theme styles for diff tokens */}
+          <style>{`
+            .dark .diff-view-tokens span[style*="--shiki-dark"] {
+              color: var(--shiki-dark) !important;
+            }
+            .diff-view-tokens span[style*="--shiki-light"] {
+              color: var(--shiki-light) !important;
+            }
+          `}</style>
+
           {/* Hunks */}
-          {hunks.map((hunk, idx) => (
-            <div key={idx}>
-              {/* Hunk header */}
-              <div className="bg-secondary/5 px-3 py-1 text-[10px] text-secondary/70 font-mono">
-                {hunk.header}
+          <div className="diff-view-tokens">
+            {hunks.map((hunk, idx) => (
+              <div key={idx}>
+                {/* Hunk header */}
+                <div className="bg-secondary/5 px-3 py-1 text-[10px] text-secondary/70 font-mono">
+                  {hunk.header}
+                </div>
+                {/* Lines */}
+                {hunk.lines.map((line, lineIdx) => (
+                  <DiffLineView
+                    key={lineIdx}
+                    line={line}
+                    oldTokens={oldTokens}
+                    newTokens={newTokens}
+                  />
+                ))}
               </div>
-              {/* Lines */}
-              {hunk.lines.map((line, lineIdx) => (
-                <DiffLineView key={lineIdx} line={line} />
-              ))}
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </div>

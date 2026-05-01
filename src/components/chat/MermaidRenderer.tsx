@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { Maximize2 } from "lucide-react";
+import { useI18n } from "../../i18n";
+import { MermaidFullscreenModal } from "./MermaidFullscreenModal";
 
 type MermaidRendererProps = {
   /** Mermaid diagram definition text. */
@@ -29,7 +32,7 @@ async function loadMermaid(): Promise<typeof MermaidAPI> {
       api.initialize({
         startOnLoad: false,
         theme: "dark",
-        securityLevel: "loose",
+        securityLevel: "strict",
         fontFamily: "var(--font-mono)",
       });
       mermaidInitialized = true;
@@ -52,6 +55,8 @@ export function MermaidRenderer({ chart, className = "" }: MermaidRendererProps)
   const containerRef = useRef<HTMLDivElement>(null);
   const [svg, setSvg] = useState<string>("");
   const [error, setError] = useState<string>("");
+  const [fullscreen, setFullscreen] = useState(false);
+  const { t } = useI18n();
 
   useEffect(() => {
     let cancelled = false;
@@ -101,10 +106,27 @@ export function MermaidRenderer({ chart, className = "" }: MermaidRendererProps)
   }
 
   return (
-    <div
-      ref={containerRef}
-      className={`overflow-x-auto rounded-lg border border-[var(--color-border)]/40 bg-[var(--color-surface-container)]/20 p-4 ${className}`}
-      dangerouslySetInnerHTML={{ __html: svg }}
-    />
+    <div className={`group relative ${className}`}>
+      <div
+        ref={containerRef}
+        className="overflow-x-auto rounded-lg border border-[var(--color-border)]/40 bg-[var(--color-surface-container)]/20 p-4"
+        dangerouslySetInnerHTML={{ __html: svg }}
+      />
+      {/* Fullscreen button — appears on hover */}
+      <button
+        type="button"
+        onClick={() => setFullscreen(true)}
+        className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-md bg-[var(--color-surface-container)]/80 text-[var(--color-text-secondary)] opacity-0 backdrop-blur-sm transition-all hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)] group-hover:opacity-100"
+        title={t("mermaidFullscreen")}
+      >
+        <Maximize2 className="h-3.5 w-3.5" />
+      </button>
+      {/* Fullscreen modal */}
+      <MermaidFullscreenModal
+        open={fullscreen}
+        svg={svg}
+        onClose={() => setFullscreen(false)}
+      />
+    </div>
   );
 }

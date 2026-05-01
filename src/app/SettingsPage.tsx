@@ -728,6 +728,61 @@ function AppearanceTab() {
           <span className="text-[10px] text-muted-foreground w-6 text-right">{fontSize}px</span>
         </div>
       </div>
+
+      {/* Streaming Mode */}
+      <StreamingModeSetting />
+    </div>
+  );
+}
+
+// --- Streaming Mode Setting Component ---
+
+function StreamingModeSetting() {
+  const { t } = useI18n();
+  const streamingMode = useSettingsStore((s) => s.streamingMode);
+  const setStreamingMode = useSettingsStore((s) => s.setStreamingMode);
+
+  const STREAMING_MODES: { id: "typewriter" | "instant"; labelKey: string; descKey: string }[] = [
+    { id: "typewriter", labelKey: "streamingTypewriter", descKey: "streamingTypewriterDesc" },
+    { id: "instant", labelKey: "streamingInstant", descKey: "streamingInstantDesc" },
+  ];
+
+  return (
+    <div>
+      <label className="text-xs font-medium text-foreground">{t("streamingMode")}</label>
+      <p className="text-[10px] text-muted-foreground mt-1 mb-3">{t("streamingModeDesc")}</p>
+      <div className="space-y-2">
+        {STREAMING_MODES.map((mode) => (
+          <button
+            key={mode.id}
+            onClick={() => setStreamingMode(mode.id)}
+            className={cn(
+              "flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors",
+              streamingMode === mode.id
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-accent",
+            )}
+          >
+            <div className={cn(
+              "mt-0.5 h-4 w-4 shrink-0 rounded-full border-2",
+              streamingMode === mode.id
+                ? "border-primary bg-primary"
+                : "border-muted-foreground/30",
+            )} />
+            <div>
+              <div className={cn(
+                "text-xs font-medium",
+                streamingMode === mode.id ? "text-primary" : "text-foreground",
+              )}>
+                {t(mode.labelKey)}
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">
+                {t(mode.descKey)}
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

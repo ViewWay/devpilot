@@ -105,6 +105,9 @@ impl Tool for ShellExecTool {
 
         let timeout_secs = params.timeout.unwrap_or(self.default_timeout);
 
+        // Check for dangerous command patterns
+        let dangerous_warning = check_dangerous_command(&params.command);
+
         // Use the system shell
         let (shell, shell_arg) = if cfg!(target_os = "windows") {
             ("cmd", "/C")
@@ -174,11 +177,19 @@ impl Tool for ShellExecTool {
                     ToolOutput::err(content)
                 };
 
-                out = out.with_metadata(serde_json::json!({
+                let mut meta = serde_json::json!({
                     "exit_code": exit_code,
                     "command": params.command,
                     "working_dir": workdir,
-                }));
+                });
+
+                // Attach dangerous command warning if detected
+                if let Some(warning) = dangerous_warning {
+                    meta["dangerous"] = serde_json::json!(true);
+                    meta["warning"] = serde_json::json!(warning);
+                }
+
+                out = out.with_metadata(meta);
 
                 Ok(out)
             }
@@ -188,6 +199,43 @@ impl Tool for ShellExecTool {
             }),
         }
     }
+}
+
+/// Check if a command string matches known dangerous patterns.
+///
+/// Returns a warning message if a dangerous pattern is detected, or `None` if the command
+/// appears safe. Detection uses simple substring/regex matching — it may produce false
+/// positives and is intended as an informational warning, not a block.
+fn check_dangerous_command(command: &str) -> Option<String> {
+    let cmd_lower = command.to_lowercase();
+
+    // Dangerous pattern rules: (pattern, description)
+    let dangerous_patterns: &[(&str, &str)] = &[
+        // Recursive force delete of root or broad paths
+        ("rm -rf /", "Recursive force delete of root directory"),
+        ("rm -rf /*", "Recursive force delete of root directory (glob)"),
+        ("rm -rf ~", "Recursive force delete of home directory"),
+        // Disk formatting
+        ("mkfs.", "Disk filesystem format command"),
+        ("mkfs ", "Disk filesystem format command"),
+        // Raw disk write
+        ("dd if=", "Raw disk copy (dd) — can overwrite disks"),
+        // Fork bomb
+        (":(){ :|:& };:", "Fork bomb detected"),
+        // Unsafe permissions on root
+        ("chmod 777 /", "Setting world-writable permissions on root"),
+        ("chmod -r 777 /", "Setting recursive world-writable permissions on root"),
+        // Changing ownership of root
+        ("chown -R ", "Recursive ownership change — potentially dangerous"),
+    ];
+
+    for (pattern, description) in dangerous_patterns {
+        if cmd_lower.contains(pattern) {
+            return Some(description.to_string());
+        }
+    }
+
+    None
 }
 
 #[cfg(test)]
