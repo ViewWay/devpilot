@@ -1,4 +1,4 @@
-import { FolderOpen, Terminal, Eye, GitBranch, ListChecks, ShoppingBag, X } from "lucide-react";
+import { FolderOpen, Terminal, Eye, GitBranch, ListChecks, ShoppingBag, Pencil, X } from "lucide-react";
 import { useUIStore } from "../../stores/uiStore";
 import { useI18n } from "../../i18n";
 import { cn } from "../../lib/utils";
@@ -7,6 +7,7 @@ const TABS = [
   { key: "files" as const, icon: FolderOpen, labelKey: "files" },
   { key: "terminal" as const, icon: Terminal, labelKey: "terminal" },
   { key: "preview" as const, icon: Eye, labelKey: "preview" },
+  { key: "editor" as const, icon: Pencil, labelKey: "editor" },
   { key: "git" as const, icon: GitBranch, labelKey: "git" },
   { key: "agent" as const, icon: ListChecks, labelKey: "agentTasks" },
   { key: "marketplace" as const, icon: ShoppingBag, labelKey: "marketplace" },

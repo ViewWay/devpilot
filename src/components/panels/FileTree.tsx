@@ -8,6 +8,7 @@ import { cn } from "../../lib/utils";
 import { useI18n } from "../../i18n";
 import { isTauriRuntime, invoke } from "../../lib/ipc";
 import { useUIStore } from "../../stores/uiStore";
+import { useEditorStore } from "../../stores/editorStore";
 
 export interface FileNode {
   name: string;
@@ -83,9 +84,10 @@ interface TreeNodeProps {
   defaultExpanded?: boolean;
   onExpand: (node: FileNode) => Promise<void>;
   onFileClick: (node: FileNode) => void;
+  onFileDoubleClick?: (node: FileNode) => void;
 }
 
-function TreeNode({ node, depth, defaultExpanded = false, onExpand, onFileClick }: TreeNodeProps) {
+function TreeNode({ node, depth, defaultExpanded = false, onExpand, onFileClick, onFileDoubleClick }: TreeNodeProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [loading, setLoading] = useState(false);
   const isDir = node.type === "directory";
@@ -107,10 +109,17 @@ function TreeNode({ node, depth, defaultExpanded = false, onExpand, onFileClick 
     }
   };
 
+  const handleDoubleClick = () => {
+    if (!isDir && onFileDoubleClick) {
+      onFileDoubleClick(node);
+    }
+  };
+
   return (
     <div>
       <button
         onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
         className={cn(
           "flex w-full items-center gap-1.5 rounded-sm px-1 py-[3px] text-[12px] transition-colors hover:bg-accent",
           depth === 0 && "font-medium",
@@ -146,6 +155,7 @@ function TreeNode({ node, depth, defaultExpanded = false, onExpand, onFileClick 
           depth={depth + 1}
           onExpand={onExpand}
           onFileClick={onFileClick}
+          onFileDoubleClick={onFileDoubleClick}
         />
       ))}
     </div>
@@ -220,6 +230,16 @@ export function FileTree() {
       setRightPanel("preview");
     },
     [setPreviewFile, setRightPanel],
+  );
+
+  /** Handle file double-click: open in editor panel. */
+  const editorOpenFile = useEditorStore((s) => s.openFile);
+  const handleFileDoubleClick = useCallback(
+    (node: FileNode) => {
+      editorOpenFile(node.path);
+      setRightPanel("editor");
+    },
+    [editorOpenFile, setRightPanel],
   );
 
   // Load tree on mount and when working dir changes
@@ -313,6 +333,7 @@ export function FileTree() {
               defaultExpanded={!!filter}
               onExpand={handleExpand}
               onFileClick={handleFileClick}
+              onFileDoubleClick={handleFileDoubleClick}
             />
           ))
         )}

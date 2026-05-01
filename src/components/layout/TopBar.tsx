@@ -3,7 +3,7 @@ import { useI18n } from "../../i18n";
 import { useUIStore } from "../../stores/uiStore";
 import { useChatStore } from "../../stores/chatStore";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Sun, Moon, Monitor, PanelLeftClose, PanelLeft, Settings, FolderCog, Columns2, FolderOpen, Terminal, Eye } from "lucide-react";
+import { Sun, Moon, Monitor, PanelLeftClose, PanelLeft, Settings, FolderCog, Columns2, FolderOpen, Terminal, Eye, Pencil } from "lucide-react";
 import { useCallback } from "react";
 import { cn } from "../../lib/utils";
 import { isTauriRuntime } from "../../lib/ipc";
@@ -133,6 +133,20 @@ export function TopBar() {
               aria-pressed={rightPanel === "preview"}
             >
               <Eye size={14} />
+            </button>
+            <button
+              onClick={() => toggleRightPanel("editor")}
+              className={cn(
+                "flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-accent",
+                rightPanel === "editor"
+                  ? "bg-accent text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              title="Editor"
+              aria-label={t("a11y.toggleEditor")}
+              aria-pressed={rightPanel === "editor"}
+            >
+              <Pencil size={14} />
             </button>
             <div className="mx-1 h-4 w-px bg-border/40" />
           </>

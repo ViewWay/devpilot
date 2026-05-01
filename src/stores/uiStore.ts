@@ -4,7 +4,7 @@ import { create } from "zustand";
 export type { Theme } from "./settingsStore";
 
 export type ActiveView = "chat" | "settings" | "scheduler" | "gallery";
-export type RightPanel = "none" | "files" | "terminal" | "preview" | "git" | "agent" | "marketplace";
+export type RightPanel = "none" | "files" | "terminal" | "preview" | "editor" | "git" | "agent" | "marketplace";
 
 interface UIState {
   sidebarOpen: boolean;

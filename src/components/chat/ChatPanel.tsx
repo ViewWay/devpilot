@@ -26,6 +26,9 @@ import { invoke } from "../../lib/ipc";
 const PreviewPanel = lazy(() =>
   import("../panels/PreviewPanel").then((m) => ({ default: m.PreviewPanel })),
 );
+const EditorPanel = lazy(() =>
+  import("../panels/EditorPanel").then((m) => ({ default: m.EditorPanel })),
+);
 const MarketplacePanel = lazy(() =>
   import("../panels/MarketplacePanel").then((m) => ({ default: m.MarketplacePanel })),
 );
@@ -148,6 +151,11 @@ function RightContent() {
         {rightPanel === "preview" && (
           <Suspense fallback={<PanelLoader />}>
             <PreviewPanel />
+          </Suspense>
+        )}
+        {rightPanel === "editor" && (
+          <Suspense fallback={<PanelLoader />}>
+            <EditorPanel />
           </Suspense>
         )}
         {rightPanel === "git" && <GitPanel />}
