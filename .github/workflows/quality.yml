@@ -75,8 +75,10 @@ jobs:
       - name: Clippy (deny warnings)
         run: cargo clippy --all-targets -- -D warnings
 
-      - name: Run tests
-        run: cargo test --workspace
+      - name: Install cargo-nextest
+        run: cargo install cargo-nextest --locked 2>/dev/null || true
+      - name: Run tests (nextest, fallback to cargo test)
+        run: cargo nextest run --workspace || cargo test --workspace
 
       - name: Build (debug)
         run: cargo build --workspace

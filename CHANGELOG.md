@@ -205,3 +205,77 @@ Thanks to everyone who contributed to the v1.0.0 release.
 ---
 
 [1.0.0]: https://github.com/user/devpilot/releases/tag/v1.0.0
+
+---
+
+## [2026.5.2] — P12/P13/P14/P16 Release Readiness
+
+### Security Hardening (08fcbb7)
+
+- `path_security.rs` — path traversal prevention for all file operations
+- `editor.rs` — file path validation against session working directory boundary
+- `MarkdownRenderer` — DOMPurify XSS sanitization
+- CSP policy enforcement for all LLM provider endpoints
+
+### P2 Features
+
+- DiffView rewrite: Myers diff algorithm + Shiki dual-theme syntax highlighting
+- `shiki.ts` file extension → language mapping
+- Mermaid fullscreen modal
+- StreamController ThinkingBlock animation
+- 30 i18n keys
+
+### P12 — Git Visualization (already complete)
+
+- **StatusTab**: File change list with stage/commit/stash operations
+- **LogTab**: Commit history timeline
+- **DiffTab**: Inline diff with unstaged/staged toggle, per-hunk display
+- **BranchesTab**: Local/remote branches, fetch/pull/push, worktree management
+
+### P13 — Editor Deepening
+
+- Monaco multi-file editor with tab bar, dirty indicators, close buttons
+- `Ctrl+S` save / `Ctrl+W` close tab
+- FileTree double-click opens editor (single-click → preview)
+- RightPanelTabs editor tab integration
+- TopBar editor toggle button
+- 10 i18n keys
+
+### P14 — Collaboration & Sharing
+
+- **P14-1**: Session export in 4 formats (Markdown, JSON, HTML, Plain Text)
+  - SessionExportDialog: full i18n, preview/copy/download
+  - Sidebar context menu: all 4 format buttons
+  - chatStore: html/txt via backend IPC, json/md client-side
+- **P14-2**: Conversation Preset system
+  - PresetSelector dropdown in MessageInput action bar
+  - PresetManagerDialog: full CRUD (create/edit/delete)
+  - 4 built-in presets (Code/Plan/Ask/Review) + unlimited custom
+  - Applies systemPrompt + mode on selection
+- **P14-3**: MarketplacePanel i18n — all labels use translation keys
+
+### P16 — Release Readiness
+
+- `release.yml`: macOS code signing + Apple notarization secrets wired
+- `release.yml`: Windows code signing secrets wired
+- `release.yml`: Tauri updater signing key support
+- Version bump: `2026.4.30` → `2026.5.2`
+- AGENTS.md project status updated
+
+### i18n
+
+- 48 new keys across EN + ZH (export, preset, marketplace)
+
+### Commits
+
+- `08fcbb7` — Security hardening + DiffView Shiki highlight + ThinkingBlock animation
+- `ff0ffb9` — P13: Monaco multi-file editor
+- `861f128` — P14-1: Session export 4 formats
+- `077b30f` — P14-2: Conversation preset system
+- `f592d0e` — P14-3: MarketplacePanel i18n
+- `7bac7e8` — docs: AGENTS.md status update
+- (this commit) — P16: Release readiness
+
+---
+
+[2026.5.2]: https://github.com/ViewWay/devpilot/releases/tag/v2026.5.2
