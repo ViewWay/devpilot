@@ -911,6 +911,13 @@ const zh = {
   marketplaceFetching: "正在获取目录...",
   marketplaceError: "获取目录失败",
   marketplaceAll: "全部",
+  marketplaceGrid: "网格",
+  marketplaceList: "列表",
+  marketplaceLoading: "加载市场中...",
+  marketplaceNoMatch: "没有匹配的技能",
+  marketplaceEmpty: "暂无技能",
+  marketplaceNoDesc: "暂无描述",
+  marketplaceBy: "作者:",
 
   // --- Session Operations ---
   sessionExport: "导出",

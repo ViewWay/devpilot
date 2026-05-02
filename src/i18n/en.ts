@@ -911,6 +911,13 @@ const en = {
   marketplaceFetching: "Fetching catalog...",
   marketplaceError: "Failed to fetch catalog",
   marketplaceAll: "All",
+  marketplaceGrid: "Grid",
+  marketplaceList: "List",
+  marketplaceLoading: "Loading marketplace...",
+  marketplaceNoMatch: "No skills matching your search",
+  marketplaceEmpty: "No skills available",
+  marketplaceNoDesc: "No description",
+  marketplaceBy: "by",
 
   // --- Session Operations ---
   sessionExport: "Export",

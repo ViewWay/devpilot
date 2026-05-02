@@ -32,8 +32,7 @@ interface MarketplaceSkill extends SkillInfo {
 // ── Component ──────────────────────────────────────────────
 
 export function MarketplacePanel() {
-  const { t: _t } = useI18n();
-  void _t;
+  const { t } = useI18n();
   const [skills, setSkills] = useState<MarketplaceSkill[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -140,7 +139,7 @@ export function MarketplacePanel() {
       {/* Header + Search */}
       <div className="px-3 py-2 space-y-2 border-b" style={{ borderColor: "var(--color-border)" }}>
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold">Marketplace</span>
+          <span className="text-xs font-semibold">{t("marketplace")}</span>
           <span className="text-xs text-muted-foreground">({skills.length})</span>
           <div className="flex-1" />
           {/* View toggle */}
@@ -151,7 +150,7 @@ export function MarketplacePanel() {
               viewMode === "grid" ? "bg-accent" : "hover:bg-accent/50",
             )}
           >
-            Grid
+            {t("marketplaceGrid")}
           </button>
           <button
             onClick={() => setViewMode("list")}
@@ -160,7 +159,7 @@ export function MarketplacePanel() {
               viewMode === "list" ? "bg-accent" : "hover:bg-accent/50",
             )}
           >
-            List
+            {t("marketplaceList")}
           </button>
         </div>
 
@@ -174,7 +173,7 @@ export function MarketplacePanel() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search skills..."
+            placeholder={t("marketplaceSearch")}
             className="w-full rounded-md border bg-input pl-8 pr-3 py-1.5 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             style={{ borderColor: "var(--color-border)" }}
           />
@@ -201,7 +200,7 @@ export function MarketplacePanel() {
                 activeCategory === cat ? "transparent" : "var(--color-border)",
             }}
           >
-            {cat === "all" ? "All" : cat}
+            {cat === "all" ? t("marketplaceAll") : cat}
           </button>
         ))}
       </div>
@@ -210,7 +209,7 @@ export function MarketplacePanel() {
       <div className="flex-1 overflow-y-auto p-3">
         {loading ? (
           <div className="flex items-center justify-center h-32 text-muted-foreground text-xs">
-            Loading marketplace...
+            {t("marketplaceLoading")}
           </div>
         ) : error ? (
           <div className="flex items-center justify-center h-32 text-error text-xs">
@@ -218,7 +217,7 @@ export function MarketplacePanel() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex items-center justify-center h-32 text-muted-foreground text-xs">
-            {searchQuery ? "No skills matching your search" : "No skills available"}
+            {searchQuery ? t("marketplaceNoMatch") : t("marketplaceEmpty")}
           </div>
         ) : viewMode === "grid" ? (
           /* Grid view */
@@ -242,13 +241,13 @@ export function MarketplacePanel() {
 
                 {/* Description */}
                 <p className="text-[10px] text-muted-foreground line-clamp-2">
-                  {skill.description || "No description"}
+                  {skill.description || t("marketplaceNoDesc")}
                 </p>
 
                 {/* Author */}
                 {skill.author && (
                   <div className="text-[10px] text-muted-foreground">
-                    by {skill.author}
+                    {t("marketplaceBy")} {skill.author}
                   </div>
                 )}
 
@@ -281,7 +280,7 @@ export function MarketplacePanel() {
                       style={{ borderColor: "var(--color-border)" }}
                     >
                       <Trash2 size={10} />
-                      {installingId === skill.name ? "..." : "Uninstall"}
+                      {installingId === skill.name ? "..." : t("marketplaceUninstall")}
                     </button>
                   ) : (
                     <button
@@ -294,7 +293,7 @@ export function MarketplacePanel() {
                       style={{ background: "var(--color-brand)" }}
                     >
                       <Download size={10} />
-                      {installingId === skill.name ? "..." : "Install"}
+                      {installingId === skill.name ? "..." : t("marketplaceInstall")}
                     </button>
                   )}
                 </div>
@@ -317,7 +316,7 @@ export function MarketplacePanel() {
                     </span>
                     {skill.author && (
                       <span className="text-[10px] text-muted-foreground">
-                        by {skill.author}
+                        {t("marketplaceBy")} {skill.author}
                       </span>
                     )}
                     {skill.rating !== undefined && skill.rating !== null && (
@@ -328,7 +327,7 @@ export function MarketplacePanel() {
                     )}
                   </div>
                   <p className="text-[10px] text-muted-foreground truncate">
-                    {skill.description || "No description"}
+                    {skill.description || t("marketplaceNoDesc")}
                   </p>
                 </div>
 
@@ -356,7 +355,7 @@ export function MarketplacePanel() {
                     style={{ borderColor: "var(--color-border)" }}
                   >
                     <Trash2 size={10} />
-                    {installingId === skill.name ? "..." : "Uninstall"}
+                    {installingId === skill.name ? "..." : t("marketplaceUninstall")}
                   </button>
                 ) : (
                   <button
@@ -366,7 +365,7 @@ export function MarketplacePanel() {
                     style={{ background: "var(--color-brand)" }}
                   >
                     <Download size={10} />
-                    {installingId === skill.name ? "..." : "Install"}
+                    {installingId === skill.name ? "..." : t("marketplaceInstall")}
                   </button>
                 )}
               </div>
