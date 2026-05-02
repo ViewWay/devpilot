@@ -72,7 +72,10 @@ Shared types go in `devpilot-protocol`. Never import from a higher crate into a 
 - **Phases 1-6, 15**: COMPLETE
 - **Security hardening**: COMPLETE (path traversal, XSS, shell injection, command validation)
 - **P2 features**: COMPLETE (DiffView+Shiki, streaming dual-mode, Mermaid fullscreen)
-- **Remaining**: P12 (Git visualization), P13 (editor deepening), P14 (session export), P16 (release)
+- **P12 (Git visualization)**: COMPLETE (StatusTab, LogTab, DiffTab, BranchesTab, worktree)
+- **P13 (Editor deepening)**: COMPLETE (Monaco multi-file tabs, Ctrl+S/W, FileTree dblclick)
+- **P14 (Collaboration & Sharing)**: COMPLETE (4-format export, Presets CRUD, Marketplace i18n)
+- **Remaining**: P16 (release: signing, notarization, CI/CD)
 - 12 LLM providers, 14 built-in tools, ~86 IPC commands, 15 workspace crates
 
 ## Security
